@@ -26,8 +26,6 @@ radiative transfer models.
 
 """
 import numpy as np
-from scipy.signal import savgol_filter
-
 from biosnicar.classes.outputs import Outputs
 
 
@@ -164,8 +162,6 @@ def toon_solver(tau, ssa, g, L_snw, ice, illumination, model_config, rt_config):
         model_config, ice, illumination, F_top_pls, F_top_net, F_btm_net, F_abs, L_snw
     )
 
-    if model_config.smooth:
-        outputs.albedo = apply_smoothing_function(outputs.albedo, model_config)
 
     return outputs
 
@@ -192,9 +188,6 @@ def validate_inputs_toon(ice, illumination):
 
     elif (illumination.solzen < 50) or (illumination.solzen > 89):
         raise ValueError("Zenith angle out of valid range for Toon solver")
-
-    elif np.sum(ice.cdom) > 0:
-        raise ValueError("cdom is only available for solid ice layers")
 
     return
 
@@ -862,13 +855,6 @@ def get_outputs(
 
     return outputs
 
-
-def apply_smoothing_function(albedo, model_config):
-
-    yhat = savgol_filter(albedo, model_config.window_size, model_config.poly_order)
-    albedo = yhat
-
-    return albedo
 
 
 if __name__ == "__main__":

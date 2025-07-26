@@ -2,6 +2,7 @@ import os
 import numpy as np
 import xarray as xr
 import biosnicar
+import yaml
 
 class Impurity:
     """Light absorbing impurity.
@@ -22,20 +23,24 @@ class Impurity:
 
     """
 
-    def __init__(self, file, coated, unit, name, conc):
+    def __init__(self, file, coated, unit, name, conc, file_tag=None):
+
         self.name = name
         self.unit = unit
         self.conc = conc
         self.file = file
-
-        self.impurity_properties = xr.open_dataset(
-            str(os.path.dirname(os.path.dirname(biosnicar.__file__))
-                 + "/Data/OP_data/480band/lap/" + file)
-        )
-
-        if coated:
+        self.coated = coated
+        self.path = (
+            str(os.path.dirname(os.path.dirname(biosnicar.__file__)))
+            + f'/data/OP_data/{file_tag}band/lap/'
+            )
+        
+    def get_impurity_properties(self):
+        self.impurity_properties = xr.open_dataset(self.path + self.file)
+        
+        if self.coated:
             mac_stub = "ext_cff_mss_ncl"
-        elif (name == "ga") or (name == "sa"):
+        elif (self.name == "ga") or (self.name == "sa"):
             mac_stub = "ext_xsc"
         else:
             mac_stub = "ext_cff_mss"
@@ -44,4 +49,4 @@ class Impurity:
         self.ssa = self.impurity_properties["ss_alb"].values
         self.g = self.impurity_properties["asm_prm"].values
 
-        assert len(self.mac) == 480 and len(self.ssa) == 480 and len(self.g) == 480 
+        

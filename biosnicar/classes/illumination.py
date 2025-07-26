@@ -16,7 +16,6 @@ class Illumination:
         incoming: choice of spectral distribution from file 0-6
         flx_dir: directory containing irradiance files
         stubs: array of stub strings for selecting irradiance files
-        nbr_wvl: number fo wavelengths (default 480)
     """
 
     def __init__(self, input_file):
@@ -26,12 +25,17 @@ class Illumination:
         self.direct = inputs["RTM"]["DIRECT"]
         self.solzen = inputs["RTM"]["SOLZEN"]
         self.incoming = inputs["RTM"]["INCOMING"]
-        self.flx_dir = str(os.path.dirname(os.path.dirname(biosnicar.__file__))
-                 + "/" + inputs["PATHS"]["FLX_DIR"])
-        self.stubs = inputs["PATHS"]["ILLUMINATION_FILE_STUBS"]
-        self.nbr_wvl = inputs["RTM"]["NBR_WVL"]
-
-        self.calculate_irradiance()
+        
+        self.flx_dir = (
+            str(os.path.dirname(os.path.dirname(biosnicar.__file__)))
+            + "/" 
+            + f'data/OP_data/{inputs["RTM"]["NBR_WVL"]}band/fsds'
+            + "/" 
+            )
+        
+        self.stubs = [f'swnb_{inputs["RTM"]["NBR_WVL"]}bnd_{i}'
+                      for i in 
+                      ["mlw", "mls", "saw", "sas", "smm", "hmn", "trp"]]        
 
     def calculate_irradiance(self):
         """Calculates irradiance from initialized attributes.
@@ -82,10 +86,7 @@ class Illumination:
 
         if self.direct:
             self.Fs = out
-            self.Fd = np.zeros(self.nbr_wvl)
+            self.Fd = np.zeros_like(out)
         else:
             self.Fd = out
-            self.Fs = np.zeros(self.nbr_wvl)
-        return
-
-        return
+            self.Fs = np.zeros_like(out)

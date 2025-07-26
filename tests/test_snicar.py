@@ -27,15 +27,16 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+import xarray as xr
 from biosnicar.rt_solvers.adding_doubling_solver import adding_doubling_solver
 from biosnicar.classes import Impurity
-from biosnicar.optical_properties.column_OPs import get_layer_OPs, mix_in_impurities
-from biosnicar.drivers.setup_snicar import setup_snicar
+from biosnicar.optical_properties.column_OPs import mix_in_impurities
+from biosnicar.drivers.setup_snicar import build_classes, build_impurities_array
 from biosnicar.rt_solvers.toon_rt_solver import toon_solver
 
 
 def test_AD_solver(new_benchmark_ad, input_file):
-    """Tests Toon solver against SNICAR_ADv4 benchmark.
+    """Tests AD solver against SNICAR_ADv4 benchmark.
 
     This func generates a new file - py_benchmark_data.csv - that contains
     spectral and broadband albedo simulated by BioSNICAR for a range of input
@@ -56,19 +57,14 @@ def test_AD_solver(new_benchmark_ad, input_file):
 
     """
     if new_benchmark_ad:
+        
         (
             ice,
             illumination,
             rt_config,
             model_config,
-            plot_config,
-            impurities,
-        ) = setup_snicar("default")
-        
-        # make sure the BH83 data is used as per Matlab's version
-        model_config.sphere_ice_path = "Data/OP_data/480band/ice_spherical_grains_BH83/"
-        model_config.bubbly_ice_path = "Data/OP_data/480band/bubbly_ice_files_BH83/"
-        
+        ) = build_classes("./biosnicar/inputs.yaml")
+                
         ice, illumination, impurities, rt_config, model_config = match_matlab_config(
             ice, illumination, rt_config, model_config, input_file
         )
@@ -104,14 +100,8 @@ def test_AD_solver(new_benchmark_ad, input_file):
                 for reff in reffList:
                     for zen in zenList:
                         for bc in bcList:
-                            for dz in dzList:
-                                ice.dz = dz
-                                ice.nbr_lyr = 5
-                                ice.layer_type = [layer_type] * len(ice.dz)
-                                ice.rho = [density] * len(ice.dz)
-                                ice.lwc = [0] * len(ice.dz)
-                                ice.lwc_pct_bbl = [0] * len(ice.dz)
-                                ice.rds = [reff] * len(ice.dz)
+                            for dz in dzList:                                
+                                # calculate irradiance
                                 illumination.solzen = zen
                                 illumination.calculate_irradiance()
                                 impurities[0].conc = [
@@ -121,16 +111,72 @@ def test_AD_solver(new_benchmark_ad, input_file):
                                     bc,
                                     bc,
                                 ]  # bc in all layers
-                                ice.calculate_refractive_index(input_file)
-                                illumination.calculate_irradiance()
 
-                                ssa_snw, g_snw, mac_snw = get_layer_OPs(
-                                    ice, model_config
-                                )
+                                # calculate column ssa, g, mac from SNICAR files
+                                ice.dz = dz
+                                ice.layer_type = [layer_type] * len(ice.dz)
+                                ice.rho = [density] * len(ice.dz)
+                                ice.rds = [reff] * len(ice.dz)
+                                ice.calculate_column_ops()
+                                
+                                # CASE 1: SNOW
+                                snow_idx = np.where(
+                                    np.array(ice.layer_type) == 0)[0]
+                                
+                                for i in snow_idx: 
+                                    file_ssps = str(
+                                        "./tests/test_data/ice_spherical_grains_BH83/"
+                                        + f'ice_{ice.rf}/ice_{ice.rf}_'
+                                        + "{}.nc".format(
+                                            str(ice.rds[i]).rjust(4, "0"))
+                                    )
+                                    with xr.open_dataset(file_ssps) as temp:
+                                        ice.ss_alb[i, :] = temp["ss_alb"].values 
+                                        ice.ext[i, :] = temp["ext_cff_mss"].values
+                                        ice.g[i, :] = temp["asm_prm"].values
+                                
+                                
+                                # CASE 2: ICE
+                                ice_idx = np.where(
+                                    np.array(ice.layer_type) != 0)[0]
+                                
+                                for i in ice_idx: 
+                                    file_ssps = str(
+                                        "./tests/test_data/bubbly_ice_files_BH83/"
+                                        + "bbl_{}.nc".format(
+                                            str(ice.rds[i]).rjust(4, "0"))
+                                        )
+                                    with xr.open_dataset(file_ssps) as temp:
+                                        ice.g[i, :] = temp["asm_prm"].values
+                                        sca_cff_vlm_air_bbl = temp["sca_cff_vlm"].values
+                                        vlm_frac_air = 1  - ice.rho[i] / 917
+                                        scattering_cff = (
+                                            sca_cff_vlm_air_bbl 
+                                            * vlm_frac_air 
+                                            / ice.rho[i]
+                                            )
+                                        abs_cff = (
+                                            (4 * np.pi * ice.ref_idx_im) 
+                                            / (model_config.wavelengths * 1e-6) 
+                                            / 917
+                                            )
+                                        ice.ext[i, :] = (
+                                            scattering_cff
+                                            + abs_cff
+                                            )
+                                        ice.ss_alb[i, :] = (
+                                            scattering_cff 
+                                            / ice.ext[i, :]
+                                            )
+                                
+                                # add impurities
+                                ##### to change later:
+                                # ssa_snw = ice.ss_alb
+                                # g_snw = ice.g
+                                # mac_snw = ice.ext
+                                #####
+                                
                                 tau, ssa, g, L_snw = mix_in_impurities(
-                                    ssa_snw,
-                                    g_snw,
-                                    mac_snw,
                                     ice,
                                     impurities,
                                     model_config,
@@ -181,13 +227,7 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
             illumination,
             rt_config,
             model_config,
-            plot_config,
-            impurities,
-        ) = setup_snicar("default")
-        
-        # make sure the BH83 data is used as per Matlab's version
-        model_config.sphere_ice_path = "Data/OP_data/480band/ice_spherical_grains_BH83/"
-        model_config.bubbly_ice_path = "Data/OP_data/480band/bubbly_ice_files_BH83/"
+        ) = build_classes("./biosnicar/inputs.yaml")
         
         ice, illumination, impurities, rt_config, model_config = match_matlab_config(
             ice, illumination, rt_config, model_config, input_file
@@ -227,13 +267,8 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                     for zen in zenList:
                         for bc in bcList:
                             for dz in dzList:
-                                ice.dz = dz
-                                ice.nbr_lyr = 5
-                                ice.layer_type = [layer_type] * len(ice.dz)
-                                ice.rho = [density] * len(ice.dz)
-                                ice.lwc = [0] * len(ice.dz)
-                                ice.lwc_pct_bbl = [0] * len(ice.dz)
-                                ice.rds = [reff] * len(ice.dz)
+                                
+                                # calculate irradiance
                                 illumination.solzen = zen
                                 illumination.calculate_irradiance()
                                 impurities[0].conc = [
@@ -243,20 +278,73 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                                     bc,
                                     bc,
                                 ]  # bc in all layers
-                                ice.calculate_refractive_index(input_file)
-
-                                ssa_snw, g_snw, mac_snw = get_layer_OPs(
-                                    ice, model_config
-                                )
+  
+                                
+                                # calculate column ssa, g, mac
+                                ice.dz = dz
+                                ice.layer_type = [layer_type] * len(ice.dz)
+                                ice.rho = [density] * len(ice.dz)
+                                ice.rds = [reff] * len(ice.dz)
+                                ice.calculate_column_ops()
+                                
+                                # CASE 1: SNOW
+                                snow_idx = np.where(
+                                    np.array(ice.layer_type) == 0)[0]
+                                
+                                for i in snow_idx: 
+                                    file_ssps = str(
+                                        "./tests/test_data/ice_spherical_grains_BH83/"
+                                        + f'ice_{ice.rf}/ice_{ice.rf}_'
+                                        + "{}.nc".format(
+                                            str(ice.rds[i]).rjust(4, "0"))
+                                    )
+                                    with xr.open_dataset(file_ssps) as temp:
+                                        ice.ss_alb[i, :] = temp["ss_alb"].values 
+                                        ice.ext[i, :] = temp["ext_cff_mss"].values
+                                        ice.g[i, :] = temp["asm_prm"].values
+                                
+                                
+                                # CASE 2: ICE
+                                ice_idx = np.where(
+                                    np.array(ice.layer_type) != 0)[0]
+                                
+                                for i in ice_idx: 
+                                    file_ssps = str(
+                                        "./tests/test_data/bubbly_ice_files_BH83/"
+                                        + "bbl_{}.nc".format(
+                                            str(ice.rds[i]).rjust(4, "0"))
+                                        )
+                                    with xr.open_dataset(file_ssps) as temp:
+                                        ice.g[i, :] = temp["asm_prm"].values
+                                        sca_cff_vlm_air_bbl = temp["sca_cff_vlm"].values
+                                        vlm_frac_air = 1  - ice.rho[i] / 917
+                                        scattering_cff = (
+                                            sca_cff_vlm_air_bbl 
+                                            * vlm_frac_air 
+                                            / ice.rho[i]
+                                            )
+                                        abs_cff = (
+                                            (4 * np.pi * ice.ref_idx_im) 
+                                            / (model_config.wavelengths * 1e-6) 
+                                            / 917
+                                            )
+                                        ice.ext[i, :] = (
+                                            scattering_cff
+                                            + abs_cff
+                                            )
+                                        ice.ss_alb[i, :] = (
+                                            scattering_cff 
+                                            / ice.ext[i, :]
+                                            )
+                                
+                                # add impurities
                                 tau, ssa, g, L_snw = mix_in_impurities(
-                                    ssa_snw,
-                                    g_snw,
-                                    mac_snw,
                                     ice,
                                     impurities,
                                     model_config,
                                 )
-
+                                
+                                # solve RTE
                                 outputs = adding_doubling_solver(
                                     tau, ssa, g, L_snw, ice, illumination, model_config
                                 )
@@ -264,6 +352,7 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                                 specOut[counter, 0:480] = outputs.albedo
                                 specOut[counter, 480] = outputs.BBA
                                 counter += 1
+
 
         np.savetxt(
             "./tests/test_data/py_benchmark_data_clean.csv", specOut, delimiter=","
@@ -391,42 +480,45 @@ def match_matlab_config(ice, illumination, rt_config, model_config, input_file):
 
     nbr_lyr = 5
     # make sure ice config matches matlab benchmark
-    ice.ri = 2
     ice.shp = [0] * nbr_lyr
-    ice.shp_fctr = [0] * nbr_lyr
-    ice.ar = [0] * nbr_lyr
     ice.sfc = np.array([0.25] * model_config.nbr_wvl)
-    ice.cdom = [0] * nbr_lyr
-    ice.water = [0] * nbr_lyr
     ice.nbr_lyr = nbr_lyr
     ice.layer_type = [0] * nbr_lyr
     ice.rds = [ice.rds[0]] * nbr_lyr
     ice.rho = [ice.rho[0]] * nbr_lyr
     ice.lwc = [0] * nbr_lyr
-    ice.lwc_pct_bbl = [0] * nbr_lyr
+    ice.grain_shape = [0] * nbr_lyr
     ice.dz = [0.1] * nbr_lyr
-
+    ice.path_op = "tests/test_data/"
+    ice.rf = "Pic16"
+    ice.calculate_refractive_index()
+    
+    # # make sure the BH83 data is used as per Matlab's version
+    # model_config.sphere_ice_path = "tests/test_data/ice_spherical_grains_BH83/"
+    # model_config.bubbly_ice_path = "tests/test_data/bubbly_ice_files_BH83/"
+        
+    # make sure resolution is correct 
+    model_config.wavelengths = np.arange(0.205, 5, 0.01)
+    model_config.nbr_wvl = 480
+    
+    # change path to illumination
+    illumination.flx_dir = "tests/test_data/fsds/"
+    illumination.stubs = [f'swnb_480bnd_{i}'
+                          for i in 
+                          ["mlw", "mls", "saw", "sas", "smm", "hmn", "trp"]]   
     illumination.incoming = 4
     illumination.direct = 1
-
-    # recalculate fluxes
-    ice.calculate_refractive_index(input_file)
     illumination.calculate_irradiance()
 
-    # make sure smoothing function is toggled off
-    model_config.smooth = False
 
     # make sure impurities[0] is bc
     # (same bc used by matlab model)
     impurities = []
-
     conc = [0] * nbr_lyr
     impurity0 = Impurity("bc_ChCB_rn40_dns1270.nc", False, 0, "bc", conc)
+    impurity0.path = "tests/test_data/"
+    impurity0.get_impurity_properties()
     impurities.append(impurity0)
-
-    assert (impurities[0].name == "bc") and (
-        impurities[0].file == "bc_ChCB_rn40_dns1270.nc"
-    )
 
     return ice, illumination, impurities, rt_config, model_config
 
@@ -524,7 +616,7 @@ def test_plot_random_spectra_pairs(get_matlab_data, get_python_data, get_n_spect
 @pytest.mark.parametrize("dir", [0, 1])
 @pytest.mark.parametrize("aprx", [1, 2, 3])
 @pytest.mark.parametrize("inc", [0, 1, 2, 3, 4, 5, 6])
-@pytest.mark.parametrize("ref", [0, 1, 2])
+@pytest.mark.parametrize("ref", ["Wrn84", "Wrn08", "Pic16"])
 def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
     """Checks model runs correctly with range of input value combinations.
 
@@ -555,13 +647,8 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
             illumination,
             rt_config,
             model_config,
-            plot_config,
-            impurities,
-        ) = setup_snicar("default")
+        ) = build_classes("./biosnicar/inputs.yaml")
         
-        # make sure the BH83 data is used as per Matlab's version
-        model_config.sphere_ice_path = "Data/OP_data/480band/ice_spherical_grains_BH83/"
-        model_config.bubbly_ice_path = "Data/OP_data/480band/bubbly_ice_files_BH83/"
         
         ice, illumination, impurities, rt_config, model_config = match_matlab_config(
             ice, illumination, rt_config, model_config, input_file
@@ -570,13 +657,15 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
         rt_config.aprx_typ = aprx
         illumination.direct = dir
         ice.rf = ref
-        ice.calculate_refractive_index(input_file)
         illumination.incoming = inc
         illumination.calculate_irradiance()
+        
+        ice.calculate_column_ops()
 
-        ssa_snw, g_snw, mac_snw = get_layer_OPs(ice, model_config)
         tau, ssa, g, L_snw = mix_in_impurities(
-            ssa_snw, g_snw, mac_snw, ice, impurities, model_config
+            ice,
+            impurities,
+            model_config,
         )
         outputs_toon = toon_solver(
             tau, ssa, g, L_snw, ice, illumination, model_config, rt_config
@@ -627,13 +716,8 @@ def test_var_fuzzer(rds, rho, zen, dust, algae, fuzz, input_file):
             illumination,
             rt_config,
             model_config,
-            plot_config,
-            impurities,
-        ) = setup_snicar("default")
+        ) = build_classes("./biosnicar/inputs.yaml")
         
-        # make sure the BH83 data is used as per Matlab's version
-        model_config.sphere_ice_path = "Data/OP_data/480band/ice_spherical_grains_BH83/"
-        model_config.bubbly_ice_path = "Data/OP_data/480band/bubbly_ice_files_BH83/"
         
         ice, illumination, impurities, rt_config, model_config = match_matlab_config(
             ice, illumination, rt_config, model_config, input_file
@@ -650,7 +734,10 @@ def test_var_fuzzer(rds, rho, zen, dust, algae, fuzz, input_file):
             "bc",
             conc1,
         )
+        impurity0.path = "tests/test_data/"
+        impurity0.get_impurity_properties()
         impurities.append(impurity0)
+        
 
         conc2 = [0] * len(ice.dz)
         conc2[0] = dust
@@ -661,16 +748,21 @@ def test_var_fuzzer(rds, rho, zen, dust, algae, fuzz, input_file):
             "dust1",
             conc2,
         )
+        impurity1.path = "tests/test_data/"
+        impurity1.get_impurity_properties()
         impurities.append(impurity1)
 
         ice.rds = [rds] * len(ice.dz)
         ice.rho = [rho] * len(ice.dz)
         illumination.solzen = zen
         illumination.calculate_irradiance()
+        
+        ice.calculate_column_ops()
 
-        ssa_snw, g_snw, mac_snw = get_layer_OPs(ice, model_config)
         tau, ssa, g, L_snw = mix_in_impurities(
-            ssa_snw, g_snw, mac_snw, ice, impurities, model_config
+            ice,
+            impurities,
+            model_config,
         )
         outputs_toon = toon_solver(
             tau, ssa, g, L_snw, ice, illumination, model_config, rt_config

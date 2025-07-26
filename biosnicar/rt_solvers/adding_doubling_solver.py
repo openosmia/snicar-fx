@@ -30,8 +30,6 @@ solid ice layers and fresnel reflection are included.
 """
 
 import numpy as np
-from scipy.signal import savgol_filter
-
 from biosnicar.classes.outputs import Outputs
 
 
@@ -101,12 +99,19 @@ def adding_doubling_solver(tau, ssa, g, L_snw, ice, illumination, model_config):
         rupdif,
         rupdir,
     ) = define_constants_arrays(tau, g, ssa, illumination, ice, model_config)
-
-    # proceed down one layer at a time: if the total transmission to
-    # the interface just above a given layer is less than trmin, then no
-    # Delta-Eddington computation for that layer is done.
+    
+    # initialize reflection and transmission at top interface 
+    trntdr[:, 0] = 1
+    trndif[:, 0] = 1
+    rdndif[:, 0] = 0
+    trndir[:, 0] = 1
+    
+    # initialize reflection to direct & diffuse radiation from lowest interface
+    rupdif[:, ice.nbr_lyr] = ice.sfc
+    rupdir[:, ice.nbr_lyr] = ice.sfc
 
     for lyr in np.arange(0, ice.nbr_lyr, 1):  # loop through layers
+    
         # condition: if current layer is above fresnel layer or the
         # top layer is a Fresnel layer
         if lyr < lyrfrsnl:
@@ -115,34 +120,46 @@ def adding_doubling_solver(tau, ssa, g, L_snw, ice, illumination, model_config):
         else:
             # within or below fl
             mu0n = mu0n
-
-        rdir, tdir, ts, ws, gs, lm = calc_reflectivity_transmittivity(
+        
+        # 1 - calculate reflectivity & transmittivity of the layer to 
+        # direct & diffuse radiation with dEdd method 
+        rdir, tdir, ts, ws, gs, rdif_a, tdif_a = calc_reflectivity_transmittivity_delta_eddington(
             tau0,
             ssa0,
             g0,
             lyr,
             model_config,
             exp_min,
-            rdif_a,
-            tdif_a,
             trnlay,
             mu0n,
             epsilon,
             rdir,
             tdir,
+            rdif_a, 
+            tdif_a
         )
-        # recalculate rdif,tdif using direct angular integration over rdir,tdir,
-        # since Delta-Eddington rdif formula is not well-behaved (it is usually
-        # biased low and can even be negative)  use ngmax angles and gaussian
-        # integration for most accuracy:
+        
+        # 2 - re calculate reflectivity & transmittivity to diffuse radiation
+        # using direct angular integration over rdir and tdir,
+        # since Delta-Eddington diffuse formula is not well-behaved 
+        # (it is usually biased low and can even be negative)
+        
         smt, smr, swt = apply_gaussian_integral(
-            model_config, exp_min, ts, ws, gs, epsilon, lm, lyr, rdif_a, tdif_a
+            model_config, exp_min, ts, ws, gs, epsilon, lyr, rdif_a, tdif_a
         )
-
-        rdif_a, tdif_a, rdif_b, tdif_b = update_transmittivity_reflectivity(
+        
+        # so far the layer is homogeneous, i.e. the transmittivity and 
+        # reflectivity to radiation from above (_a) & below (_b) are the same 
+        rdif_a, tdif_a, rdif_b, tdif_b = calc_diff_transmittivity_reflectivity(
             swt, smr, smt, lyr, rdif_a, tdif_a, rdif_b, tdif_b
         )
 
+        # 3 - if fresnel boundary, a pseudo non-absorbing layer is added and
+        # merged to the current layer, so reflectivity & transmittivity are 
+        # recalculated. 
+        # (!!) the layer becomes inhomogeneous,  so the reflectivity and
+        # transmittivity to radiation from above (_a) are different from the 
+        # transmittivity to radiation radiation from below (_b)
         if lyr == lyrfrsnl:
             (
                 rdif_a,
@@ -168,8 +185,11 @@ def adding_doubling_solver(tau, ssa, g, L_snw, ice, illumination, model_config):
                 rdir,
                 tdir,
             )
-
-        trndir, trntdr, rdndif, trndif = calc_reflection_transmission_from_top(
+        
+        # combine layers from up down: calculate total & direct
+        # transmission as well as reflection/transmission of diffuse radiation
+        # coming from below
+        trndir, trntdr, rdndif, trndif = combine_layers_downward(
             lyr,
             trnlay,
             rdif_a,
@@ -186,38 +206,48 @@ def adding_doubling_solver(tau, ssa, g, L_snw, ice, illumination, model_config):
             trndif,
         )
 
-    rupdif, rupdir = calc_reflection_below(
-        ice,
-        model_config,
-        rdif_a,
-        rdif_b,
-        tdif_a,
-        tdif_b,
-        trnlay,
-        rdir,
-        tdir,
-        rupdif,
-        rupdir,
-    )
+    # combine layers from down up: calculate reflectivity to diffuse & direct 
+    # radiation coming from above
+    for lyr in np.arange(
+        ice.nbr_lyr - 1, -1, -1
+    ):  
+        rupdif, rupdir = combine_layers_upward(
+            lyr,
+            ice,
+            model_config,
+            rdif_a,
+            rdif_b,
+            tdif_a,
+            tdif_b,
+            trnlay,
+            rdir,
+            tdir,
+            rupdif,
+            rupdir
+        )
+        
+    # calculate fluxes at interfaces, from up down
+    for lyr in np.arange(0, ice.nbr_lyr + 1, 1):
+        
+        fdirup, fdifup, fdirdn, fdifdn = calculate_fluxes_at_interfaces(
+            lyr,
+            model_config,
+            ice,
+            rupdif,
+            rupdir,
+            rdndif,
+            trndir,
+            trndif,
+            trntdr,
+            fdirup,
+            fdirdn,
+            fdifup,
+            fdifdn,
+            dfdir,
+            dfdif,
+        )
 
-    fdirup, fdifup, fdirdn, fdifdn = trans_refl_at_interfaces(
-        model_config,
-        ice,
-        rupdif,
-        rupdir,
-        rdndif,
-        trndir,
-        trndif,
-        trntdr,
-        fdirup,
-        fdirdn,
-        fdifup,
-        fdifdn,
-        dfdir,
-        dfdif,
-    )
-
-    albedo, F_abs, F_btm_net, F_top_pls = calculate_fluxes(
+    albedo, F_abs, F_btm_net, F_top_pls = calculate_bulk_fluxes(
         model_config,
         ice,
         illumination,
@@ -236,120 +266,9 @@ def adding_doubling_solver(tau, ssa, g, L_snw, ice, illumination, model_config):
 
     outputs = get_outputs(illumination, albedo, model_config, L_snw, F_abs, F_btm_net)
 
-    if model_config.smooth:
-        outputs.albedo = apply_smoothing_function(outputs.albedo, model_config)
-
     return outputs
 
 
-def calc_reflectivity_transmittivity(
-    tau0,
-    ssa0,
-    g0,
-    lyr,
-    model_config,
-    exp_min,
-    rdif_a,
-    tdif_a,
-    trnlay,
-    mu0n,
-    epsilon,
-    rdir,
-    tdir,
-):
-    """Calculates reflectivity and transmissivity.
-
-    Sets up new variables, applies delta transformation and makes
-    initial calculations of reflectivity and transmissivity in each
-    layer.
-
-    Args:
-        tau0: initial optical thickness
-        ssa0: initial single scattering albedo
-        g0: initial asymmetry parameter
-        lyr: index of current layer
-        model_config: instance of ModelConfig class
-        exp_min: small number to avoid /zero error
-        rdif_a: reflectivity to diffuse irradiance at polarization angle == perpendicular
-        tdif_a: transmissivity to diffuse irradiance at polarization angle == perpendicular
-        trnlay: transmission through layer
-        mu0n: incident beam angle adjusted for refraction
-        epsilon: small number to avoid singularity
-        rdir: reflectivity to direct beam
-        tdir: transmissivity to direct beam
-
-    Returns:
-        rdir:
-        tdir:
-        ts:
-        ws:
-        gs:
-        lm:
-
-    """
-    # calculation over layers with penetrating radiation
-    # includes optical thickness, single scattering albedo,
-    # asymmetry parameter and total flux
-    tautot = tau0[:, lyr]
-    wtot = ssa0[:, lyr]
-    gtot = g0[:, lyr]
-    ftot = g0[:, lyr] * g0[:, lyr]
-
-    # coefficient for delta eddington solution for all layers
-    # Eq. 50: Briegleb and Light 2007
-    # layer delta-scaled extinction optical depth
-    ts = (1 - (wtot * ftot)) * tautot
-    ws = ((1 - ftot) * wtot) / (
-        1 - (wtot * ftot)
-    )  # layer delta-scaled single scattering albedo
-    gs = gtot / (1 + gtot)  # layer delta-scaled asymmetry parameter
-    lm = np.sqrt(3 * (1 - ws) * (1 - ws * gs))  # lambda
-    ue = (
-        1.5 * (1 - ws * gs) / lm
-    )  # u equation, term in diffuse reflectivity and transmissivity
-    extins = np.maximum(
-        np.full((model_config.nbr_wvl,), exp_min), np.exp(-lm * ts)
-    )  # extinction, MAX function lyr keeps from getting an error
-    # if the exp(-lm*ts) is < 1e-5
-    ne = (ue + 1) ** 2 / extins - (
-        ue - 1
-    ) ** 2 * extins  # N equation, term in diffuse reflectivity and transmissivity
-
-    # ! first calculation of rdif, tdif using Delta-Eddington formulas
-    # Eq.: Briegleb 1992  alpha and gamma for direct radiation
-
-    rdif_a[:, lyr] = (
-        (ue**2 - 1) * (1 / extins - extins) / ne
-    )  # R BAR = layer reflectivity to DIFFUSE radiation
-    # T BAR layer transmissivity to DIFFUSE radiation
-    tdif_a[:, lyr] = 4 * ue / ne
-
-    # evaluate rdir, tdir for direct beam
-    trnlay[:, lyr] = np.maximum(
-        np.full((model_config.nbr_wvl,), exp_min), np.exp(-ts / mu0n)
-    )  # transmission from TOA to interface
-
-    #  Eq. 50: Briegleb and Light 2007  alpha and gamma for direct radiation
-    alp = (
-        (0.75 * ws * mu0n) * (1 + gs * (1 - ws)) / (1 - lm**2 * mu0n**2 + epsilon)
-    )  # alp = alpha(ws,mu0n,gs,lm)
-    gam = (0.5 * ws) * (
-        (1 + 3 * gs * mu0n**2 * (1 - ws)) / (1 - lm**2 * mu0n**2 + epsilon)
-    )  # gam = gamma(ws,mu0n,gs,lm)
-
-    # apg = alpha plus gamma
-    # amg = alpha minus gamma
-    apg = alp + gam
-    amg = alp - gam
-
-    rdir[:, lyr] = apg * rdif_a[:, lyr] + amg * (
-        tdif_a[:, lyr] * trnlay[:, lyr] - 1
-    )  # layer reflectivity to DIRECT radiation
-    tdir[:, lyr] = (
-        apg * tdif_a[:, lyr] + (amg * rdif_a[:, lyr] - apg + 1) * trnlay[:, lyr]
-    )  # layer transmissivity to DIRECT radiation
-
-    return rdir, tdir, ts, ws, gs, lm
 
 
 def define_constants_arrays(tau, g, ssa, illumination, ice, model_config):
@@ -375,13 +294,13 @@ def define_constants_arrays(tau, g, ssa, illumination, ice, model_config):
         nr: real part of refractive index
         mu0: cosine of direct beam zenith angle
         mu0n: adjusted cosine of direct beam zenith angle after refraction
-        trnlay: transmission through layer
-        rdif_a: reflectivity to diffuse irradiance at polarization angle == perpendicular
-        rdif_b: reflectivity to diffuse irradiance at polarization angle == parallel
-        tdif_a: transmissivity to diffuse irradiance at polarization angle == perpendicular
-        tdif_b: transmissivity to diffuse irradiance at polarization angle == parallel
+        trnlay: direct transmission of solar beam through layer
+        rdif_a: reflectivity to diffuse irradiance coming from above
+        rdif_b: reflectivity to diffuse irradiance coming from bloe
+        tdif_a: transmissivity to diffuse irradiance coming from above
+        tdif_b: transmissivity to diffuse irradiance coming from below
         rdir: reflectivity to direct beam
-        tdir: transmissivity to direct beam
+        tdir: total transmission of the direct beam (direct + diffuse)
         lyrfrsnl: index of uppermost fresnel reflecting layer in ice column
         trnlay:
         rdif_a:
@@ -448,23 +367,23 @@ def define_constants_arrays(tau, g, ssa, illumination, ice, model_config):
     rdif_a = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
     # layer reflectivity to diffuse radiation from below
     rdif_b = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
-    # layer transmission to diffuse radiation from above
+    # layer transmittivity to diffuse radiation from above
     tdif_a = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
-    # layer transmission to diffuse radiation from below
+    # layer transmittivity to diffuse radiation from below
     tdif_b = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
     # layer reflectivity to direct radiation (solar beam + diffuse)
     rdir = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
-    # layer transmission to direct radiation (solar beam + diffuse)
+    # layer transmittivity to direct radiation (solar beam + diffuse)
     tdir = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
 
+    # reflection of diffuse radiation for layers above
     rdndif = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
+    # total transmission from layers above
     trntdr = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
+    # diffuse transmission for layers above
     trndif = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
+    # solar beam down transmission from top
     trndir = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
-    trntdr[:, 0] = 1
-    trndif[:, 0] = 1
-    rdndif[:, 0] = 0
-    trndir[:, 0] = 1
 
     fdirup = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
     fdifup = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
@@ -480,10 +399,9 @@ def define_constants_arrays(tau, g, ssa, illumination, ice, model_config):
 
     # reflectivity to diffuse radiation
     rupdif = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
-    rupdif[:, ice.nbr_lyr] = ice.sfc
+    
     # reflectivity to direct radiation
     rupdir = np.zeros(shape=[model_config.nbr_wvl, ice.nbr_lyr + 1])
-    rupdir[:, ice.nbr_lyr] = ice.sfc
 
     # if there are non zeros in layer type, grab the index of the
     # first fresnel layer and load in the precalculated diffuse fresnel
@@ -539,85 +457,121 @@ def define_constants_arrays(tau, g, ssa, illumination, ice, model_config):
     )
 
 
-def calc_reflection_transmission_from_top(
+def calc_reflectivity_transmittivity_delta_eddington(
+    tau0,
+    ssa0,
+    g0,
     lyr,
-    trnlay,
-    rdif_a,
-    rdir,
-    tdif_a,
-    rdif_b,
-    tdir,
-    tdif_b,
     model_config,
-    ice,
-    trndir,
-    rdndif,
-    trntdr,
-    trndif,
+    exp_min,
+    trnlay,
+    mu0n,
+    epsilon,
+    rdir,
+    tdir,
+    rdif_a,
+    tdif_a,
 ):
-    """Calculates the reflection and transmission of energy at top surfaces.
+    """Calculates multiple scattering within a given layer to yield
+    reflectivity and transmissivity of the layer to
+    direct and diffuse radiation, using the Delta-Eddington solution.
+    Eq. A24, A26, A30, A31 Briegleb and Light 2007
 
-    Calculate the solar beam transmission, total transmission, and
-    reflectivity for diffuse radiation from below at interface lyr,
-    the top of the current layer lyr.
+    Sets up new variables, applies delta transformation and makes
+    initial calculations of direct reflectivity and transmissivity in each
+    layer.
 
     Args:
-        lyr: integer representing the index of the current layer (0 at top)
-        trnlay: transmissivity of current layer
-        rdif_a: reflectivity to diffuse irradiance at polarization state == perpendicular
-        rdir: reflectivity to direct beam
-        tdif_a: transmissivity to diffuse irradiance at polarization state == perpendicular
-        rdif_b: reflectivity to diffuse irradiance at polarization state == parallel
-        tdir: transmissivity to direct beam
-        tdif_b: transmissivity to diffuse irradiance at polarization state == parallel
+        tau0: initial optical thickness
+        ssa0: initial single scattering albedo
+        g0: initial asymmetry parameter
+        lyr: index of current layer
         model_config: instance of ModelConfig class
-        ice: instance of Ice class
-        trndir:
-        rdndif:
-        trntdr:
-        trndif:
+        exp_min: small number to avoid /zero error
+        trnlay: transmission through layer
+        mu0n: incident beam angle adjusted for refraction
+        epsilon: small number to avoid singularity
+        rdir: reflectivity to direct beam
+        tdir: transmissivity to direct beam
 
     Returns:
-        trndir: transmission of direct beam
-        trntdr: total transmission of direct beam for all layers above current layer
-        rdndif: downwards diffuse reflectance
-        trndif: diffuse transmission
+        rdir: layer reflectivity to direct beam
+        tdir: layer transmissivity to direct beam
+        ts: layer delta-scaled extinction optical depth
+        ws: layer delta-scaled single scattering albedo
+        gs:layer delta-scaled asymmetry parameter
+        rdif_a: layer reflectivity to diffuse radiation from above
+        tdif_a: layer transmittivity to diffuse radiation from below
 
     """
+    # calculation over layers with penetrating radiation
+    # includes optical thickness, single scattering albedo,
+    # asymmetry parameter and total flux
+    tautot = tau0[:, lyr]
+    wtot = ssa0[:, lyr]
+    gtot = g0[:, lyr]
+    ftot = g0[:, lyr] * g0[:, lyr]
 
-    # Eq. 51  Briegleb and Light 2007
-    trndir[:, lyr + 1] = (
-        trndir[:, lyr] * trnlay[:, lyr]
-    )  # solar beam transmission from top
+    # coefficient for delta eddington solution for all layers
+    # Eq. 50: Briegleb and Light 2007
+    # layer delta-scaled extinction optical depth
+    ts = (1 - (wtot * ftot)) * tautot
+    ws = ((1 - ftot) * wtot) / (
+        1 - (wtot * ftot)
+    )  # layer delta-scaled single scattering albedo
+    gs = gtot / (1 + gtot)  # layer delta-scaled asymmetry parameter
+    lm = np.sqrt(3 * (1 - ws) * (1 - ws * gs))  # lambda
+    ue = (
+        1.5 * (1 - ws * gs) / lm
+    )  # u equation, term in diffuse reflectivity and transmissivity
+    extins = np.maximum(
+        np.full((model_config.nbr_wvl,), exp_min), np.exp(-lm * ts)
+    )  # extinction, MAX function lyr keeps from getting an error
+    # if the exp(-lm*ts) is < 1e-5
+    ne = (ue + 1) ** 2 / extins - (
+        ue - 1
+    ) ** 2 * extins  # N equation, term in diffuse reflectivity and transmissivity
 
-    # interface multiple scattering for lyr-1
-    refkm1 = 1 / (1 - rdndif[:, lyr] * rdif_a[:, lyr])
+    # calculation of rdif, tdif using Delta-Eddington formulas
+    # Eq. A30 and A31 Briegleb and Light 2007
+    # note that rdif and tdif are used for rdir, tdir calculations here 
+    # but are recalculated with gaussian integration later
 
-    # direct tran times layer direct ref
-    tdrrdir = trndir[:, lyr] * rdir[:, lyr]
-
-    # total down diffuse = tot tran - direct tran
-    tdndif = trntdr[:, lyr] - trndir[:, lyr]
-
-    # total transmission to direct beam for layers above
-    trntdr[:, lyr + 1] = (
-        trndir[:, lyr] * tdir[:, lyr]
-        + (tdndif + tdrrdir * rdndif[:, lyr]) * refkm1 * tdif_a[:, lyr]
+    rdif_a[:, lyr] = (
+        (ue**2 - 1) * (1 / extins - extins) / ne
     )
+    tdif_a[:, lyr] = 4 * ue / ne
 
-    # Eq. B4  Briegleb and Light 2007
-    # reflectivity to diffuse radiation for layers above
-    rdndif[:, lyr + 1] = rdif_b[:, lyr] + (
-        tdif_b[:, lyr] * rdndif[:, lyr] * refkm1 * tdif_a[:, lyr]
-    )
-    # diffuse transmission to diffuse beam for layers above
-    trndif[:, lyr + 1] = trndif[:, lyr] * refkm1 * tdif_a[:, lyr]
+    # evaluate rdir, tdir for direct beam
+    trnlay[:, lyr] = np.maximum(
+        np.full((model_config.nbr_wvl,), exp_min), np.exp(-ts / mu0n)
+    )  # transmission from TOA to interface
 
-    return trndir, trntdr, rdndif, trndif
+    #  Eq. 50: Briegleb and Light 2007  alpha and gamma for direct radiation
+    alp = (
+        (0.75 * ws * mu0n) * (1 + gs * (1 - ws)) / (1 - lm**2 * mu0n**2 + epsilon)
+    )  # alp = alpha(ws,mu0n,gs,lm)
+    gam = (0.5 * ws) * (
+        (1 + 3 * gs * mu0n**2 * (1 - ws)) / (1 - lm**2 * mu0n**2 + epsilon)
+    )  # gam = gamma(ws,mu0n,gs,lm)
+
+    # apg = alpha plus gamma
+    # amg = alpha minus gamma
+    apg = alp + gam
+    amg = alp - gam
+
+    rdir[:, lyr] = apg * rdif_a[:, lyr] + amg * (
+        tdif_a[:, lyr] * trnlay[:, lyr] - 1
+    )  # layer reflectivity to DIRECT radiation
+    tdir[:, lyr] = (
+        apg * tdif_a[:, lyr] + (amg * rdif_a[:, lyr] - apg + 1) * trnlay[:, lyr]
+    )  # layer transmissivity to DIRECT radiation
+
+    return rdir, tdir, ts, ws, gs, rdif_a, tdif_a
 
 
 def apply_gaussian_integral(
-    model_config, exp_min, ts, ws, gs, epsilon, lm, lyr, rdif_a, tdif_a
+    model_config, exp_min, ts, ws, gs, epsilon, lyr, rdif_a, tdif_a
 ):
     """Applies gaussian integral to integrate over angles.
 
@@ -631,10 +585,9 @@ def apply_gaussian_integral(
         ws: delta-scaled single scattering albedo for lyr
         gs: delta-scaled asymmetry parameter for lyr
         epsilon: small number to avoid singularity
-        lm: lamda for use in delta scaling
         lyr: integer representing index of current layer (0==top)
-        rdif_a: rdif_a: reflectance to diffuse energy w polarization state == perpendicular
-        tdif_a: rdif_a: transmittance to diffuse energy w polarization state == perpendicular
+        rdif_a: layer reflectivity to diffuse radiation from above
+        tdif_a: layer transmittivity to diffuse radiation from below
 
     Returns:
         smt: accumulator for tdif gaussian integration
@@ -667,8 +620,9 @@ def apply_gaussian_integral(
     swt = 0
     smr = 0
     smt = 0
-    R1 = rdif_a[:, lyr]  # use R1 as temporary var
-    T1 = tdif_a[:, lyr]  # use T1 as temporary var
+    
+    R1 = rdif_a[:,lyr].copy() # use R1 as temporary
+    T1 = tdif_a[:,lyr].copy() # use T1 as temporary
 
     for ng in np.arange(0, len(gauspt), 1):
         mu = gauspt[ng]  # solar zenith angles
@@ -677,7 +631,7 @@ def apply_gaussian_integral(
         trn = np.maximum(
             np.full((model_config.nbr_wvl,), exp_min), np.exp(-ts / mu)
         )  # transmission
-
+        lm = np.sqrt(3 * (1 - ws) * (1 - ws * gs))
         alp = (
             (0.75 * ws * mu) * (1 + gs * (1 - ws)) / (1 - lm**2 * mu**2 + epsilon)
         )  # alp = alpha(ws,mu0n,gs,lm)
@@ -697,31 +651,34 @@ def apply_gaussian_integral(
     return smt, smr, swt
 
 
-def update_transmittivity_reflectivity(
+def calc_diff_transmittivity_reflectivity(
     swt, smr, smt, lyr, rdif_a, tdif_a, rdif_b, tdif_b
 ):
-    """updates transmissivity and reflectivity values after iterations.
+    """ calculate transmissivity and reflectivity to DIFFUSE radiation
+    after gaussian integration, eq. A33 Briegleb and Light 2007.
 
     Args:
         swt: sum of gaussian weights (for integrating over angle)
         smr: accumulator for rdif gaussian integration
         smt: accumulator for tdif gaussian integration
         lyr: integer representign index of current layer (0 == top)
-        rdif_a: reflectance to diffuse energy w polarization state == perpendicular
-        rdif_b: reflectance to diffuse energy w polarization state == parallel
-        tdif_a: transmittance to diffuse energy w polarization state == perpendicular
-        tdif_b: transmittance to diffuse energy w polarization state == parallel
+        rdif_a: layer reflectivity to diffuse radiation from above
+        rdif_b: layer reflectivity to diffuse radiation from below
+        tdif_a: layer transmittivity to diffuse radiation from above
+        tdif_b: layer transmittivity to diffuse radiation from above
 
     Returns:
-        rdif_a: updated reflectance to diffuse energy w polarization state == perpendicular
-        rdif_b: updated reflectance to diffuse energy w polarization state == parallel
-        tdif_a: updated transmittance to diffuse energy w polarization state == perpendicular
-        tdif_b: updated transmittance to diffuse energy w polarization state == parallel
+        rdif_a: layer reflectivity to diffuse radiation from above
+        rdif_b: layer reflectivity to diffuse radiation from below
+        tdif_a: layer transmittivity to diffuse radiation from above
+        tdif_b: layer transmittivity to diffuse radiation from above
     """
     rdif_a[:, lyr] = smr / swt
     tdif_a[:, lyr] = smt / swt
 
-    # homogeneous layer
+    # homogeneous layer (all layers are except the fresnel layer, so the 
+    # combination of layers including a fresnel layer becomes unhomogeneous, hence 
+    # why we need to compute rdif/tdif above and below for all layers)
     rdif_b[:, lyr] = rdif_a[:, lyr]
     tdif_b[:, lyr] = tdif_a[:, lyr]
 
@@ -744,12 +701,14 @@ def calc_correction_fresnel_layer(
     rdir,
     tdir,
 ):
-    """Calculates correction for Fresnel reflection and total internal reflection.
-
+    """Update diffuse and direct reflectivity and transmittivity of current
+    layer by integrating effect of Fresnel boundary above, i.e. merging
+    the reflectivity & transmittivity of current layer + fresnel layer.
+    
     Corrects fluxes for Fresnel reflection in cases where total
     internal reflection does and does not occur (angle > critical_angle).
-    In TIR case fluxes are precalculated because ~256 gaussian points required
-    for convergence.
+    In the diffuse radiation, coefficients are precalculated because 
+    ~256 gaussian points required for convergence.
 
     Args:
         model_config: instance of ModelConfig class
@@ -758,24 +717,24 @@ def calc_correction_fresnel_layer(
         mu0n: incidence angle for direct beam adjusted for refraction
         mu0: incidence angle of direct beam at upper surface
         nr: real part of refractive index
-        rdif_a: reflectance to diffuse energy w polarization state == perpendicular
-        rdif_b: reflectance to diffuse energy w polarization state == parallel
-        tdif_a: transmittance to diffuse energy w polarization state == perpendicular
-        tdif_b: transmittance to diffuse energy w polarization state == parallel
+        rdif_a: layer reflectivity to diffuse radiation from above
+        rdif_b: layer reflectivity to diffuse radiation from below
+        tdif_a: layer transmittivity to diffuse radiation from above
+        tdif_b: layer transmittivity to diffuse radiation from above
         trnlay: transmission of layer == lyr
         lyr: current layer (0 ==top)
-        rdir: reflectance to direct beam
-        tdir: transmission of direct beam
+        rdir: layer reflectivity to direct beam
+        tdir: layer transmittivity to direct beam
 
 
     Returns:
-        rdif_a: updated reflectance to diffuse energy w polarization state == perpendicular
-        rdif_b: updated reflectance to diffuse energy w polarization state == parallel
-        tdif_a: updated transmittance to diffuse energy w polarization state == perpendicular
-        tdif_b: updated transmittance to diffuse energy w polarization state == parallel
-        trnlay: updated transmission of layer == lyr
-        rdir: updated reflectance to direct beam
-        tdir: updated transmission of direct beam
+        rdif_a: layer reflectivity to diffuse radiation from above
+        rdif_b: layer reflectivity to diffuse radiation from below
+        tdif_a: layer transmittivity to diffuse radiation from above
+        tdif_b: layer transmittivity to diffuse radiation from above
+        trnlay: transmission of layer == lyr
+        rdir: layer reflectivity to direct beam
+        tdir: layer transmittivity to direct beam
     """
 
     ref_indx = ice.ref_idx_re + 1j * ice.ref_idx_im
@@ -819,7 +778,7 @@ def calc_correction_fresnel_layer(
         # reflection from below. Precalculated because high order
         # number of gaussian points (~256) is required for convergence:
 
-        # Eq. 25  Brigleb and light 2007
+        # Eq. 25  Briegleb and light 2007
         # diffuse reflection of flux arriving from above
 
         # reflection from diffuse unpolarized radiation
@@ -835,44 +794,312 @@ def calc_correction_fresnel_layer(
         # the fresnel (refractive) layer, always taken to be above
         # the present layer lyr (i.e. be the top interface):
 
-        # denom interface scattering
-        rintfc = 1 / (1 - Rf_dif_b * rdif_a[wl, lyr])
+        # save fluxes of lyr before merging with frsnl layer
+        rdif_a_0 = rdif_a[wl, lyr].copy()
+        rdif_b_0 = rdif_b[wl, lyr].copy()
+        tdif_a_0 = tdif_a[wl, lyr].copy()
+        tdif_b_0 = tdif_b[wl, lyr].copy()
+        tdir_0 = tdir[wl, lyr].copy()
+        rdir_0 = rdir[wl, lyr].copy()
 
-        # layer transmissivity to DIRECT radiation
+        # combined layer transmissivity to DIRECT radiation
         # Eq. B7  Briegleb & Light 2007
         tdir[wl, lyr] = (
-            Tf_dir_a * tdir[wl, lyr]
-            + Tf_dir_a * rdir[wl, lyr] * Rf_dif_b * rintfc * tdif_a[wl, lyr]
+            Tf_dir_a * tdir_0
+            + Tf_dir_a * rdir[wl, lyr] * Rf_dif_b * tdif_a[wl, lyr]
+            * 1 / (1 - Rf_dif_b * rdif_a_0)
         )
 
-        # layer reflectivity to DIRECT radiation
+        # combined layer reflectivity to DIRECT radiation
         # Eq. B7  Briegleb & Light 2007
-        rdir[wl, lyr] = Rf_dir_a + Tf_dir_a * rdir[wl, lyr] * rintfc * Tf_dif_b
-
-        # R BAR = layer reflectivity to DIFFUSE radiation (above)
+        rdir[wl, lyr] = (Rf_dir_a 
+                          + Tf_dir_a 
+                          * rdir_0
+                          * Tf_dif_b 
+                          * 1 / (1 - Rf_dif_b * rdif_a_0)
+                          )
+                         
+        # combined layer reflectivity to DIFFUSE radiation (above)
         # Eq. B9  Briegleb & Light 2007
-        rdif_a[wl, lyr] = Rf_dif_a + Tf_dif_a * rdif_a[wl, lyr] * rintfc * Tf_dif_b
-
-        # R BAR = layer reflectivity to DIFFUSE radiation (below)
+        rdif_a[wl, lyr] = (Rf_dif_a 
+                            + Tf_dif_a 
+                            * rdif_a_0
+                            * Tf_dif_b
+                            * 1 / (1 - Rf_dif_b * rdif_a_0)
+                            )
+        
+        # combined layer reflectivity to DIFFUSE radiation (below)
         # Eq. B10  Briegleb & Light 2007
         rdif_b[wl, lyr] = (
-            rdif_b[wl, lyr] + tdif_b[wl, lyr] * Rf_dif_b * rintfc * tdif_a[wl, lyr]
+            rdif_b_0
+            + tdif_b_0 
+            * Rf_dif_b 
+            * tdif_a_0
+            * 1 / (1 - Rf_dif_b * rdif_b_0)
         )
-
-        # T BAR layer transmissivity to DIFFUSE radiation (above),
+        
+        # combined layer transmissivity to DIFFUSE radiation (above)
         # Eq. B9  Briegleb & Light 2007
-        tdif_a[wl, lyr] = tdif_a[wl, lyr] * rintfc * Tf_dif_a
+        tdif_a[wl, lyr] = (tdif_a_0
+                            * Tf_dif_a
+                            * 1 / (1 - Rf_dif_b * rdif_a_0)
+                            )
 
         # Eq. B10  Briegleb & Light 2007
-        tdif_b[wl, lyr] = tdif_b[wl, lyr] * rintfc * Tf_dif_b
+        tdif_b[wl, lyr] = (tdif_b_0 
+                            * Tf_dif_b
+                            * 1 / (1 - Rf_dif_b * rdif_b_0)
+                            )
 
-        # update trnlay to include fresnel transmission
+        # update trnlay to include fresnel transmission (Eq. B8)
         trnlay[wl, lyr] = Tf_dir_a * trnlay[wl, lyr]
 
     return rdif_a, rdif_b, tdif_a, tdif_b, trnlay, rdir, tdir
 
+# def calc_correction_fresnel_layer(
+#     model_config,
+#     ice,
+#     illumination,
+#     mu0n,
+#     mu0,
+#     nr,
+#     rdif_a,
+#     rdif_b,
+#     tdif_a,
+#     tdif_b,
+#     trnlay,
+#     lyr,
+#     rdir,
+#     tdir,
+# ):
+#     """Update diffuse and direct reflectivity and transmittivity of current
+#     layer by integrating effect of Fresnel boundary above, i.e. merging
+#     the reflectivity & transmittivity of current layer + fresnel layer.
+    
+#     Corrects fluxes for Fresnel reflection in cases where total
+#     internal reflection does and does not occur (angle > critical_angle).
+#     In the diffuse radiation, coefficients are precalculated because 
+#     ~256 gaussian points required for convergence.
 
-def calc_reflection_below(
+#     Args:
+#         model_config: instance of ModelConfig class
+#         ice: instance of Ice class
+#         illumination: instance of Illumination class
+#         mu0n: incidence angle for direct beam adjusted for refraction
+#         mu0: incidence angle of direct beam at upper surface
+#         nr: real part of refractive index
+#         rdif_a: layer reflectivity to diffuse radiation from above
+#         rdif_b: layer reflectivity to diffuse radiation from below
+#         tdif_a: layer transmittivity to diffuse radiation from above
+#         tdif_b: layer transmittivity to diffuse radiation from above
+#         trnlay: transmission of layer == lyr
+#         lyr: current layer (0 ==top)
+#         rdir: layer reflectivity to direct beam
+#         tdir: layer transmittivity to direct beam
+
+
+#     Returns:
+#         rdif_a: layer reflectivity to diffuse radiation from above
+#         rdif_b: layer reflectivity to diffuse radiation from below
+#         tdif_a: layer transmittivity to diffuse radiation from above
+#         tdif_b: layer transmittivity to diffuse radiation from above
+#         trnlay: transmission of layer == lyr
+#         rdir: layer reflectivity to direct beam
+#         tdir: layer transmittivity to direct beam
+#     """
+
+
+#     # compute fresnel reflection and transmission amplitudes
+#     # for two polarizations: 1=perpendicular and 2=parallel to
+#     # the plane containing incident, reflected and refracted rays.
+
+#     # Eq. 22  Briegleb & Light 2007
+#     # Inputs to equation 21 (i.e. Fresnel formulae for R and T)
+#     R1 = (mu0 - nr * mu0n) / (
+#         mu0 + nr * mu0n
+#     )  # reflection amplitude factor for perpendicular polarization
+#     R2 = (nr * mu0 - mu0n) / (
+#         nr * mu0 + mu0n
+#     )  # reflection amplitude factor for parallel polarization
+#     T1 = (
+#         2 * mu0 / (mu0 + nr * mu0n)
+#     )  # transmission amplitude factor for perpendicular polarization
+#     T2 = (
+#         2 * mu0 / (nr * mu0 + mu0n)
+#     )  # transmission amplitude factor for parallel polarization
+
+#     # unpolarized light for direct beam
+#     # Eq. 21  Brigleb and light 2007
+#     Rf_dir_a = 0.5 * (R1**2 + R2**2)
+#     Tf_dir_a = 0.5 * (T1**2 + T2**2) * nr * mu0n / mu0
+
+#     # precalculated diffuse reflectivities and transmissivities
+#     # for incident radiation above and below fresnel layer, using
+#     # the direct albedos and accounting for complete internal
+#     # reflection from below. Precalculated because high order
+#     # number of gaussian points (~256) is required for convergence:
+
+#     # Eq. 25  Brigleb and light 2007
+#     # diffuse reflection of flux arriving from above
+
+#     # reflection from diffuse unpolarized radiation
+#     Rf_dif_a = ice.fl_r_dif_a
+#     Tf_dif_a = 1 - Rf_dif_a  # transmission from diffuse unpolarized radiation
+
+#     # diffuse reflection of flux arriving from below
+#     Rf_dif_b = ice.fl_r_dif_b
+#     Tf_dif_b = 1 - Rf_dif_b
+
+#     # -----------------------------------------------------------------------
+#     # the lyr = lyrfrsnl layer properties are updated to combine
+#     # the fresnel (refractive) layer, always taken to be above
+#     # the present layer lyr (i.e. be the top interface):
+
+#     # save fluxes of lyr before merging with frsnl layer
+#     rdif_a_0 = rdif_a[:, lyr].copy()
+#     rdif_b_0 = rdif_b[:, lyr].copy()
+#     tdif_a_0 = tdif_a[:, lyr].copy()
+#     tdif_b_0 = tdif_b[:, lyr].copy()
+#     tdir_0 = tdir[:, lyr].copy()
+#     rdir_0 = rdir[:, lyr].copy()
+
+#     # combined layer transmissivity to DIRECT radiation
+#     # Eq. B7  Briegleb & Light 2007
+#     tdir[:, lyr] = (
+#         Tf_dir_a * tdir_0
+#         + Tf_dir_a * rdir[:, lyr] * Rf_dif_b * tdif_a[:, lyr]
+#         * 1 / (1 - Rf_dif_b * rdif_a_0)
+#     )
+
+#     # combined layer reflectivity to DIRECT radiation
+#     # Eq. B7  Briegleb & Light 2007
+#     rdir[:, lyr] = (Rf_dir_a 
+#                      + Tf_dir_a 
+#                      * rdir_0
+#                      * Tf_dif_b 
+#                      * 1 / (1 - Rf_dif_b * rdif_a_0)
+#                      )
+                     
+#     # combined layer reflectivity to DIFFUSE radiation (above)
+#     # Eq. B9  Briegleb & Light 2007
+#     rdif_a[:, lyr] = (Rf_dif_a 
+#                        + Tf_dif_a 
+#                        * rdif_a_0
+#                        * Tf_dif_b
+#                        * 1 / (1 - Rf_dif_b * rdif_a_0)
+#                        )
+    
+#     # combined layer reflectivity to DIFFUSE radiation (below)
+#     # Eq. B10  Briegleb & Light 2007
+#     rdif_b[:, lyr] = (
+#         rdif_b_0
+#         + tdif_b_0 
+#         * Rf_dif_b 
+#         * tdif_a_0
+#         * 1 / (1 - Rf_dif_b * rdif_b_0)
+#     )
+    
+#     # combined layer transmissivity to DIFFUSE radiation (above)
+#     # Eq. B9  Briegleb & Light 2007
+#     tdif_a[:, lyr] = (tdif_a_0
+#                        * Tf_dif_a
+#                        * 1 / (1 - Rf_dif_b * rdif_a_0)
+#                        )
+
+#     # Eq. B10  Briegleb & Light 2007
+#     tdif_b[:, lyr] = (tdif_b_0 
+#                        * Tf_dif_b
+#                        * 1 / (1 - Rf_dif_b * rdif_b_0)
+#                        )
+
+#     # update trnlay to include fresnel transmission
+#     trnlay[:, lyr] = Tf_dir_a * trnlay[:, lyr]
+
+#     return rdif_a, rdif_b, tdif_a, tdif_b, trnlay, rdir, tdir
+
+
+def combine_layers_downward(
+    lyr,
+    trnlay,
+    rdif_a,
+    rdir,
+    tdif_a,
+    rdif_b,
+    tdir,
+    tdif_b,
+    model_config,
+    ice,
+    trndir,
+    rdndif,
+    trntdr,
+    trndif,
+):
+    """Calculate energy going downward in the ice column:
+        solar beam transmission, total transmission, diffuse transmission,
+        and reflectivity to diffuse radiation arriving from below.
+        The loop starts at the upper layer, working downwards.
+        Equations are B2 & B5 from Briegleb & Light 2007.
+    
+
+    Args:
+        lyr: integer representing the index of the current layer (0 at top)
+        trnlay: transmissivity of current layer
+        rdif_a: reflectivity to diffuse irradiance for radiation above
+        rdir: reflectivity to direct beam
+        tdif_a: transmissivity to diffuse irradiance for radiation above
+        rdif_b: reflectivity to diffuse irradiance for radiation below
+        tdir: transmissivity to direct beam
+        tdif_b: transmissivity to diffuse irradiance for radiation below
+        model_config: instance of ModelConfig class
+        ice: instance of Ice class
+        trndir: transmission of direct beam
+        rdndif: reflectivity to diffuse radiation for all layers above current layer
+        trntdr: total transmission of direct beam (diffuse + direct)
+        trndif: diffuse transmission
+
+    Returns:
+        trndir: transmission of direct beam
+        trntdr: total transmission of direct beam (diffuse + direct)
+        rdndif: downwards diffuse reflectance
+        trndif: diffuse transmission
+
+    """
+    
+    # term below represents 1 / multiple scattering between layers 
+    # rdndif is the combined reflectivity from all layers
+    # above current layer to diffuse radiation coming from above
+    # (1 - RBAR1 * RBAR2) in Eq. B2 from B&L 2007
+    refkm1 = 1 / (1 - rdndif[:, lyr] * rdif_a[:, lyr])
+    
+    # transmission of solar beam (direct) 
+    # trnlay = exp(-ts/mu_not), with ts changing every layer, mu0 is mu0n under fresnel lr 
+    trndir[:, lyr + 1] = (
+        trndir[:, lyr] * trnlay[:, lyr]
+    ) 
+    
+    # total down diffuse = total transmission - direct transmission
+    tdndif = trntdr[:, lyr] - trndir[:, lyr]
+    
+    # Eq. B2  Briegleb and Light 2007
+    # total transmission for layers above
+    trntdr[:, lyr + 1] = (
+        trndir[:, lyr] * tdir[:, lyr]
+        + (tdndif + trndir[:, lyr] * rdir[:, lyr] * rdndif[:, lyr]) 
+        * refkm1 * tdif_a[:, lyr]
+    )
+    
+    # reflectivity to diffuse radiation from below for layers above
+    rdndif[:, lyr + 1] = rdif_b[:, lyr] + (
+        tdif_b[:, lyr] * rdndif[:, lyr] * refkm1 * tdif_a[:, lyr]
+    )
+ 
+    # Eq. B5 (!! layers are not homogeneous so a =! b)
+    trndif[:, lyr + 1] = trndif[:, lyr] * tdif_a[:, lyr] * refkm1
+
+    return trndir, trntdr, rdndif, trndif
+
+def combine_layers_upward(
+    lyr,
     ice,
     model_config,
     rdif_a,
@@ -885,61 +1112,56 @@ def calc_reflection_below(
     rupdif,
     rupdir,
 ):
-    """Calculates dir/diff reflectyivity for layers below surface.
-
-    Compute reflectivity to direct (rupdir) and diffuse (rupdif) radiation
-    for layers below by adding succesive layers starting from the
-    underlying ice and working upwards.
+    """Combine energy going upward in the ice column:
+        Compute reflectivity to direct (rupdir) and diffuse (rupdif) radiation
+        arriving from above, for layers below current layer. 
+        The loop starts from the second to last interface, working upwards.
+        Equations are B2-B4 from Briegleb & Light 2007. 
 
     Args:
         model_config: instance of ModelConfig class
         ice: instance of Ice class
-        rdif_a: reflectance to diffuse energy w polarization state == perpendicular
-        rdif_b: reflectance to diffuse energy w polarization state == parallel
-        tdif_a: transmittance to diffuse energy w polarization state == perpendicular
-        tdif_b: transmittance to diffuse energy w polarization state == parallel
+        rdif_a: reflectance to diffuse energy from above
+        rdif_b: reflectance to diffuse energy from below
+        tdif_a: transmittance to diffuse energy from above
+        tdif_b: transmittance to diffuse energy from below
         trnlay: transmission of layer == lyr
         rdir: reflectance to direct beam
         tdir: transmission of direct beam
-        rupdif: upwards flux direct
-        rupdir: upwards flux diffuse
+        rupdif: reflectivity to diffuse radiation coming from above for the combined layers
+        rupdir: reflectivity to direct radiation coming from above for the combined layers
 
     Returns:
-        rupdir: upwards flux direct
-        rupdif: upwards flux diffuse
+        rupdif: reflectivity to diffuse radiation coming from above for the combined layers
+        rupdir: reflectivity to direct radiation coming from above for the combined layers
 
     """
 
-    for lyr in np.arange(
-        ice.nbr_lyr - 1, -1, -1
-    ):  # starts at the bottom and works its way up to the top layer
-        # Eq. B5  Briegleb and Light 2007
-        # interface scattering
-        refkp1 = 1 / (1 - rdif_b[:, lyr] * rupdif[:, lyr + 1])
+    # starts at the bottom and works its way up to the top layer
+    # interface scattering
+    refkp1 = 1 / (1 - rdif_b[:, lyr] * rupdif[:, lyr + 1])
 
-        # dir from top layer plus exp tran ref from lower layer, interface
-        # scattered and tran thru top layer from below, plus diff tran ref
-        # from lower layer with interface scattering tran thru top from below
-        rupdir[:, lyr] = (
-            rdir[:, lyr]
-            + (
-                trnlay[:, lyr] * rupdir[:, lyr + 1]
-                + (tdir[:, lyr] - trnlay[:, lyr]) * rupdif[:, lyr + 1]
-            )
-            * refkp1
-            * tdif_b[:, lyr]
+    # Eq. B2
+    rupdir[:, lyr] = (
+        rdir[:, lyr]
+        + (
+            trnlay[:, lyr] * rupdir[:, lyr + 1]
+            + (tdir[:, lyr] - trnlay[:, lyr]) * rupdif[:, lyr + 1]
         )
+        * refkp1
+        * tdif_b[:, lyr]
+    )
 
-        # dif from top layer from above, plus dif tran upwards reflected and
-        # interface scattered which tran top from below
-        rupdif[:, lyr] = (
-            rdif_a[:, lyr]
-            + tdif_a[:, lyr] * rupdif[:, lyr + 1] * refkp1 * tdif_b[:, lyr]
-        )
+    # Eq. B4 (!! layers are not homogeneous so a =! b)
+    rupdif[:, lyr] = (
+        rdif_a[:, lyr]
+        + tdif_a[:, lyr] * rupdif[:, lyr + 1] * refkp1 * tdif_b[:, lyr]
+    )
     return rupdif, rupdir
 
 
-def trans_refl_at_interfaces(
+def calculate_fluxes_at_interfaces(
+    lyr,
     model_config,
     ice,
     rupdif,
@@ -955,7 +1177,8 @@ def trans_refl_at_interfaces(
     dfdir,
     dfdif,
 ):
-    """Calculates transmission and reflection at layer interfaces.
+    """Calculates up and down fluxes at layer interfaces.
+    Equation B6 from Briegleb & Light 2007. 
 
     Args:
         model_config: instance of ModelConfig class
@@ -983,60 +1206,60 @@ def trans_refl_at_interfaces(
 
     puny = 1e-10  # not sure how should we define this
 
-    for lyr in np.arange(0, ice.nbr_lyr + 1, 1):
-        # Eq. 52  Briegleb and Light 2007
-        # interface scattering
-        refk = 1 / (1 - rdndif[:, lyr] * rupdif[:, lyr])
+    # Eq. 52  Briegleb and Light 2007
+    # interface scattering
+    refk = 1 / (1 - rdndif[:, lyr] * rupdif[:, lyr])
 
-        # dir tran ref from below times interface scattering, plus diff
-        # tran and ref from below times interface scattering
-        fdirup[:, lyr] = (
-            trndir[:, lyr] * rupdir[:, lyr]
-            + (trntdr[:, lyr] - trndir[:, lyr]) * rupdif[:, lyr]
-        ) * refk
+    # Eq B6
+    # dir tran ref from below times interface scattering, plus diff
+    # tran and ref from below times interface scattering
+    fdirup[:, lyr] = (
+        trndir[:, lyr] * rupdir[:, lyr]
+        + (trntdr[:, lyr] - trndir[:, lyr]) * rupdif[:, lyr]
+    ) * refk
 
-        # dir tran plus total diff trans times interface scattering plus
-        # dir tran with up dir ref and down dif ref times interface scattering
-        fdirdn[:, lyr] = (
-            trndir[:, lyr]
-            + (
-                trntdr[:, lyr]
-                - trndir[:, lyr]
-                + trndir[:, lyr] * rupdir[:, lyr] * rdndif[:, lyr]
-            )
-            * refk
+    # dir tran plus total diff trans times interface scattering plus
+    # dir tran with up dir ref and down dif ref times interface scattering
+    fdirdn[:, lyr] = (
+        trndir[:, lyr]
+        + (
+            trntdr[:, lyr]
+            - trndir[:, lyr]
+            + trndir[:, lyr] * rupdir[:, lyr] * rdndif[:, lyr]
         )
+        * refk
+    )
 
-        # diffuse tran ref from below times interface scattering
-        fdifup[:, lyr] = trndif[:, lyr] * rupdif[:, lyr] * refk
+    # diffuse tran ref from below times interface scattering
+    fdifup[:, lyr] = trndif[:, lyr] * rupdif[:, lyr] * refk
 
-        # diffuse tran times interface scattering
-        fdifdn[:, lyr] = trndif[:, lyr] * refk
+    # diffuse tran times interface scattering
+    fdifdn[:, lyr] = trndif[:, lyr] * refk
 
-        # dfdir = fdirdn - fdirup
-        dfdir[:, lyr] = (
-            trndir[:, lyr]
-            + (trntdr[:, lyr] - trndir[:, lyr]) * (1 - rupdif[:, lyr]) * refk
-            - trndir[:, lyr] * rupdir[:, lyr] * (1 - rdndif[:, lyr]) * refk
-        )
+    # dfdir = fdirdn - fdirup
+    dfdir[:, lyr] = (
+        trndir[:, lyr]
+        + (trntdr[:, lyr] - trndir[:, lyr]) * (1 - rupdif[:, lyr]) * refk
+        - trndir[:, lyr] * rupdir[:, lyr] * (1 - rdndif[:, lyr]) * refk
+    )
 
-        if np.max(dfdir[:, lyr]) < puny:
-            dfdir[:, lyr] = np.zeros(
-                (model_config.nbr_wvl,), dtype=int
-            )  # echmod necessary?
-            # dfdif = fdifdn - fdifup
+    if np.max(dfdir[:, lyr]) < puny:
+        dfdir[:, lyr] = np.zeros(
+            (model_config.nbr_wvl,), dtype=int
+        )  # echmod necessary?
+        # dfdif = fdifdn - fdifup
 
-        dfdif[:, lyr] = trndif[:, lyr] * (1 - rupdif[:, lyr]) * refk
+    dfdif[:, lyr] = trndif[:, lyr] * (1 - rupdif[:, lyr]) * refk
 
-        if np.max(dfdif[:, lyr]) < puny:
-            dfdif[:, lyr] = np.zeros(
-                (model_config.nbr_wvl,), dtype=int
-            )  # !echmod necessary?
+    if np.max(dfdif[:, lyr]) < puny:
+        dfdif[:, lyr] = np.zeros(
+            (model_config.nbr_wvl,), dtype=int
+        )  # !echmod necessary?
 
     return fdirup, fdifup, fdirdn, fdifdn
 
 
-def calculate_fluxes(
+def calculate_bulk_fluxes(
     model_config,
     ice,
     illumination,
@@ -1085,17 +1308,6 @@ def calculate_fluxes(
         )
 
     F_net = F_up - F_dwn
-
-    # import matplotlib.pyplot as plt
-    # plt.plot(Inputs.Fs)
-    # plt.show()
-    # plt.figure(1)
-    # plt.plot(Inputs.Fs)
-    # plt.plot(F_dwn[:,0].T)
-    # plt.plot(F_dwn[:,1].T)
-    # plt.plot(F_dwn[:,2].T)
-    # plt.show()
-    # plt.show()
 
     # Absorbed flux in each layer
     F_abs[:, :] = F_net[:, 1:] - F_net[:, :-1]
@@ -1218,22 +1430,6 @@ def get_outputs(illumination, albedo, model_config, L_snw, F_abs, F_btm_net):
     return outputs
 
 
-def apply_smoothing_function(albedo, model_config):
-    """Applies Savitsky-Golay smoothing function to albedo, if toggled.
-
-    Args:
-        albedo: array of albedo values, likely passed as outputs.albedo
-        model_config: instance of ModelConfig
-
-    Returns:
-        albedo: updated array of albedo values
-
-    """
-
-    yhat = savgol_filter(albedo, model_config.window_size, model_config.poly_order)
-    albedo = yhat
-
-    return albedo
 
 
 if __name__ == "__main__":

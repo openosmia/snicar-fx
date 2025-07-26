@@ -14,7 +14,6 @@ class Ice:
     Attributes:
         dz: array containing thickness of each layer in m
         layer_type: array containing type (0 = grains, 1 = solid ice) in each layer
-        cdom: array containing Boolean (1/0) toggling presence of cdom in each layer
         rho: array containing density of each layer in kg/m3
         sfc: array with reflectance of underlying surface per wavelength
         rf: refractive index to use, 0,1,2 or 3 (see docs for definition)
@@ -35,33 +34,36 @@ class Ice:
 
         self.dz = inputs["ICE"]["DZ"]
         self.layer_type = inputs["ICE"]["LAYER_TYPE"]
-        self.cdom = inputs["ICE"]["CDOM"]
         self.rho = inputs["ICE"]["RHO"]
-        self.sfc = np.genfromtxt(
-            str(os.path.dirname(os.path.dirname(biosnicar.__file__))
-                 + "/" + inputs["PATHS"]["SFC"]), delimiter="csv"
-        )
+        self.sfc = np.ones(inputs["RTM"]["NBR_WVL"]) * inputs["ICE"]["SFC"]
         self.rf = inputs["ICE"]["RF"]
-        self.shp = inputs["ICE"]["SHP"]
+        self.grain_shape = inputs["ICE"]["GRAIN_SHAPE"]
+        self.lwc = inputs["ICE"]["LWC"]
         self.rds = inputs["ICE"]["RDS"]
-        self.water = inputs["ICE"]["WATER_COATING"]
         self.hex_side = inputs["ICE"]["HEX_SIDE"]
         self.hex_length = inputs["ICE"]["HEX_LENGTH"]
-        self.shp_fctr = inputs["ICE"]["SHP_FCTR"]
-        self.ar = inputs["ICE"]["AR"]
         self.nbr_lyr = len(self.dz)
-        self.lwc = inputs["ICE"]["LWC"]
-        self.lwc_pct_bbl = inputs["ICE"]["LWC_PCT_BBL"]
-        self.ref_idx_im_water = pd.read_csv(
-            str(os.path.dirname(os.path.dirname(biosnicar.__file__))
-                 + "/" + inputs["PATHS"]["RI_ICE"] + 
-            'refractive_index_water_273K_Rowe2020.csv'
-        )).k.values
-    
-        self.calculate_refractive_index(input_file)
         
-
-    def calculate_refractive_index(self, input_file):
+        self.nbr_wvl = inputs["RTM"]["NBR_WVL"]
+        
+        wvl1 = inputs["RTM"]["WVL_START"]
+        wvl2 = inputs["RTM"]["WVL_END"]
+        resolution = inputs["RTM"]["RESOLUTION"]
+        self.wvl = np.arange(
+            wvl1*1e-3, 
+            wvl2*1e-3,
+            resolution*1e-3)
+        # self.path_op = (str(os.path.dirname(os.path.dirname(biosnicar.__file__)))
+        #             + "/" 
+        #             + f'data/OP_data/{wvl1}_{wvl2}_{resolution}/'
+        #     )
+        self.path_op = (str(os.path.dirname(os.path.dirname(biosnicar.__file__)))
+                    + "/" 
+                    + f'data/OP_data/480band/'
+            )
+        
+        
+    def calculate_refractive_index(self):
         """Calculates ice refractive index from initialized class attributes.
 
         Takes self.rf and config from inpouts.yaml and uses them to calculate
@@ -75,35 +77,102 @@ class Ice:
             ref_idx_re: real part of refractive index
             fl_r_dif_a: precomputed diffuse reflectance "perpendicular polarized)
             fl_r_dif_b: precomputed diffuse reflectance "parallel polarized)
-            op_dir: directory containing optical properties
 
         Raises:
             ValueError if rf out of range
         """
-        if self.rf < 0 or self.rf > 2:
-            raise ValueError("Ice ref index type out of range - between 0 and 2 only")
+        if self.rf not in ["Wrn84", "Wrn08", "Pic16", "Coop21"]:
+            raise ValueError("Ice refractive index not found")
 
-        with open(input_file, "r") as ymlfile:
-            inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
+        refidx_file = xr.open_dataset(self.path_op + "rfidx_ice.nc")
+        
+        fresnel_diffuse_file = xr.open_dataset(self.path_op + "fl_reflection_diffuse.nc")
 
-        refidx_file = xr.open_dataset(
-            str(os.path.dirname(os.path.dirname(biosnicar.__file__))
-                 + "/" + inputs["PATHS"]["RI_ICE"] + "rfidx_ice.nc"))
-        fresnel_diffuse_file = xr.open_dataset(
-            str(os.path.dirname(os.path.dirname(biosnicar.__file__))
-                 + "/" +
-            inputs["PATHS"]["RI_ICE"] + "fl_reflection_diffuse.nc"))
+        self.ref_idx_re = refidx_file[str("re_" + self.rf)].values
+        self.ref_idx_im = refidx_file[str("im_" + self.rf)].values
 
-        rf = inputs["ICE"]["RF"]
-        op_dir_stub = inputs["PATHS"]["OP_DIR_STUBS"][rf]
-        ref_idx_name = op_dir_stub[4:9]
-
-        self.ref_idx_re = refidx_file[str("re_" + ref_idx_name)].values
-        self.ref_idx_im = refidx_file[str("im_" + ref_idx_name)].values
         self.fl_r_dif_a = fresnel_diffuse_file[
-            str("R_dif_fa_ice_" + ref_idx_name)
+            str("R_dif_fa_ice_" + self.rf)
         ].values
         self.fl_r_dif_b = fresnel_diffuse_file[
-            str("R_dif_fb_ice_" + ref_idx_name)
+            str("R_dif_fb_ice_" + self.rf)
         ].values
-        self.op_dir = op_dir_stub 
+        
+        self.ref_idx_im_water = pd.read_csv(self.path_op 
+            + 'refractive_index_water_273K_Rowe2020.csv'
+        ).k.values
+    
+    def calculate_column_ops(self):
+        
+        # init the ssps
+        self.ext = np.ones((self.nbr_lyr,
+                            self.nbr_wvl))
+        self.ss_alb = np.ones((self.nbr_lyr,
+                            self.nbr_wvl))
+        self.g = np.ones((self.nbr_lyr,
+                            self.nbr_wvl))
+        
+        for lyr in range(self.nbr_lyr):
+            if self.layer_type[lyr] > 0: # ice - only air inclusions for now
+                # eq_rds = 3 * vlm_frac_air / (self.ssa * self.rho[lyr]) # Eq from Whicker
+                vlm_frac_ice = (self.rho[lyr] - self.lwc[lyr] * 1000) / 917
+                vlm_frac_air = 1 - self.lwc[lyr] - vlm_frac_ice
+                sca_cff_vlm_air_bbl = np.ones(self.nbr_wvl) * 2 * 0.75 / (self.rds[lyr] * 1e-6)
+                scattering_cff = (
+                    sca_cff_vlm_air_bbl 
+                    * vlm_frac_air 
+                    / self.rho[lyr]
+                    )
+
+                abs_cff = (4 
+                           * np.pi 
+                           / (self.wvl * 1e-6) 
+                           / self.rho[lyr]
+                           * (
+                               vlm_frac_ice * self.ref_idx_im
+                               + self.lwc[lyr] * self.ref_idx_im_water
+                               )
+                           )
+                    
+                self.ext[lyr, :] = (
+                    scattering_cff
+                    + abs_cff
+                    )
+                self.ss_alb[lyr, :] = (
+                    scattering_cff 
+                    / self.ext[lyr, :]
+                    )
+                self.g[lyr, :] = np.ones(self.nbr_wvl) * 0.86
+                
+            else: #snow
+                ssa = 3 / (917 * self.rds[lyr] * 1e-6)
+                self.ext[lyr, :] = (self.rho[lyr] * ssa / 2) / self.rho[lyr]
+                W = 0.0611 + 0.17 * (self.ref_idx_re - 1.3)
+                k_eq = (self.lwc[lyr] * self.ref_idx_im_water 
+                          + (1-self.lwc[lyr]) * self.ref_idx_im
+                          )
+                c = 24.0 * np.pi * k_eq / (917.0 * self.wvl * 1e-6) / ssa
+                
+                if self.grain_shape[lyr] == 0: 
+                    B0 = 1.25
+                    g0=0.895
+                    B = B0 + 0.4 * (self.ref_idx_re - 1.3)
+                    phi = 2.0 / 3 * B / (1 - W)
+                    self.ss_alb[lyr, :] = 1 - 0.5 * (1 - W) * (1 - np.exp(-c * phi))
+                    y = 0.728 + 0.752 * (self.ref_idx_re - 1.3)
+                    ginf = 0.9751 - 0.105 * (self.ref_idx_re - 1.3)
+                    g00 = g0 - 0.38 * (self.ref_idx_re - 1.3)
+                    self.g[lyr,:] = ginf - (ginf - g00) * np.exp(-y * c) 
+                    
+                elif self.grain_shape[lyr] == 1:
+                    self.g[lyr,:] = np.ones(self.nbr_wvl) * 0.815
+                    B = self.ref_idx_re**2
+                    phi = 2.0 / 3 * B / (1 - W)
+                    self.ss_alb[lyr, :] = 1 - 0.5 * (1 - W) * (1 - np.exp(-c * phi))
+            
+
+        
+        
+
+
+        
