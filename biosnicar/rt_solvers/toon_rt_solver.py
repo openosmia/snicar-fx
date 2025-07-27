@@ -29,16 +29,12 @@ import numpy as np
 from biosnicar.classes.outputs import Outputs
 
 
-def toon_solver(tau, ssa, g, L_snw, ice, illumination, model_config, rt_config):
+def toon_solver(ice, illumination, model_config, rt_config):
     """Driver func for toon radiative transfer solver.
 
     Makes function calls relating to radiative transfer solver in sequence and returns outputs.
 
     Args:
-        tau: optical thickness
-        ssa: single scattering albedo
-        g: asymmetry parameter
-        L_snw: mass of ice in each layer
         ice: instance of Ice class
         illumination: instance of Illumination class
         model_config: instance of ModelConfig class
@@ -56,7 +52,7 @@ def toon_solver(tau, ssa, g, L_snw, ice, illumination, model_config, rt_config):
     # if no delta transformation is applied, the starred quantity
     # is equal to the unstarred quantity
 
-    g_star, ssa_star, tau_star = delta_transformation(rt_config, g, ssa, tau)
+    g_star, ssa_star, tau_star = delta_transformation(rt_config, ice.g, ice.ss_alb, ice.tau)
 
     # CALCULATE TOTAL OPTICAL DEPTH OF ENTIRE COLUMN
     # i.e. tau_clm = total optical depth from upper boundary
@@ -159,7 +155,7 @@ def toon_solver(tau, ssa, g, L_snw, ice, illumination, model_config, rt_config):
     # bulk_reflected)
     # conservation_of_energy_check(illumination, F_abs, F_btm_net, F_top_pls)
     outputs = get_outputs(
-        model_config, ice, illumination, F_top_pls, F_top_net, F_btm_net, F_abs, L_snw
+        model_config, ice, illumination, F_top_pls, F_top_net, F_btm_net, F_abs
     )
 
 
@@ -758,7 +754,7 @@ def conservation_of_energy_check(illumination, F_abs, F_btm_net, F_top_pls):
 
 
 def get_outputs(
-    model_config, ice, illumination, F_top_pls, F_top_net, F_btm_net, F_abs, L_snw
+    model_config, ice, illumination, F_top_pls, F_top_net, F_btm_net, F_abs
 ):
     """Assimilates useful data into instance of Outputs class.
 
@@ -766,7 +762,6 @@ def get_outputs(
         illumination: instance of Illumination class
         albedo: ratio of upwwards fluxes and irradiance
         model_config: instance of ModelConfig class
-        L_snw: mass of ice in each layer
         F_abs: absorbed flux in each layer
         F_btm_net: net flux at bottom surface
 
@@ -813,6 +808,7 @@ def get_outputs(
     # Calculate radiative heating rate in kelvin per second.
     # Multiply by 3600 to convert to K per hour
     # specfic heta capacity of ice = 2117 J kg-1 K-1
+    L_snw = np.array(ice.rho) * np.array(ice.dz)
     heat_rt = outputs.abs_slr / (L_snw * 2117)  # [K / s]
     outputs.heat_rt = heat_rt * 3600  # [K / hr]
 

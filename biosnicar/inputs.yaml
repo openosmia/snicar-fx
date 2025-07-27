@@ -14,9 +14,10 @@ RTM:
 ICE:
   DZ: [0.05, 100]  # thickness of each vertical layer (unit : m)
   LAYER_TYPE: [2,1]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
-  RHO: [650, 650]  # density of each layer (unit : kg m-3)
-  RF: "Pic16" # "Wrn08", "Pic16", "Coop21"
-  RDS: [1000, 1000]  # effective grain or bubble radius
+  DENSITY: [650, 650]  # density of each layer (unit : kg m-3)
+  RF_TYPE: "Pic16" # "Wrn08", "Pic16", "Coop21"
+  RDS: [1000, 1000]  # for ice: effective grain or bubble radius
+  SPECIFIC_SURFACE_AREA: [16.3, 16.3] # for snow: m2 kg-1
   LWC: [0, 0] # LWC content in snow/ice 
   SFC: 0 # reflectance of lower boundary  
   GRAIN_SHAPE: [0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
@@ -29,7 +30,7 @@ IMPURITIES:
     FILE: "bc_ChCB_rn40_dns1270.nc"
     COATED: False
     UNIT: 0
-    CONC: [0]
+    CONC: [100, 100]
   
   SA:
     NAME: "sa"

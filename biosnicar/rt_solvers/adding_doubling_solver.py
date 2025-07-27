@@ -33,17 +33,13 @@ import numpy as np
 from biosnicar.classes.outputs import Outputs
 
 
-def adding_doubling_solver(tau, ssa, g, L_snw, ice, illumination, model_config):
+def adding_doubling_solver(ice, illumination, model_config):
     """control function for the adding-doubling solver.
 
     Makes function calls in sequence to generate, then return, an instance of
     Outputs class.
 
     Args:
-        tau: optical thickness of ice column in m/m
-        ssa: single scattering albedo of ice column (dimensionless)
-        g: asymmetry parameter for ice column
-        L_snw: mass of ice in lg
         ice: instance of Ice class
         illumination: instance of Illumination class
         model_config: instance of ModelConfig class
@@ -98,7 +94,7 @@ def adding_doubling_solver(tau, ssa, g, L_snw, ice, illumination, model_config):
         F_abs_nir,
         rupdif,
         rupdir,
-    ) = define_constants_arrays(tau, g, ssa, illumination, ice, model_config)
+    ) = define_constants_arrays(illumination, ice, model_config)
     
     # initialize reflection and transmission at top interface 
     trntdr[:, 0] = 1
@@ -264,23 +260,20 @@ def adding_doubling_solver(tau, ssa, g, L_snw, ice, illumination, model_config):
 
     conservation_of_energy_check(illumination, F_abs, F_btm_net, F_top_pls)
 
-    outputs = get_outputs(illumination, albedo, model_config, L_snw, F_abs, F_btm_net)
+    outputs = get_outputs(ice, illumination, albedo, model_config, F_abs, F_btm_net)
 
     return outputs
 
 
 
 
-def define_constants_arrays(tau, g, ssa, illumination, ice, model_config):
+def define_constants_arrays(illumination, ice, model_config):
     """defines and instantiates constants required for a-d calculations.
 
     Defines and instantiates all variables required for calculating energy fluxes
     using the adding-doubling method.
 
     Args:
-        tau: optical thickness of ice column in m/m
-        g: asymmetry parameter for ice column
-        ssa: single scattering albedo of ice column (dimensionless)
         ice: instance of Ice class
         illumination: instance of Illumination class
         model_config: instance of ModelConfig class
@@ -329,9 +322,9 @@ def define_constants_arrays(tau, g, ssa, illumination, ice, model_config):
 
     """
 
-    tau0 = tau.T  # read and transpose tau
-    g0 = g.T  # read and transpose g
-    ssa0 = ssa.T  # read and transpose ssa
+    tau0 = ice.tau.T  # read and transpose tau
+    g0 = ice.g.T  # read and transpose g
+    ssa0 = ice.ss_alb.T  # read and transpose ssa
     epsilon = 1e-5  # to deal with singularity
     exp_min = 1e-5  # exp(-500)  # min value > 0 to avoid error
     nr = np.zeros(shape=480)
@@ -1361,14 +1354,13 @@ def conservation_of_energy_check(illumination, F_abs, F_btm_net, F_top_pls):
         pass
 
 
-def get_outputs(illumination, albedo, model_config, L_snw, F_abs, F_btm_net):
+def get_outputs(ice, illumination, albedo, model_config, F_abs, F_btm_net):
     """Assimilates useful data into instance of Outputs class.
 
     Args:
         illumination: instance of Illumination class
         albedo: ratio of upwwards fluxes and irradiance
         model_config: instance of ModelConfig class
-        L_snw: mass of ice in each layer
         F_abs: absorbed flux in each layer
         F_btm_net: net flux at bottom surface
 
@@ -1381,6 +1373,7 @@ def get_outputs(illumination, albedo, model_config, L_snw, F_abs, F_btm_net):
     # Radiative heating rate:
     F_abs_slr = np.sum(F_abs, axis=0)
     # [K/s] 2117 = specific heat ice (J kg-1 K-1)
+    L_snw = np.array(ice.rho) * np.array(ice.dz)
     heat_rt = F_abs_slr / (L_snw * 2117)
     outputs.heat_rt = heat_rt * 3600  # [K/hr]
 
