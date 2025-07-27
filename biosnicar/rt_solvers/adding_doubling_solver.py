@@ -1373,8 +1373,7 @@ def get_outputs(ice, illumination, albedo, model_config, F_abs, F_btm_net):
     # Radiative heating rate:
     F_abs_slr = np.sum(F_abs, axis=0)
     # [K/s] 2117 = specific heat ice (J kg-1 K-1)
-    L_snw = np.array(ice.rho) * np.array(ice.dz)
-    heat_rt = F_abs_slr / (L_snw * 2117)
+    heat_rt = F_abs_slr / (np.array(ice.rho) * np.array(ice.dz) * 2117)
     outputs.heat_rt = heat_rt * 3600  # [K/hr]
 
     # Spectral albedo

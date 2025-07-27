@@ -230,10 +230,15 @@ def mix_in_impurities(ice, impurities, model_config):
     mss_aer = np.zeros([ice.nbr_lyr, len(impurities)])
     g_sum = np.zeros([ice.nbr_lyr, model_config.nbr_wvl])
     ssa_sum = np.zeros([ice.nbr_lyr, len(impurities), model_config.nbr_wvl])
+    tau = np.zeros([ice.nbr_lyr, model_config.nbr_wvl])
+    ssa = np.zeros([ice.nbr_lyr, model_config.nbr_wvl])
+    g = np.zeros([ice.nbr_lyr, model_config.nbr_wvl])
     L_aer = np.zeros([ice.nbr_lyr, len(impurities)])
     tau_aer = np.zeros([ice.nbr_lyr, len(impurities), model_config.nbr_wvl])
     tau_sum = np.zeros([ice.nbr_lyr, model_config.nbr_wvl])
     ssa_sum = np.zeros([ice.nbr_lyr, model_config.nbr_wvl])
+    L_snw = np.zeros(ice.nbr_lyr)
+    tau_snw = np.zeros([ice.nbr_lyr, model_config.nbr_wvl])
 
     for i, impurity in enumerate(impurities):
 
@@ -258,14 +263,14 @@ def mix_in_impurities(ice, impurities, model_config):
 
     for i in range(ice.nbr_lyr):
 
-        L_snw = ice.rho[i] * ice.dz[i]
+        L_snw[i] = ice.rho[i] * ice.dz[i]
 
         for j, impurity in enumerate(impurities):
 
             mac_aer[j, :] = impurity.mac
 
             # kg ice m-2 * cells kg-1 ice = cells m-2
-            L_aer[i, j] = L_snw * mss_aer[i, j]
+            L_aer[i, j] = L_snw[i] * mss_aer[i, j]
             # cells m-2 * m2 cells-1
 
             tau_aer[i, j, :] = L_aer[i, j] * mac_aer[j, :]
@@ -279,28 +284,27 @@ def mix_in_impurities(ice, impurities, model_config):
 
             if impurity.unit == 1:
 
-                L_snw = L_snw - L_aer[i, j] * 10 ** (-12)
+                L_snw[i] = L_snw[i] - L_aer[i, j] * 10 ** (-12)
 
             else:
-                L_snw = L_snw - L_aer[i, j]
+                L_snw[i] = L_snw[i] - L_aer[i, j]
 
-        # update by removing mass of impurities
-        ice.tau[i, :] = L_snw * ice.ext[i, :]
+        tau_snw[i, :] = L_snw[i] * ice.ext[i, :]
 
-        # update again tau, ss_alb and g by adding impurities
-        ice.tau[i, :] = tau_sum[i, :] + ice.tau[i, :]
-        ice.ss_alb[i, :] = (1 / ice.tau[i, :]) * (ssa_sum[i, :] + (ice.ss_alb[i, :] * L_snw * ice.ext[i, :]))
-        ice.g[i, :] = (1 / (ice.tau[i, :] * (ice.ss_alb[i, :]))) * (
-            g_sum[i, :] + (ice.g[i, :] * ice.ss_alb[i, :] * L_snw * ice.ext[i, :])
+        # finally, for each layer calculate the effective ssa, tau and g
+        # for the snow+LAP
+        ice.tau[i, :] = tau_sum[i, :] + tau_snw[i, :]
+        ice.ssa[i, :] = (1 / tau[i, :]) * (ssa_sum[i, :] + (ice.ss_alb[i, :] * tau_snw[i, :]))
+        ice.g[i, :] = (1 / (tau[i, :] * (ssa[i, :]))) * (
+            g_sum[i, :] + (ice.g[i, :] * ice.ss_alb[i, :] * tau_snw[i, :])
         )
 
     # just in case any unrealistic values arise (none detected so far)
-    ice.ss_alb[ice.ss_alb <= 0] = 0.00000001
-    ice.ss_alb[ice.ss_alb >= 1] = 0.99999999
-    ice.g[ice.g <= 0] = 0.00001
-    ice.g[ice.g > 0.99] = 0.99
+    ssa[ssa <= 0] = 0.00000001
+    ssa[ssa >= 1] = 0.99999999
+    g[g <= 0] = 0.00001
+    g[g > 0.99] = 0.99
 
-    # return tau, ssa, g, L_snw
 
 
 if __name__ == "__main__":

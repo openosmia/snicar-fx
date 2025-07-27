@@ -30,163 +30,164 @@ import pytest
 import xarray as xr
 from biosnicar.rt_solvers.adding_doubling_solver import adding_doubling_solver
 from biosnicar.classes import Impurity
-from biosnicar.drivers.setup_snicar import build_classes, mix_in_impurities, calculate_column_ops, build_impurities_array
+from biosnicar.drivers.setup_snicar import build_classes, calculate_column_ops, mix_in_impurities, build_impurities_array
 from biosnicar.rt_solvers.toon_rt_solver import toon_solver
 
 
-# def test_AD_solver(new_benchmark_ad, input_file):
-#     """Tests AD solver against SNICAR_ADv4 benchmark.
+def test_AD_solver(new_benchmark_ad, input_file):
+    """Tests AD solver against SNICAR_ADv4 benchmark.
 
-#     This func generates a new file - py_benchmark_data.csv - that contains
-#     spectral and broadband albedo simulated by BioSNICAR for a range of input
-#     configurations. The same set of simulations was also run using a previously
-#     published version of the SNICAR code written in Matlab by Chloe Whicker at
-#     University of Michigan and run on the UMich server. This function
-#     only creates the equivalent dataset using BioSNICAR, it doesn't compare the two.
+    This func generates a new file - py_benchmark_data.csv - that contains
+    spectral and broadband albedo simulated by BioSNICAR for a range of input
+    configurations. The same set of simulations was also run using a previously
+    published version of the SNICAR code written in Matlab by Chloe Whicker at
+    University of Michigan and run on the UMich server. This function
+    only creates the equivalent dataset using BioSNICAR, it doesn't compare the two.
 
-#     Equivalence between the Python and Matlab model configuration is controlled by
-#     a call to match_matlab_config(). This function can be toggled off by setting
-#     new_benchmark_ad to False in conftest.py.
+    Equivalence between the Python and Matlab model configuration is controlled by
+    a call to match_matlab_config(). This function can be toggled off by setting
+    new_benchmark_ad to False in conftest.py.
 
-#     Args:
-#         new_benchmark_ad: Boolean toggling this function on/off
+    Args:
+        new_benchmark_ad: Boolean toggling this function on/off
 
-#     Returns:
-#         None but saves py_benchmark_data.csv to ./tests/test_data/
+    Returns:
+        None but saves py_benchmark_data.csv to ./tests/test_data/
 
-#     """
-#     if new_benchmark_ad:
+    """
+    if new_benchmark_ad:
         
-#         (
-#             ice,
-#             illumination,
-#             rt_config,
-#             model_config,
-#         ) = build_classes("./biosnicar/inputs.yaml")
+        (
+            ice,
+            illumination,
+            rt_config,
+            model_config,
+        ) = build_classes("./biosnicar/inputs.yaml")
                 
-#         ice, illumination, impurities, rt_config, model_config = match_matlab_config(
-#             ice, illumination, rt_config, model_config, input_file
-#         )
+        ice, illumination, impurities, rt_config, model_config = match_matlab_config(
+            ice, illumination, rt_config, model_config, input_file
+        )
 
-#         lyrList = [0, 1]
-#         densList = [400, 500, 600, 700, 800]
-#         reffList = [200, 400, 600, 800, 1000]
-#         zenList = [30, 40, 50, 60]
-#         bcList = [500, 1000, 2000]
-#         dzList = [
-#             [0.02, 0.04, 0.06, 0.08, 0.1],
-#             [0.04, 0.06, 0.08, 0.10, 0.15],
-#             [0.05, 0.10, 0.15, 0.2, 0.5],
-#             [0.15, 0.2, 0.25, 0.3, 0.5],
-#             [0.5, 0.5, 0.5, 1, 10],
-#         ]
+        lyrList = [0, 1]
+        densList = [400, 500, 600, 700, 800]
+        reffList = [200, 400, 600, 800, 1000]
+        zenList = [30, 40, 50, 60]
+        bcList = [500, 1000, 2000]
+        dzList = [
+            [0.02, 0.04, 0.06, 0.08, 0.1],
+            [0.04, 0.06, 0.08, 0.10, 0.15],
+            [0.05, 0.10, 0.15, 0.2, 0.5],
+            [0.15, 0.2, 0.25, 0.3, 0.5],
+            [0.5, 0.5, 0.5, 1, 10],
+        ]
 
-#         ncols = (
-#             len(lyrList)
-#             * len(densList)
-#             * len(reffList)
-#             * len(zenList)
-#             * len(bcList)
-#             * len(dzList)
-#         )
+        ncols = (
+            len(lyrList)
+            * len(densList)
+            * len(reffList)
+            * len(zenList)
+            * len(bcList)
+            * len(dzList)
+        )
 
-#         assert ncols == 3000
+        assert ncols == 3000
 
-#         specOut = np.zeros(shape=(ncols, 481))
-#         counter = 0
-#         for layer_type in lyrList:
-#             for density in densList:
-#                 for reff in reffList:
-#                     for zen in zenList:
-#                         for bc in bcList:
-#                             for dz in dzList:                                
-#                                 # calculate irradiance
-#                                 illumination.solzen = zen
-#                                 illumination.calculate_irradiance()
-#                                 impurities[0].conc = [
-#                                     bc,
-#                                     bc,
-#                                     bc,
-#                                     bc,
-#                                     bc,
-#                                 ]  # bc in all layers
+        specOut = np.zeros(shape=(ncols, 481))
+        counter = 0
+        for layer_type in lyrList:
+            for density in densList:
+                for reff in reffList:
+                    for zen in zenList:
+                        for bc in bcList:
+                            for dz in dzList:                                
+                                # calculate irradiance
+                                illumination.solzen = zen
+                                illumination.calculate_irradiance()
+                                impurities[0].conc = [
+                                    bc,
+                                    bc,
+                                    bc,
+                                    bc,
+                                    bc,
+                                ]  # bc in all layers
   
                                 
-#                                 # calculate column ssa, g, mac
-#                                 ice.dz = dz
-#                                 ice.layer_type = [layer_type] * len(ice.dz)
-#                                 ice.rho = [density] * len(ice.dz)
+                                # calculate column ssa, g, mac
+                                ice.dz = dz
+                                ice.layer_type = [layer_type] * len(ice.dz)
+                                ice.rho = [density] * len(ice.dz)
                                 
-#                                 # CASE 1: SNOW
-#                                 snow_idx = np.where(
-#                                     np.array(ice.layer_type) == 0)[0]
+                                # CASE 1: SNOW
+                                snow_idx = np.where(
+                                    np.array(ice.layer_type) == 0)[0]
                             
                                 
-#                                 for i in snow_idx: 
-#                                     file_ssps = str(
-#                                         "./tests/test_data/ice_spherical_grains_BH83/"
-#                                         + f'ice_{ice.rf_type}/ice_{ice.rf_type}_'
-#                                         + "{}.nc".format(
-#                                             str(reff).rjust(4, "0"))
-#                                         )
+                                for i in snow_idx: 
+                                    file_ssps = str(
+                                        "./tests/test_data/ice_spherical_grains_BH83/"
+                                        + f'ice_{ice.rf_type}/ice_{ice.rf_type}_'
+                                        + "{}.nc".format(
+                                            str(reff).rjust(4, "0"))
+                                        )
 
-#                                     with xr.open_dataset(file_ssps) as temp:
-#                                         ice.ss_alb[i, :] = temp["ss_alb"].values 
-#                                         ice.ext[i, :] = temp["ext_cff_mss"].values
-#                                         ice.g[i, :] = temp["asm_prm"].values
+                                    with xr.open_dataset(file_ssps) as temp:
+                                        ice.ss_alb[i, :] = temp["ss_alb"].values 
+                                        ice.ext[i, :] = temp["ext_cff_mss"].values
+                                        ice.g[i, :] = temp["asm_prm"].values
                                 
                                 
-#                                 # CASE 2: ICE
-#                                 ice_idx = np.where(
-#                                     np.array(ice.layer_type) != 0)[0]
+                                # CASE 2: ICE
+                                ice_idx = np.where(
+                                    np.array(ice.layer_type) != 0)[0]
                                 
-#                                 for i in ice_idx: 
-#                                     file_ssps = str(
-#                                         "./tests/test_data/bubbly_ice_files_BH83/"
-#                                         + "bbl_{}.nc".format(
-#                                             str(reff).rjust(4, "0"))
-#                                         )
-#                                     with xr.open_dataset(file_ssps) as temp:
-#                                         ice.g[i, :] = temp["asm_prm"].values
-#                                         sca_cff_vlm_air_bbl = temp["sca_cff_vlm"].values
-#                                         vlm_frac_air = 1  - ice.rho[i] / 917
-#                                         scattering_cff = (
-#                                             sca_cff_vlm_air_bbl 
-#                                             * vlm_frac_air 
-#                                             / ice.rho[i]
-#                                             )
-#                                         abs_cff = (
-#                                             (4 * np.pi * ice.ref_idx_im) 
-#                                             / (model_config.wavelengths * 1e-6) 
-#                                             / 917
-#                                             )
-#                                         ice.ext[i, :] = (
-#                                             scattering_cff
-#                                             + abs_cff
-#                                             )
-#                                         ice.ss_alb[i, :] = (
-#                                             scattering_cff 
-#                                             / ice.ext[i, :]
-#                                             )
+                                for i in ice_idx: 
+                                    file_ssps = str(
+                                        "./tests/test_data/bubbly_ice_files_BH83/"
+                                        + "bbl_{}.nc".format(
+                                            str(reff).rjust(4, "0"))
+                                        )
+                                    with xr.open_dataset(file_ssps) as temp:
+                                        ice.g[i, :] = temp["asm_prm"].values
+                                        sca_cff_vlm_air_bbl = temp["sca_cff_vlm"].values
+                                        vlm_frac_air = 1  - ice.rho[i] / 917
+                                        scattering_cff = (
+                                            sca_cff_vlm_air_bbl 
+                                            * vlm_frac_air 
+                                            / ice.rho[i]
+                                            )
+                                        abs_cff = (
+                                            (4 * np.pi * ice.ref_idx_im) 
+                                            / (model_config.wavelengths * 1e-6) 
+                                            / 917
+                                            )
+                                        ice.ext[i, :] = (
+                                            scattering_cff
+                                            + abs_cff
+                                            )
+                                        ice.ss_alb[i, :] = (
+                                            scattering_cff 
+                                            / ice.ext[i, :]
+                                            )
                                 
-#                                 # add impurities
-#                                 mix_in_impurities(ice, impurities, model_config)
+                                # add impurities
+                                mix_in_impurities(ice, impurities, model_config)
                                 
-#                                 # solve RTE
-#                                 outputs = adding_doubling_solver(
-#                                     ice, illumination, model_config
-#                                 )
+                                
+                                # solve RTE
+                                outputs = adding_doubling_solver(
+                                    ice, illumination, model_config
+                                )
 
-#                                 specOut[counter, 0:480] = outputs.albedo
-#                                 specOut[counter, 480] = outputs.BBA
-#                                 counter += 1
+                                specOut[counter, 0:480] = outputs.albedo
+                                specOut[counter, 480] = outputs.BBA
+                                counter += 1
 
-#         np.savetxt("./tests/test_data/py_benchmark_data.csv", specOut, delimiter=",")
+        np.savetxt("./tests/test_data/py_benchmark_data.csv", specOut, delimiter=",")
 
-#     else:
-#         pass
+    else:
+        pass
 
-#     return
+    return
 
 
 def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
@@ -294,7 +295,6 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                                         ice.g[i, :] = temp["asm_prm"].values
                                         ice.tau[i, :] = ice.rho[i] * ice.dz[i] * ice.ext[i, :]
 
-                                
                                 
                                 # CASE 2: ICE
                                 ice_idx = np.where(

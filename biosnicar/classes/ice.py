@@ -63,6 +63,7 @@ class Ice:
                             self.nbr_wvl))
         self.tau = np.ones((self.nbr_lyr,
                             self.nbr_wvl))
+        self.L_snw = np.ones(self.nbr_lyr)
         
         
     def set_refractive_index(self):
