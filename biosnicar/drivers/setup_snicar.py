@@ -60,29 +60,6 @@ def setup_snicar(input_file):
         impurities,
     )
 
-def create_resolution_dependent_files(input_file):
-    
-    with open(input_file, "r") as ymlfile:
-        inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
-        
-    wvl_start = inputs["RTM"]["WVL_START"]
-    wvl_end = inputs["RTM"]["WVL_END"]
-    res = inputs["RTM"]["RESOLUTION"]
-    
-    path_op = Path(
-        (str(os.path.dirname(os.path.dirname(biosnicar.__file__)))
-                + f'/data/OP_data/{wvl_start}_{wvl_end}_{res}/'
-        ))
-    
-    if not path_op.exists():
-        # create folders 
-        solar_fluxes_subfolder = path_op / "solar_fluxes"
-        solar_fluxes_subfolder.mkdir(parents=True)
-        laps_subfolder = path_op / "laps"
-        laps_subfolder.mkdir(parents=True)
-        
-        
-        
 
 def build_classes(input_file):
     """Instantiates classes according to config in yaml file.
