@@ -68,7 +68,7 @@ class SolarIrradiance:
 
             incoming_file = xr.open_dataset(
                 str(
-                    self.inputs.modelconfig.solar_fluxes_path
+                    self.modelconfig.solar_fluxes_path
                     + self.stubs[self.incoming]
                     + "_cld"
                     + ".nc"

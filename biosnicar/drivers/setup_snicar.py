@@ -148,18 +148,23 @@ def add_laps_to_column_ops(column):
     asm_prm_lap = np.zeros([column.nbr_lyr, column.nbr_wvl])
     ss_alb_lap = np.zeros_like(asm_prm_lap)
     tau_lap = np.zeros_like(asm_prm_lap)
-    lap_mass = np.zeros([column.nbr_lyr, column.nb_laps])
+    lap_mass = np.zeros_like(column.lap_concentrations)
     
     for lyr in range(column.nbr_lyr):
-        # vectorized operations to check here !! 
+
         lap_mass[lyr, :] = column.layer_mass[lyr] * column.lap_concentrations[lyr, :] 
         
-        tau_lap[lyr, :] = np.sum(lap_mass[lyr, :][lyr, None] * column.lap_ext_cff,
+        if lap_mass.shape[1] > 1:
+            tau = lap_mass[lyr, :][:, np.newaxis] * column.lap_ext_cff
+        else:
+            tau = lap_mass[lyr, :] * column.lap_ext_cff
+
+        tau_lap[lyr, :] = np.sum(tau,
                                  axis=0)
-        ss_alb_lap[lyr, :] = np.sum(lap_mass[lyr, :][lyr, None] * column.lap_ext_cff 
+        ss_alb_lap[lyr, :] = np.sum(tau 
                                  * column.lap_ss_alb, 
                                  axis=0) 
-        asm_prm_lap[lyr, :] = np.sum(lap_mass[lyr, :][lyr, None] * column.lap_ext_cff 
+        asm_prm_lap[lyr, :] = np.sum(tau
                                * column.lap_ss_alb 
                                * column.lap_asm_prm, 
                                axis=0) 
@@ -180,11 +185,13 @@ def add_laps_to_column_ops(column):
             asm_prm_lap[lyr, :] + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
             
-        # just in case any unrealistic values arise (none detected so far)
-        column.ss_alb[column.ss_alb <= 0] = 0.00000001
-        column.ss_alb[column.ss_alb >= 1] = 0.99999999
-        column.asm_prm[column.asm_prm <= 0] = 0.00001
-        column.asm_prm[column.asm_prm > 0.99] = 0.99
+    # just in case any unrealistic values arise (none detected so far)
+    column.ss_alb[column.ss_alb <= 0] = 0.00000001
+    column.ss_alb[column.ss_alb >= 1] = 0.99999999
+    column.asm_prm[column.asm_prm <= 0] = 0.00001
+    column.asm_prm[column.asm_prm > 0.99] = 0.99
 
 if __name__ == "__main__":
     pass
+
+    

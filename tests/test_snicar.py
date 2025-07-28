@@ -29,8 +29,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from biosnicar.rt_solvers.adding_doubling_solver import adding_doubling_solver
-from biosnicar.classes import Impurity
-from biosnicar.drivers.setup_snicar import build_classes, calculate_column_ops, mix_in_impurities, build_impurities_array
+from biosnicar.drivers.setup_snicar import build_classes, calculate_column_ops_clean, add_laps_to_column_ops
 from biosnicar.rt_solvers.toon_rt_solver import toon_solver
 
 
@@ -58,13 +57,12 @@ def test_AD_solver(new_benchmark_ad, input_file):
     if new_benchmark_ad:
         
         (
-            ice,
-            illumination,
-            model_config,
-        ) = build_classes("./biosnicar/inputs.yaml")
+            column,
+            irradiance,
+        ) = build_classes("./tests/inputs_tests.yaml")
                 
-        ice, illumination, impurities,  model_config = match_matlab_config(
-            ice, illumination,  model_config, input_file
+        column = match_matlab_config(
+            column
         )
 
         lyrList = [0, 1]
@@ -100,44 +98,33 @@ def test_AD_solver(new_benchmark_ad, input_file):
                         for bc in bcList:
                             for dz in dzList:                                
                                 # calculate irradiance
-                                illumination.solzen = zen
-                                illumination.calculate_irradiance()
-                                impurities[0].conc = [
-                                    bc,
-                                    bc,
-                                    bc,
-                                    bc,
-                                    bc,
-                                ]  # bc in all layers
-  
+                                irradiance.solzen = zen
+                                irradiance.calculate_irradiance()
+                                
                                 
                                 # calculate column ssa, g, mac
-                                ice.dz = dz
-                                ice.layer_type = [layer_type] * len(ice.dz)
-                                ice.rho = [density] * len(ice.dz)
+                                column.thickness = dz
+                                column.layer_type = [layer_type] * len(column.thickness)
+                                column.rho = [density] * len(column.thickness)
                                 
-                                # CASE 1: SNOW
                                 snow_idx = np.where(
-                                    np.array(ice.layer_type) == 0)[0]
-                            
-                                
+                                    np.array(column.layer_type) == 0)[0]
+                                ice_idx = np.where(
+                                    np.array(column.layer_type) != 0)[0]
+
                                 for i in snow_idx: 
                                     file_ssps = str(
                                         "./tests/test_data/ice_spherical_grains_BH83/"
-                                        + f'ice_{ice.rf_type}/ice_{ice.rf_type}_'
+                                        + f'ice_{column.rf_type}/ice_{column.rf_type}_'
                                         + "{}.nc".format(
                                             str(reff).rjust(4, "0"))
                                         )
-
-                                    with xr.open_dataset(file_ssps) as temp:
-                                        ice.ss_alb[i, :] = temp["ss_alb"].values 
-                                        ice.ext[i, :] = temp["ext_cff_mss"].values
-                                        ice.g[i, :] = temp["asm_prm"].values
-                                
-                                
-                                # CASE 2: ICE
-                                ice_idx = np.where(
-                                    np.array(ice.layer_type) != 0)[0]
+                                    
+                                    with xr.open_dataset(file_ssps) as ssps:
+                                        column.ss_alb[i, :] = ssps["ss_alb"].values 
+                                        column.ext_cff[i, :] = ssps["ext_cff_mss"].values
+                                        column.asm_prm[i, :] = ssps["asm_prm"].values
+                                        column.tau[i,:] = column.layer_mass[i] * column.ext_cff[i, :]
                                 
                                 for i in ice_idx: 
                                     file_ssps = str(
@@ -145,37 +132,46 @@ def test_AD_solver(new_benchmark_ad, input_file):
                                         + "bbl_{}.nc".format(
                                             str(reff).rjust(4, "0"))
                                         )
-                                    with xr.open_dataset(file_ssps) as temp:
-                                        ice.g[i, :] = temp["asm_prm"].values
-                                        sca_cff_vlm_air_bbl = temp["sca_cff_vlm"].values
-                                        vlm_frac_air = 1  - ice.rho[i] / 917
+                                    with xr.open_dataset(file_ssps) as ssps:
+                                        column.asm_prm[i, :] = ssps["asm_prm"].values
+                                        sca_cff_vlm_air_bbl = ssps["sca_cff_vlm"].values
+                                        vlm_frac_air = 1  - column.density[i] / 917
                                         scattering_cff = (
                                             sca_cff_vlm_air_bbl 
                                             * vlm_frac_air 
-                                            / ice.rho[i]
+                                            / column.density[i]
                                             )
                                         abs_cff = (
-                                            (4 * np.pi * ice.ref_idx_im) 
-                                            / (model_config.wavelengths * 1e-6) 
+                                            (4 * np.pi * column.ref_idx_im) 
+                                            / (column.wavelengths) 
                                             / 917
                                             )
-                                        ice.ext[i, :] = (
+                                        column.ext_cff[i, :] = (
                                             scattering_cff
                                             + abs_cff
                                             )
-                                        ice.ss_alb[i, :] = (
+                                        column.ss_alb[i, :] = (
                                             scattering_cff 
-                                            / ice.ext[i, :]
+                                            / column.ext_cff[i, :]
                                             )
+                                        column.tau[i,:] = column.layer_mass[i] * column.ext_cff[i, :]
                                 
-                                # add impurities
-                                mix_in_impurities(ice, impurities, model_config)
+
+                                column.lap_concentrations[:,0] = [
+                                    bc,
+                                    bc,
+                                    bc,
+                                    bc,
+                                    bc,
+                                ]  
+
+
+                                add_laps_to_column_ops(column)
                                 
                                 
                                 # solve RTE
                                 outputs = adding_doubling_solver(
-                                    ice, illumination, model_config
-                                )
+                                    column, irradiance)
 
                                 specOut[counter, 0:480] = outputs.albedo
                                 specOut[counter, 480] = outputs.BBA
@@ -215,13 +211,12 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
 
     if new_benchmark_ad_clean:
         (
-            ice,
-            illumination,
-            model_config,
-        ) = build_classes("./biosnicar/inputs.yaml")
-        
-        ice, illumination, impurities, model_config = match_matlab_config(
-            ice, illumination, model_config, input_file
+            column,
+            irradiance,
+        ) = build_classes("./tests/inputs_tests.yaml")
+                
+        column = match_matlab_config(
+            column
         )
 
         print(
@@ -260,43 +255,34 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                             for dz in dzList:
                                 
                                 # calculate irradiance
-                                illumination.solzen = zen
-                                illumination.calculate_irradiance()
-                                impurities[0].conc = [
-                                    bc,
-                                    bc,
-                                    bc,
-                                    bc,
-                                    bc,
-                                ]  # bc in all layers
-  
+                                irradiance.solzen = zen
+                                irradiance.calculate_irradiance()
+                                
                                 
                                 # calculate column ssa, g, mac
-                                ice.dz = dz
-                                ice.layer_type = [layer_type] * len(ice.dz)
-                                ice.rho = [density] * len(ice.dz)
-                                                                
-                                # CASE 1: SNOW
+                                column.thickness = dz
+                                column.layer_type = [layer_type] * len(column.thickness)
+                                column.rho = [density] * len(column.thickness)
+                                
                                 snow_idx = np.where(
-                                    np.array(ice.layer_type) == 0)[0]
+                                    np.array(column.layer_type) == 0)[0]
+                                ice_idx = np.where(
+                                    np.array(column.layer_type) != 0)[0]
+
                                 
                                 for i in snow_idx: 
                                     file_ssps = str(
                                         "./tests/test_data/ice_spherical_grains_BH83/"
-                                        + f'ice_{ice.rf_type}/ice_{ice.rf_type}_'
+                                        + f'ice_{column.rf_type}/ice_{column.rf_type}_'
                                         + "{}.nc".format(
                                             str(reff).rjust(4, "0"))
                                         )
-                                    with xr.open_dataset(file_ssps) as temp:
-                                        ice.ss_alb[i, :] = temp["ss_alb"].values 
-                                        ice.ext[i, :] = temp["ext_cff_mss"].values
-                                        ice.g[i, :] = temp["asm_prm"].values
-                                        ice.tau[i, :] = ice.rho[i] * ice.dz[i] * ice.ext[i, :]
-
-                                
-                                # CASE 2: ICE
-                                ice_idx = np.where(
-                                    np.array(ice.layer_type) != 0)[0]
+                                    
+                                    with xr.open_dataset(file_ssps) as ssps:
+                                        column.ss_alb[i, :] = ssps["ss_alb"].values 
+                                        column.ext_cff[i, :] = ssps["ext_cff_mss"].values
+                                        column.asm_prm[i, :] = ssps["asm_prm"].values
+                                        column.tau[i,:] = column.layer_mass[i] * column.ext_cff[i, :]
                                 
                                 for i in ice_idx: 
                                     file_ssps = str(
@@ -304,38 +290,45 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                                         + "bbl_{}.nc".format(
                                             str(reff).rjust(4, "0"))
                                         )
-                                    with xr.open_dataset(file_ssps) as temp:
-                                        ice.g[i, :] = temp["asm_prm"].values
-                                        sca_cff_vlm_air_bbl = temp["sca_cff_vlm"].values
-                                        vlm_frac_air = 1  - ice.rho[i] / 917
+                                    with xr.open_dataset(file_ssps) as ssps:
+                                        column.asm_prm[i, :] = ssps["asm_prm"].values
+                                        sca_cff_vlm_air_bbl = ssps["sca_cff_vlm"].values
+                                        vlm_frac_air = 1  - column.density[i] / 917
                                         scattering_cff = (
                                             sca_cff_vlm_air_bbl 
                                             * vlm_frac_air 
-                                            / ice.rho[i]
+                                            / column.density[i]
                                             )
                                         abs_cff = (
-                                            (4 * np.pi * ice.ref_idx_im) 
-                                            / (model_config.wavelengths * 1e-6) 
+                                            (4 * np.pi * column.ref_idx_im) 
+                                            / (column.wavelengths) 
                                             / 917
                                             )
-                                        ice.ext[i, :] = (
+                                        column.ext_cff[i, :] = (
                                             scattering_cff
                                             + abs_cff
                                             )
-                                        ice.ss_alb[i, :] = (
+                                        column.ss_alb[i, :] = (
                                             scattering_cff 
-                                            / ice.ext[i, :]
+                                            / column.ext_cff[i, :]
                                             )
-                                        ice.tau[i, :] = ice.rho[i] * ice.dz[i] * ice.ext[i, :]
-
+                                        column.tau[i,:] = column.layer_mass[i] * column.ext_cff[i, :]
                                 
-                                # add impurities
-                                mix_in_impurities(ice, impurities, model_config)
+
+                                column.lap_concentrations[:,0] = [
+                                    bc,
+                                    bc,
+                                    bc,
+                                    bc,
+                                    bc,
+                                ]  
+
+                                add_laps_to_column_ops(column)
+                                
                                 
                                 # solve RTE
                                 outputs = adding_doubling_solver(
-                                    ice, illumination, model_config
-                                )
+                                    column, irradiance)
 
                                 specOut[counter, 0:480] = outputs.albedo
                                 specOut[counter, 480] = outputs.BBA
@@ -532,7 +525,7 @@ def test_plot_random_spectra_pairs(get_matlab_data, get_python_data, get_n_spect
     plt.savefig("./tests/test_data/py_mat_comparison.png")
 
 
-def match_matlab_config(ice, illumination, model_config, input_file):
+def match_matlab_config(column):
     """Ensures model config is equal to the Matlab version used to generate benchmark data.
 
     This function resets values in instances of Ice, Illumination and ModelConfig to ensure
@@ -541,77 +534,27 @@ def match_matlab_config(ice, illumination, model_config, input_file):
     Illumination that update refractive indices and at-surface irradiance.
 
     Args:
-        ice: instance of Ice class
-        illumination: instance of Illumination class
+        column: instance of Ice class
+        irradiance: instance of SolarIrradiance class
         model_config: instance of ModelConfig class
 
     Returns:
-        ice: updated instance of Ice class
-        illumination: updated instance of Illumination class
-        impurities: array of instances of Impurity class
-        model_config: updated instance of ModelConfig class
+
 
 
     """
 
-    nbr_lyr = 5
-    # make sure ice config matches matlab benchmark
-    ice.shp = [0] * nbr_lyr
-    ice.sfc = np.array([0.25] * model_config.nbr_wvl)
-    ice.nbr_lyr = nbr_lyr
-    ice.layer_type = [0] * nbr_lyr
-    ice.rho = [ice.rho[0]] * nbr_lyr
-    ice.lwc = [0] * nbr_lyr
-    ice.grain_shape = [0] * nbr_lyr
-    ice.dz = [0.1] * nbr_lyr
-    ice.ssa = [1] * nbr_lyr
-    ice.ref_idx_im_water = pd.read_csv(
-        './tests/test_data/refractive_index_water_273K_Rowe2020.csv'
-    ).k.values
-    ice.ref_idx_im = xr.open_dataset(
+    column.ref_idx_im = xr.open_dataset(
         './tests/test_data/rfidx_ice.nc').im_Pic16.values
-    ice.ref_idx_re = xr.open_dataset(
+    column.ref_idx_re = xr.open_dataset(
         './tests/test_data/rfidx_ice.nc').re_Pic16.values
-    ice.fl_r_dif_b = xr.open_dataset(
+    column.fl_r_dif_b = xr.open_dataset(
         './tests/test_data/fl_reflection_diffuse.nc').R_dif_fb_ice_Pic16.values
-    ice.fl_r_dif_a = xr.open_dataset(
+    column.fl_r_dif_a = xr.open_dataset(
         './tests/test_data/fl_reflection_diffuse.nc').R_dif_fa_ice_Pic16.values
-    
-    # init ssps
-    ice.ext = np.ones((ice.nbr_lyr,
-                        ice.nbr_wvl))
-    ice.ss_alb = np.ones((ice.nbr_lyr,
-                        ice.nbr_wvl))
-    ice.g = np.ones((ice.nbr_lyr,
-                        ice.nbr_wvl))
-    ice.tau = np.ones((ice.nbr_lyr,
-                        ice.nbr_wvl))
-
-        
-    # make sure resolution is correct 
-    model_config.wavelengths = np.arange(0.205, 5, 0.01)
-    model_config.nbr_wvl = 480
-    
-    # change path to illumination
-    illumination.flx_dir = "tests/test_data/fsds/"
-    illumination.stubs = [f'swnb_480bnd_{i}'
-                          for i in 
-                          ["mlw", "mls", "saw", "sas", "smm", "hmn", "trp"]]   
-    illumination.incoming = 4
-    illumination.direct = 1
-    illumination.calculate_irradiance()
 
 
-    # make sure impurities[0] is bc
-    # (same bc used by matlab model)
-    impurities = []
-    conc = [0] * nbr_lyr
-    impurity0 = Impurity("bc_ChCB_rn40_dns1270.nc", False, 0, "bc", conc)
-    impurity0.path = "tests/test_data/"
-    impurity0.get_impurity_properties()
-    impurities.append(impurity0)
-
-    return ice, illumination, impurities, model_config
+    return column
 
 
 @pytest.mark.parametrize("dir", [0, 1])
@@ -644,31 +587,30 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
 
     if fuzz:
         (
-            ice,
-            illumination,
-            model_config,
-        ) = build_classes("./biosnicar/inputs.yaml")
+            column,
+            irradiance,
+        ) = build_classes("./tests/inputs_tests.yaml")
         
         
-        ice, illumination, impurities,  model_config = match_matlab_config(
-            ice, illumination, model_config, input_file
+        column = match_matlab_config(
+            column
         )
 
-        illumination.direct = dir
-        ice.rf_type = ref
-        illumination.incoming = inc
-        illumination.calculate_irradiance()
+        irradiance.direct = dir
+        column.rf_type = ref
+        irradiance.incoming = inc
+        irradiance.calculate_irradiance()
         
-        calculate_column_ops(ice, model_config)
+        calculate_column_ops_clean(column)
 
-        mix_in_impurities(ice, impurities, model_config)
+        add_laps_to_column_ops(column)
 
         outputs_toon = toon_solver(
-            ice, illumination, model_config
+            column, irradiance
         )
 
         outputs_ad = adding_doubling_solver(
-            ice, illumination, model_config
+            column, irradiance
         )
 
     else:
@@ -681,8 +623,8 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
 @pytest.mark.parametrize("rho", [400, 600, 800])
 @pytest.mark.parametrize("zen", [50, 60, 70])
 @pytest.mark.parametrize("dust", [0, 50000])
-@pytest.mark.parametrize("algae", [0, 50000])
-def test_var_fuzzer(ssa, rho, zen, dust, algae, fuzz, input_file):
+@pytest.mark.parametrize("soot", [0, 50000])
+def test_var_fuzzer(ssa, rho, zen, dust, soot, fuzz, input_file):
     """Checks model runs correctly with range of input value combinations.
 
     Fuzzer checks that model functions correctly across range of configurations.
@@ -708,61 +650,64 @@ def test_var_fuzzer(ssa, rho, zen, dust, algae, fuzz, input_file):
 
     if fuzz:
         (
-            ice,
-            illumination,
-            model_config,
-        ) = build_classes("./biosnicar/inputs.yaml")
+            column,
+            irradiance,
+        ) = build_classes("./tests/inputs_tests.yaml")
         
         
-        ice, illumination, impurities, model_config = match_matlab_config(
-            ice, illumination, model_config, input_file
+        column = match_matlab_config(
+            column
         )
-
-        impurities = []
-
-        conc1 = [0] * len(ice.dz)
-        conc1[0] = algae
-        impurity0 = Impurity(
-            "mie_sot_ChC90_dns_1317.nc",
-            False,
-            0,
-            "bc",
-            conc1,
-        )
-        impurity0.path = "tests/test_data/"
-        impurity0.get_impurity_properties()
-        impurities.append(impurity0)
         
-
-        conc2 = [0] * len(ice.dz)
-        conc2[0] = dust
-        impurity1 = Impurity(
-            "dust_balkanski_central_size1.nc",
-            False,
-            0,
-            "dust1",
-            conc2,
-        )
-        impurity1.path = "tests/test_data/"
-        impurity1.get_impurity_properties()
-        impurities.append(impurity1)
-
-        ice.ssa = [ssa] * len(ice.dz)
-        ice.rho = [rho] * len(ice.dz)
-        illumination.solzen = zen
-        illumination.calculate_irradiance()
+        irradiance.solzen = zen
+        irradiance.calculate_irradiance()
         
-        calculate_column_ops(ice, model_config)
+        column.ssa = [ssa] * len(column.thickness)
+        column.density = [rho] * len(column.thickness)
+        calculate_column_ops_clean(column)
 
-        mix_in_impurities(ice, impurities, model_config)
-
+        # add impurities to the ice column
+        
+        # to change: 
+        column.lap_concentrations = np.vstack(
+            [[np.ones(column.nbr_lyr) * soot],
+             [np.ones(column.nbr_lyr) * dust]
+             ]
+            ).T
+        
+        lap1 = xr.open_dataset(
+            './data/optical_properties/light_absorbing_particles/mie_sot_ChC90_dns_1317.nc'
+            )
+        lap2 = xr.open_dataset(
+            './data/optical_properties/light_absorbing_particles/dust_balkanski_central_size1.nc'
+            )
+        
+        column.lap_ext_cff = np.vstack(
+            [[lap1["ext_cff_mss"].values],
+             [lap2["ext_cff_mss"].values]
+             ]
+            )
+        
+        column.lap_ss_alb = np.vstack(
+            [[lap1["ss_alb"].values],
+             [lap2["ss_alb"].values]
+             ]
+            )
+        
+        column.lap_asm_prm = np.vstack(
+            [[lap1["asm_prm"].values],
+             [lap2["asm_prm"].values]
+             ]
+            )
+        
+        add_laps_to_column_ops(column)
         outputs_toon = toon_solver(
-            ice, illumination, model_config
+            column, irradiance
             
         )
 
         outputs_ad = adding_doubling_solver(
-            ice, illumination, model_config
+            column, irradiance
         )
 
     else:

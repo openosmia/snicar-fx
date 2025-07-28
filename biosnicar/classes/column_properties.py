@@ -100,23 +100,19 @@ class ColumnProperties:
         wvl_end = self.modelconfig.inputs["RTM"]["WVL_END"]
         
         # initialize properties
-        self.nb_laps = len(self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"])
+        nb_laps = len(self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"])
         
-        self.lap_ss_alb = np.zeros((self.nb_laps,  
+        self.lap_ss_alb = np.zeros((nb_laps,  
                                     self.modelconfig.inputs["RTM"]["NBR_WVL"])
                                    )
-        self.lap_asm_prm = np.zeros((self.nb_laps, 
+        self.lap_asm_prm = np.zeros((nb_laps, 
                                     self.modelconfig.inputs["RTM"]["NBR_WVL"])
                                    )
-        self.lap_ext_cff = np.zeros((self.nb_laps,  
+        self.lap_ext_cff = np.zeros((nb_laps,  
                                     self.modelconfig.inputs["RTM"]["NBR_WVL"])
                                    )
         
-        # get units ---> needed to recalculate layer_mass later on
-        self.lap_units = [self.modelconfig.inputs[
-            "LIGHT_ABSORBING_PARTICLES"][name]["UNIT"] 
-            for name in self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"]
-                     ]
+        
         # get concentrations
         self.lap_concentrations = np.vstack(
                 [np.array(
