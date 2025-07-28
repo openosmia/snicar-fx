@@ -4,11 +4,9 @@
 
 @author: Lou-Anne Chevrollier, University of Aarhus
 
-This code generates the inputs files necessary to run SNICAR at a user-defined
-spectral resolution. The wavelength grid is defined in the inputs.yaml file
-of the model. Files include: refractive indices of ice and water, Fresnel
-diffuse coefficients, incoming solar radiation, impurity single scattering
-properties.
+This code generates the refractive indices of ice & water as well as the
+diffuse Fresnel coefficients at high resolution (1nm), which are then indexed
+in the snicar-fx model at a user-defined spectral range.
 
 
 """
@@ -17,71 +15,33 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.integrate import fixed_quad
-import time
-import glob
 import os 
-import yaml
-from tqdm import tqdm
 from pathlib import Path
 import biosnicar
 
 def create_resolution_dependent_files(input_file):
 
-    with open(input_file, "r") as ymlfile:
-        inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
-        
-    wl_start = inputs["RTM"]["WVL_START"]
-    wl_end = inputs["RTM"]["WVL_END"]
-    res = inputs["RTM"]["RESOLUTION"]
-    
-    # check that values are OK
-    if (wl_start < 200) or (wl_end > 5000) or (res < 1):
-        raise ValueError("Inputs out of range: starting wavelength should be below"
-                         + "200nm, end wavelength should be below 5000nm, and "
-                         + "resolution should be above 1nm.")
+    wl_start = 200
+    wl_end = 5000
+    res = 1
     
     path_op = Path(
         (str(os.path.dirname(os.path.dirname(biosnicar.__file__)))
-                + f'/data/OP_data/{wl_start}_{wl_end}_{res}/'
+                + '/data/OP_data/'
         ))
     path_to_raw_data = (str(
         os.path.dirname(os.path.dirname(biosnicar.__file__)))
                 + '/data/additional_data/'
         )
-    
-    if not path_op.exists():
-        
-        print('\nGenerating files at input resolution, this may take a few mns..\n')
-        
-        # create folders for OPs
-        solar_fluxes_subfolder = path_op / "solar_fluxes"
-        solar_fluxes_subfolder.mkdir(parents=True)
-        laps_subfolder = path_op / "laps"
-        laps_subfolder.mkdir(parents=True)
-        
+            
 
-        
-        # generate ref_idx & fresnel files
-        generate_refidx_fnl_file(wl_start,
-                             wl_end,
-                             res,
-                             path_to_raw_data,
-                             str(path_op) 
-                             )
-        # generate solar fluxes
-        generate_solar_fluxes_files(wl_start,
-                                 wl_end,
-                                 res,
-                                 path_to_raw_data,
-                                 str(solar_fluxes_subfolder))
-        
-        generate_lap_files(wl_start,
-                                 wl_end,
-                                 res,
-                                 path_to_raw_data,
-                                 str(laps_subfolder))
-
-        print('DONE \U0001F31F')
+    # generate ref_idx & fresnel files
+    generate_refidx_fnl_file(wl_start,
+                         wl_end,
+                         res,
+                         path_to_raw_data,
+                         str(path_op) 
+                         )
         
 
 def generate_refidx_fnl_file(wl_start,
@@ -486,109 +446,3 @@ def generate_refidx_fnl_file(wl_start,
         savepath  
         + '/fresnel_diffuse_coefficients.nc'
         )
-
-
-##############################################################################
-####################### SOLAR FLUXES CALCULATIONS ############################
-##############################################################################
-
-def generate_solar_fluxes_files(wl_start,
-                         wl_end,
-                         res,
-                         path_to_raw_data,
-                         savepath):
-    
-    wvl_new_grid = np.arange(wl_start, wl_end, res)
-    
-    # read fluxes from native snicar & interpolate
-    flux_files = glob.glob(path_to_raw_data + 'solar_fluxes_480band_snicar' + '/*')
-    
-    for flux_file in flux_files:
-        flux_name = flux_file.split('/')[-1]
-        if flux_name != 'swnb_480bnd_toa.nc':
-            # get data, interpolate, regrid, save file 
-            data = xr.open_dataset(flux_file)
-            data_new_grid = np.interp(wvl_new_grid,
-                                      data.wvl_ctr.values*1e3, # from um to nm
-                                      data.flx_frc_sfc.values)
-            
-            new_flux_file = xr.Dataset(
-                data_vars=dict(
-                    flx_frc_sfc=(["wvl"], data_new_grid),
-                ),
-                coords=dict(wvl = wvl_new_grid*1e-9),
-            )
-            
-            # save file
-            new_flux_file.to_netcdf(
-                savepath 
-                + '/'
-                + flux_name
-                )
-            
-    
-
-##############################################################################
-####################### LAPs CALCULATIONS: START #############################
-##############################################################################
-
-def generate_lap_files(wl_start,
-                         wl_end,
-                         res,
-                         path_to_raw_data,
-                         savepath):
-    
-    wvl_new_grid = np.arange(wl_start, wl_end, res)
-
-    # read fluxes from native snicar & interpolate
-    impurity_files = glob.glob(path_to_raw_data + 'lap_480band_snicar' + '/*')
-
-    
-    for impurity_file in impurity_files:
-        data = xr.open_dataset(impurity_file)
-    
-        ext_cff_new_grid = np.interp(wvl_new_grid,
-                                  data.wvl.values*1e9, # from m to nm
-                                  data.ext_cff_mss.values)
-        ss_alb_new_grid = np.interp(wvl_new_grid,
-                                  data.wvl.values*1e9, # from m to nm
-                                  data.ss_alb.values)
-        asm_prm_new_grid = np.interp(wvl_new_grid,
-                                  data.wvl.values*1e9, # from m to nm
-                                  data.asm_prm.values)
-        
-        new_impurity_file = xr.Dataset(
-            data_vars=dict(
-                ext_cff_mss=(["wvl"], ext_cff_new_grid),
-                ss_alb=(["wvl"], ss_alb_new_grid), 
-                asm_prm=(["wvl"], asm_prm_new_grid),
-            ),
-            coords=dict(wvl = wvl_new_grid*1e-9),
-            attrs=data.attrs
-        )
-        
-        if "ext_cff_mss_ncl" in list(data.variables): 
-            var_new_grid = np.interp(wvl_new_grid,
-                                      data.wvl.values*1e9, 
-                                      data.ext_cff_mss_ncl.values)
-            new_impurity_file["ext_cff_mss_ncl"] = ("wvl", 
-                                                    var_new_grid)
-        
-        if "ext_xsc" in list(data.variables): 
-            var_new_grid = np.interp(wvl_new_grid,
-                                      data.wvl.values*1e9, 
-                                      data.ext_xsc.values)
-            new_impurity_file["ext_xsc"] = ("wvl", var_new_grid)
-            
-        if 'rds' in list(data.coords):
-            new_impurity_file.coords['rds'] = data.rds
-        
-        # save file
-        new_impurity_file.to_netcdf(
-            savepath 
-            + '/'
-            + impurity_file.split('/')[-1])
-    
-
-
-

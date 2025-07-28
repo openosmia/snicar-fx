@@ -60,12 +60,11 @@ def test_AD_solver(new_benchmark_ad, input_file):
         (
             ice,
             illumination,
-            rt_config,
             model_config,
         ) = build_classes("./biosnicar/inputs.yaml")
                 
-        ice, illumination, impurities, rt_config, model_config = match_matlab_config(
-            ice, illumination, rt_config, model_config, input_file
+        ice, illumination, impurities,  model_config = match_matlab_config(
+            ice, illumination,  model_config, input_file
         )
 
         lyrList = [0, 1]
@@ -218,12 +217,11 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
         (
             ice,
             illumination,
-            rt_config,
             model_config,
         ) = build_classes("./biosnicar/inputs.yaml")
         
-        ice, illumination, impurities, rt_config, model_config = match_matlab_config(
-            ice, illumination, rt_config, model_config, input_file
+        ice, illumination, impurities, model_config = match_matlab_config(
+            ice, illumination, model_config, input_file
         )
 
         print(
@@ -534,7 +532,7 @@ def test_plot_random_spectra_pairs(get_matlab_data, get_python_data, get_n_spect
     plt.savefig("./tests/test_data/py_mat_comparison.png")
 
 
-def match_matlab_config(ice, illumination, rt_config, model_config, input_file):
+def match_matlab_config(ice, illumination, model_config, input_file):
     """Ensures model config is equal to the Matlab version used to generate benchmark data.
 
     This function resets values in instances of Ice, Illumination and ModelConfig to ensure
@@ -545,14 +543,12 @@ def match_matlab_config(ice, illumination, rt_config, model_config, input_file):
     Args:
         ice: instance of Ice class
         illumination: instance of Illumination class
-        rt_config: instance of RTConfig class
         model_config: instance of ModelConfig class
 
     Returns:
         ice: updated instance of Ice class
         illumination: updated instance of Illumination class
         impurities: array of instances of Impurity class
-        rt_config: updated instance of RTConfig class
         model_config: updated instance of ModelConfig class
 
 
@@ -615,7 +611,7 @@ def match_matlab_config(ice, illumination, rt_config, model_config, input_file):
     impurity0.get_impurity_properties()
     impurities.append(impurity0)
 
-    return ice, illumination, impurities, rt_config, model_config
+    return ice, illumination, impurities, model_config
 
 
 @pytest.mark.parametrize("dir", [0, 1])
@@ -650,16 +646,14 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
         (
             ice,
             illumination,
-            rt_config,
             model_config,
         ) = build_classes("./biosnicar/inputs.yaml")
         
         
-        ice, illumination, impurities, rt_config, model_config = match_matlab_config(
-            ice, illumination, rt_config, model_config, input_file
+        ice, illumination, impurities,  model_config = match_matlab_config(
+            ice, illumination, model_config, input_file
         )
 
-        rt_config.aprx_typ = aprx
         illumination.direct = dir
         ice.rf_type = ref
         illumination.incoming = inc
@@ -670,7 +664,7 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
         mix_in_impurities(ice, impurities, model_config)
 
         outputs_toon = toon_solver(
-            ice, illumination, model_config, rt_config
+            ice, illumination, model_config
         )
 
         outputs_ad = adding_doubling_solver(
@@ -716,13 +710,12 @@ def test_var_fuzzer(ssa, rho, zen, dust, algae, fuzz, input_file):
         (
             ice,
             illumination,
-            rt_config,
             model_config,
         ) = build_classes("./biosnicar/inputs.yaml")
         
         
-        ice, illumination, impurities, rt_config, model_config = match_matlab_config(
-            ice, illumination, rt_config, model_config, input_file
+        ice, illumination, impurities, model_config = match_matlab_config(
+            ice, illumination, model_config, input_file
         )
 
         impurities = []
@@ -764,7 +757,8 @@ def test_var_fuzzer(ssa, rho, zen, dust, algae, fuzz, input_file):
         mix_in_impurities(ice, impurities, model_config)
 
         outputs_toon = toon_solver(
-            ice, illumination, model_config, rt_config
+            ice, illumination, model_config
+            
         )
 
         outputs_ad = adding_doubling_solver(

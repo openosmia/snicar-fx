@@ -1,5 +1,4 @@
 import os
-import numpy as np
 import yaml
 import biosnicar
 
@@ -23,19 +22,14 @@ class ModelConfig:
 
     def __init__(self, input_file):
         with open(input_file, "r") as ymlfile:
-            inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
-            
-        wvl1 = inputs["RTM"]["WVL_START"]
-        wvl2 = inputs["RTM"]["WVL_END"]
-        resolution = inputs["RTM"]["RESOLUTION"]
-        self.wavelengths = np.arange(
-            wvl1*1e-3, 
-            wvl2*1e-3,
-            resolution*1e-3)
-        self.nbr_wvl = inputs["RTM"]["NBR_WVL"] 
-        self.vis_max_idx = inputs["RTM"]["VIS_MAX_IDX"]
-        self.nir_max_idx = inputs["RTM"]["NIR_MAX_IDX"] 
-        self.dir_base = str(os.path.dirname(os.path.dirname(biosnicar.__file__)))+ "/"
+            self.inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
+        self.dir_base = (
+            str(os.path.dirname(os.path.dirname(biosnicar.__file__)))
+            + "/")
+        self.op_path = self.dir_base + '/data/optical_properties/'
+        self.lap_path = self.op_path + 'light_absorbing_particles/'
+        self.solar_fluxes_path = self.op_path + 'solar_fluxes/'
+
 
 
         
