@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "snicar-fx"
+name = "snicarfx"
 version = "0.0.0"
 description = ""
 authors = ["snicar-fx team"]
