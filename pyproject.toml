@@ -10,7 +10,7 @@ pandas = "^2.3.0"
 matplotlib = "^3.10"
 netCDF4 = "^1.7"
 scipy = "^1.11"
-xarray = "^0.23.1"
+xarray = "^2023.8.0"
 pyyaml = "^6.0"
 
 [tool.poetry.dev-dependencies]
