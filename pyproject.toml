@@ -6,11 +6,11 @@ authors = ["snicar-fx team"]
 
 [tool.poetry.dependencies]
 python = ">=3.10"
-pandas = "^2.3.0"
+pandas = "^2.2.0"
 matplotlib = "^3.10"
 netCDF4 = "^1.7"
 scipy = "^1.11"
-xarray = "^2023.8.0"
+xarray = "^2024.0.0"
 pyyaml = "^6.0"
 
 [tool.poetry.dev-dependencies]
