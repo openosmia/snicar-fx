@@ -389,6 +389,22 @@ class _AddingDoublingSolver:
 
         return None
 
+    def calculate_diff_transmittivity_reflectivity(self, lyr):
+        """
+        Calculate transmissivity and reflectivity to DIFFUSE radiation
+        after gaussian integration, eq. A33 Briegleb and Light 2007.
+        """
+        self.rdif_a[:, lyr] = self.smr / self.swt
+        self.tdif_a[:, lyr] = self.smt / self.swt
+
+        # homogeneous layer (all layers are except the fresnel layer, so the
+        # combination of layers including a fresnel layer becomes unhomogeneous, hence
+        # why we need to compute rdif/tdif above and below for all layers)
+        self.rdif_b[:, lyr] = self.rdif_a[:, lyr]
+        self.tdif_b[:, lyr] = self.tdif_a[:, lyr]
+
+        return None
+
     def calculate_correction_fresnel_layer(self, lyr):
         """Update diffuse and direct reflectivity and transmittivity of current
             layer by integrating effect of Fresnel boundary above, i.e. merging
