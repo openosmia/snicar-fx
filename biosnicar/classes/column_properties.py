@@ -43,6 +43,8 @@ class ColumnProperties:
         # calculate ref idx and fresnel coefficients at input resolution
         self.set_refractive_index_and_diffuse_fresnel_coeffs()
         self.get_lap_properties()
+        self.calculate_column_ops_clean()
+        self.add_laps_to_column_ops()
         
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
         """Calculates ice refractive index and pre-calculated diffuse
@@ -168,6 +170,140 @@ class ColumnProperties:
                                 properties[ext_cff_tag].values) 
             self.lap_ext_cff[i, :] = ext_cff
             
+    def calculate_column_ops_clean(self):
+        """Calculate optical properties of a clean snow/ice column
+
+
+        """
+        
+        for lyr in range(self.nbr_lyr):
+            
+            self.layer_mass[lyr] = self.density[lyr] * self.thickness[lyr]
+                    
+            if self.layer_type[lyr] > 0: # ice - only air inclusions for now
+                vlm_frac_ice = (self.density[lyr] - self.lwc[lyr] * 1000) / 917
+                vlm_frac_air = 1 - self.lwc[lyr] - vlm_frac_ice
+                eq_rds = 3 * vlm_frac_air / (self.ssa[lyr] * self.density[lyr]) # Eq from Whicker
+                sca_cff_vlm_air_bbl = np.ones(self.nbr_wvl) * 2 * 0.75 / (eq_rds)
+                scattering_cff = (
+                    sca_cff_vlm_air_bbl 
+                    * vlm_frac_air 
+                    / self.density[lyr]
+                    )
+
+                abs_cff = (4 
+                           * np.pi 
+                           / (self.wavelengths) 
+                           / self.density[lyr]
+                           * (
+                               vlm_frac_ice * self.ref_idx_im
+                               + self.lwc[lyr] * self.ref_idx_im_water
+                               )
+                           )
+                
+                self.ext_cff[lyr, :] = (
+                    scattering_cff
+                    + abs_cff
+                    )
+                    
+                self.ss_alb[lyr, :] = (
+                    scattering_cff 
+                    / self.ext_cff[lyr, :]
+                    )
+                
+                # self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.86
+                #Kokhanovsky 2002 
+                self.asm_prm[lyr, :] = (0.49274 
+                                 + 0.44466 
+                                 / (0.69233 * np.sqrt(np.pi/2)) *
+                                 np.exp(-2 *((1/self.ref_idx_re - 1.04882) 
+                                             / 0.69233)**2)
+                                 )
+                self.asm_prm = np.clip(self.asm_prm, 0, 1)
+
+                self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
+                
+            else: #snow
+                self.ext_cff[lyr, :] = (self.density[lyr] * self.ssa[lyr] / 2) / self.density[lyr]
+                self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
+                W = 0.0611 + 0.17 * (self.ref_idx_re - 1.3)
+                k_eq = (self.lwc[lyr] * self.ref_idx_im_water 
+                          + (1-self.lwc[lyr]) * self.ref_idx_im
+                          )
+                c = 24.0 * np.pi * k_eq / (917.0 * self.wavelengths) / self.ssa[lyr]
+                
+                # change specific single scat albedo and g depending on shape
+                if self.grain_shape[lyr] == 0: 
+                    B0 = 1.25
+                    g0 = 0.895
+                    B = B0 + 0.4 * (self.ref_idx_re - 1.3)
+                    phi = 2.0 / 3 * B / (1 - W)
+                    self.ss_alb[lyr, :] = 1 - 0.5 * (1 - W) * (1 - np.exp(-c * phi))
+                    y = 0.728 + 0.752 * (self.ref_idx_re - 1.3)
+                    ginf = 0.9751 - 0.105 * (self.ref_idx_re - 1.3)
+                    g00 = g0 - 0.38 * (self.ref_idx_re - 1.3)
+                    self.asm_prm[lyr,:] = ginf - (ginf - g00) * np.exp(-y * c) 
+                    
+                elif self.grain_shape[lyr] == 1:
+                    self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.815
+                    B = self.ref_idx_re**2
+                    phi = 2.0 / 3 * B / (1 - W)
+                    self.ss_alb[lyr, :] = 1 - 0.5 * (1 - W) * (1 - np.exp(-c * phi))
+        
+            
+    def add_laps_to_column_ops(self):
+        """Calculate optical properties of a clean snow/ice column mixed with light
+        absorbing particles.
+
+
+        """
+            
+        asm_prm_lap = np.zeros([self.nbr_lyr, self.nbr_wvl])
+        ss_alb_lap = np.zeros_like(asm_prm_lap)
+        tau_lap = np.zeros_like(asm_prm_lap)
+        lap_mass = np.zeros_like(self.lap_concentrations)
+        
+        for lyr in range(self.nbr_lyr):
+
+            lap_mass[lyr, :] = self.layer_mass[lyr] * self.lap_concentrations[lyr, :] 
+            
+            if lap_mass.shape[1] > 1:
+                tau = lap_mass[lyr, :][:, np.newaxis] * self.lap_ext_cff
+            else:
+                tau = lap_mass[lyr, :] * self.lap_ext_cff
+
+            tau_lap[lyr, :] = np.sum(tau,
+                                     axis=0)
+            ss_alb_lap[lyr, :] = np.sum(tau 
+                                     * self.lap_ss_alb, 
+                                     axis=0) 
+            asm_prm_lap[lyr, :] = np.sum(tau
+                                   * self.lap_ss_alb 
+                                   * self.lap_asm_prm, 
+                                   axis=0) 
+
+            # calc column layer mass by removing mass of impurities and re-calc tau
+            self.layer_mass[lyr] = self.layer_mass[lyr] - np.sum(lap_mass[lyr, :])
+            self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
+        
+            # calculate the effective ssa, tau and g
+            # first create local variables for bulk only
+            tau_clean = self.tau[lyr, :].copy()
+            ss_alb_clean = self.ss_alb[lyr, :].copy()
+            asm_prm_clean = self.asm_prm[lyr, :].copy()
+            
+            self.tau[lyr, :] = tau_lap[lyr, :] + tau_clean
+            self.ss_alb[lyr, :] = (1 / self.tau[lyr, :]) * (ss_alb_lap[lyr, :] + (ss_alb_clean * tau_clean))
+            self.asm_prm[lyr, :] = (1 / (self.tau[lyr, :] * (self.ss_alb[lyr, :]))) * (
+                asm_prm_lap[lyr, :] + (asm_prm_clean * ss_alb_clean * tau_clean)
+            )
+                
+        # just in case any unrealistic values arise (none detected so far)
+        self.ss_alb[self.ss_alb <= 0] = 0.00000001
+        self.ss_alb[self.ss_alb >= 1] = 0.99999999
+        self.asm_prm[self.asm_prm <= 0] = 0.00001
+        self.asm_prm[self.asm_prm > 0.99] = 0.99
+
             
         
         

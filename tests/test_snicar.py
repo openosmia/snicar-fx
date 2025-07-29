@@ -23,15 +23,16 @@ To toggle the fuzzer on/off change the value of "fuzz" in conftest.py
 """
 
 import random
-import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
 from biosnicar.rt_solvers.adding_doubling_solver import adding_doubling_solver
-from biosnicar.drivers.setup_snicar import build_classes, calculate_column_ops_clean, add_laps_to_column_ops
-from biosnicar.rt_solvers.toon_rt_solver import toon_solver
-
+from biosnicar.classes import (
+    ColumnProperties,
+    SolarIrradiance,
+    ModelConfig
+)
 
 def test_AD_solver(new_benchmark_ad, input_file):
     """Tests AD solver against SNICAR_ADv4 benchmark.
@@ -55,12 +56,11 @@ def test_AD_solver(new_benchmark_ad, input_file):
 
     """
     if new_benchmark_ad:
-        
-        (
-            column,
-            irradiance,
-        ) = build_classes("./tests/inputs_tests.yaml")
                 
+        model_config = ModelConfig("./tests/inputs_tests.yaml")
+        column = ColumnProperties(model_config)
+        irradiance = SolarIrradiance(model_config) 
+        
         column = match_matlab_config(
             column
         )
@@ -166,7 +166,7 @@ def test_AD_solver(new_benchmark_ad, input_file):
                                 ]  
 
 
-                                add_laps_to_column_ops(column)
+                                column.add_laps_to_column_ops()
                                 
                                 
                                 # solve RTE
@@ -210,10 +210,10 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
     """
 
     if new_benchmark_ad_clean:
-        (
-            column,
-            irradiance,
-        ) = build_classes("./tests/inputs_tests.yaml")
+        
+        model_config = ModelConfig("./tests/inputs_tests.yaml")
+        column = ColumnProperties(model_config)
+        irradiance = SolarIrradiance(model_config) 
                 
         column = match_matlab_config(
             column
@@ -323,7 +323,7 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                                     bc,
                                 ]  
 
-                                add_laps_to_column_ops(column)
+                                column.add_laps_to_column_ops()
                                 
                                 
                                 # solve RTE
@@ -586,10 +586,9 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
     """
 
     if fuzz:
-        (
-            column,
-            irradiance,
-        ) = build_classes("./tests/inputs_tests.yaml")
+        model_config = ModelConfig("./tests/inputs_tests.yaml")
+        column = ColumnProperties(model_config)
+        irradiance = SolarIrradiance(model_config) 
         
         
         column = match_matlab_config(
@@ -601,13 +600,9 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
         irradiance.incoming = inc
         irradiance.calculate_irradiance()
         
-        calculate_column_ops_clean(column)
+        column.calculate_column_ops_clean()
 
-        add_laps_to_column_ops(column)
-
-        outputs_toon = toon_solver(
-            column, irradiance
-        )
+        column.add_laps_to_column_ops()
 
         outputs_ad = adding_doubling_solver(
             column, irradiance
@@ -649,11 +644,9 @@ def test_var_fuzzer(ssa, rho, zen, dust, soot, fuzz, input_file):
     """
 
     if fuzz:
-        (
-            column,
-            irradiance,
-        ) = build_classes("./tests/inputs_tests.yaml")
-        
+        model_config = ModelConfig("./tests/inputs_tests.yaml")
+        column = ColumnProperties(model_config)
+        irradiance = SolarIrradiance(model_config) 
         
         column = match_matlab_config(
             column
@@ -664,7 +657,7 @@ def test_var_fuzzer(ssa, rho, zen, dust, soot, fuzz, input_file):
         
         column.ssa = [ssa] * len(column.thickness)
         column.density = [rho] * len(column.thickness)
-        calculate_column_ops_clean(column)
+        column.calculate_column_ops_clean()
 
         # add impurities to the ice column
         
@@ -700,11 +693,8 @@ def test_var_fuzzer(ssa, rho, zen, dust, soot, fuzz, input_file):
              ]
             )
         
-        add_laps_to_column_ops(column)
-        outputs_toon = toon_solver(
-            column, irradiance
-            
-        )
+        column.add_laps_to_column_ops()
+
 
         outputs_ad = adding_doubling_solver(
             column, irradiance

@@ -32,7 +32,6 @@ solid ice layers and fresnel reflection are included.
 from dataclasses import dataclass
 from typing import Optional, Any
 import numpy as np
-from biosnicar.classes.outputs import Outputs
 
 
 @dataclass
@@ -329,7 +328,7 @@ class _AddingDoublingSolver:
             + (amg * self.rdif_a[:, lyr] - apg + 1) * self.trnlay[:, lyr]
         )
 
-    return None
+        return None
 
     def apply_gaussian_integral(self, lyr):
         """Applies gaussian integral to integrate over angles.
@@ -357,7 +356,7 @@ class _AddingDoublingSolver:
             gwt = self.GAUSWT[ng]
 
             # sum of weights
-            swt = self.swt + mu * gwt
+            self.swt = self.swt + mu * gwt
 
             # transmission
             trn = np.maximum(
@@ -642,7 +641,7 @@ class _AddingDoublingSolver:
         if np.max(self.dfdif[:, lyr]) < puny:
             self.dfdif[:, lyr] = np.zeros((self.column.nbr_wvl,), dtype=int)
 
-    return None
+        return None
 
     def calculate_bulk_fluxes(self):
         """
