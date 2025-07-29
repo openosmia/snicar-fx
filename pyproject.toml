@@ -5,7 +5,7 @@ description = ""
 authors = ["snicar-fx team"]
 
 [tool.poetry.dependencies]
-python = ">=3.9"
+python = ">=3.10"
 pandas = "^2.3.0"
 matplotlib = "^3.10"
 netCDF4 = "^1.7"
