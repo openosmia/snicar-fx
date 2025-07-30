@@ -1,6 +1,6 @@
 import os
 import yaml
-import biosnicar
+import snicarfx
 
 class ModelConfig:
     """Model configuration.
@@ -24,7 +24,7 @@ class ModelConfig:
         with open(input_file, "r") as ymlfile:
             self.inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
         self.dir_base = (
-            str(os.path.dirname(os.path.dirname(biosnicar.__file__)))
+            str(os.path.dirname(os.path.dirname(snicarfx.__file__)))
             + "/")
         self.op_path = self.dir_base + '/data/optical_properties/'
         self.lap_path = self.op_path + 'light_absorbing_particles/'
