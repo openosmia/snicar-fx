@@ -151,25 +151,26 @@ class ColumnProperties:
                 self.modelconfig.inputs[
                     "LIGHT_ABSORBING_PARTICLES"][lap]["FILE"]
                 )
-            
+
             ss_alb = np.interp(np.arange(wvl_start, 
-                                         wvl_end, 
-                                         resolution),
+                                          wvl_end, 
+                                          resolution),
                                 properties.wvl.values*1e9, # from m to nm
                                 properties["ss_alb"].values)
             self.lap_ss_alb[i, :] = ss_alb
             asm_prm = np.interp(np.arange(wvl_start, 
-                                         wvl_end, 
-                                         resolution),
+                                          wvl_end, 
+                                          resolution),
                                 properties.wvl.values*1e9, # from m to nm
                                 properties["asm_prm"].values)
             self.lap_asm_prm[i, :] = asm_prm
             ext_cff = np.interp(np.arange(wvl_start, 
-                                         wvl_end, 
-                                         resolution),
+                                          wvl_end, 
+                                          resolution),
                                 properties.wvl.values*1e9, # from m to nm
                                 properties[ext_cff_tag].values) 
             self.lap_ext_cff[i, :] = ext_cff
+
             
     def calculate_column_ops_clean(self):
         """Calculate optical properties of a clean snow/ice column
@@ -264,7 +265,7 @@ class ColumnProperties:
         tau_lap = np.zeros_like(asm_prm_lap)
         lap_mass = np.zeros_like(self.lap_concentrations)
         
-        lap_mass = self.layer_mass[:, np.newaxis] * self.lap_concentrations  
+        lap_mass = np.array(self.layer_mass)[:, np.newaxis] * self.lap_concentrations  
         
         tau_lap = lap_mass @ self.lap_ext_cff
         
@@ -273,7 +274,7 @@ class ColumnProperties:
         asm_prm_lap = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm)
         
         self.layer_mass = self.layer_mass - np.sum(lap_mass, axis=1)
-        
+     
         self.tau = self.layer_mass[:, np.newaxis] * self.ext_cff
         
         tau_clean = self.tau.copy()
@@ -285,12 +286,6 @@ class ColumnProperties:
         self.asm_prm = (1 / (self.tau * (self.ss_alb))) * (
             asm_prm_lap + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
-                
-        # just in case any unrealistic values arise (none detected so far)
-        self.ss_alb[self.ss_alb <= 0] = 0.00000001
-        self.ss_alb[self.ss_alb >= 1] = 0.99999999
-        self.asm_prm[self.asm_prm <= 0] = 0.00001
-        self.asm_prm[self.asm_prm > 0.99] = 0.99
 
             
         
