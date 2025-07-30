@@ -1,4 +1,4 @@
->#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Defines the shared fixtures that are then used throughout the different test files
@@ -7,11 +7,20 @@ Let's create them only once per test module.
 
 """
 
-
+import itertools
 import pytest
 from snicarfx.classes import ColumnProperties, SolarIrradiance, ModelConfig
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
+
+# parameter grid to test snicar-fx against Matlab benchmark data
+layer_types = [0, 1]
+densities = [650, 800]
+reffs = [250, 500]
+zens = [40, 60]
+bcs = [0.0, 1.0]
+dzs = [[1, 1, 1, 1, 1]]
+parameter_grid = list(itertools.product(layer_types, densities, reffs, zens, bcs, dzs))
 
 
 @pytest.fixture(scope="module")
@@ -58,18 +67,37 @@ def expected_mean_ref_idx_im_water():
 def expected_mean_fl_r_dif_a():
     return 0.07721768897304701
 
-def expected_tau():
-    return 325.
 
+@pytest.fixture(scope="module")
+def expected_tau():
+    return 325.0
+
+
+@pytest.fixture(scope="module")
 def expected_mean_Fs():
     return 0.0010316714047111436
 
+
+@pytest.fixture(scope="module")
 def expected_mean_flx_slr():
     return 0.0020833333333333324
 
+
+@pytest.fixture(scope="module")
 def expected_Fd():
     return 0.0
+
 
 @pytest.fixture(scope="module")
 def relative_tolerance_column_properties():
     return 1e-9
+
+
+@pytest.fixture(scope="module")
+def benchmark_matlab_data():
+    return pd.read_csv("./tests/test_data/matlab_benchmark_data.csv", header=None)
+
+
+@pytest.fixture(scope="module")
+def benchmark_matlab_data_clean():
+    return pd.read_csv("./tests/test_data/matlab_benchmark_data_clean.csv", header=None)
