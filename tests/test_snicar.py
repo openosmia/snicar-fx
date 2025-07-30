@@ -27,8 +27,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
-from biosnicar.rt_solvers.adding_doubling_solver import adding_doubling_solver
-from biosnicar.classes import (
+from snicarfx.rt_solvers.adding_doubling_solver import adding_doubling_solver
+from snicarfx.classes import (
     ColumnProperties,
     SolarIrradiance,
     ModelConfig
