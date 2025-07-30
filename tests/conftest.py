@@ -37,23 +37,10 @@ def set_tolerance():
     """Sets the error tolerance for tests to pass. Default 1e-5"""
     return 1e-5
 
-
-@pytest.fixture
-def get_n_spectra():
-    """Defines how many random spectra pairs to plot."""
-    return 25
-
-
-@pytest.fixture
-def fuzz():
-    """Toggles fuzzing tests on/off."""
-    return True
-
-
 @pytest.fixture
 def new_benchmark_ad():
     """Toggles generation of new BioSNICAR benchmarking data on/off."""
-    return True
+    return False
 
 
 @pytest.fixture
@@ -64,7 +51,7 @@ def new_benchmark_ad_clean():
 
 @pytest.fixture
 def input_file():
-    return "biosnicar/inputs.yaml"
+    return "biosnicar/inputs_tests.yaml"
 
 
 if __name__ == "__main__":
