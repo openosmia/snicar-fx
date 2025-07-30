@@ -7,20 +7,12 @@ Let's create them only once per test module.
 
 """
 
-import itertools
+from itertools import product
 import pytest
 from snicarfx.classes import ColumnProperties, SolarIrradiance, ModelConfig
+import pandas as pd
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
-
-# parameter grid to test snicar-fx against Matlab benchmark data
-layer_types = [0, 1]
-densities = [650, 800]
-reffs = [250, 500]
-zens = [40, 60]
-bcs = [0.0, 1.0]
-dzs = [[1, 1, 1, 1, 1]]
-parameter_grid = list(itertools.product(layer_types, densities, reffs, zens, bcs, dzs))
 
 
 @pytest.fixture(scope="module")
@@ -94,6 +86,21 @@ def relative_tolerance_column_properties():
 
 
 @pytest.fixture(scope="module")
+def parameter_grid():
+    """
+    parameter grid to test snicar-fx against Matlab benchmark data
+    """
+
+    layer_types = [0, 1]
+    densities = [600, 650]
+    reffs = [100, 200]
+    zens = [30, 50]
+    bcs = [0.0, 0.01]
+    dzs = [[1, 1, 1, 1, 1]]
+    return list(product(layer_types, densities, reffs, zens, bcs, dzs))
+
+
+@pytest.fixture(scope="module")
 def benchmark_matlab_data():
     return pd.read_csv("./tests/test_data/matlab_benchmark_data.csv", header=None)
 
@@ -101,3 +108,8 @@ def benchmark_matlab_data():
 @pytest.fixture(scope="module")
 def benchmark_matlab_data_clean():
     return pd.read_csv("./tests/test_data/matlab_benchmark_data_clean.csv", header=None)
+
+
+@pytest.fixture(scope="module")
+def absolutex_tolerance_benchmark():
+    return 1e-5
