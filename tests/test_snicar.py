@@ -28,11 +28,8 @@ import numpy as np
 import pytest
 import xarray as xr
 from snicarfx.rt_solvers.adding_doubling_solver import adding_doubling_solver
-from snicarfx.classes import (
-    ColumnProperties,
-    SolarIrradiance,
-    ModelConfig
-)
+from snicarfx.classes import ColumnProperties, SolarIrradiance, ModelConfig
+
 
 def test_AD_solver(new_benchmark_ad, input_file):
     """Tests AD solver against SNICAR_ADv4 benchmark.
@@ -56,14 +53,12 @@ def test_AD_solver(new_benchmark_ad, input_file):
 
     """
     if new_benchmark_ad:
-                
+
         model_config = ModelConfig("./tests/inputs_tests.yaml")
         column = ColumnProperties(model_config)
-        irradiance = SolarIrradiance(model_config) 
-        
-        column = match_matlab_config(
-            column
-        )
+        irradiance = SolarIrradiance(model_config)
+
+        column = match_matlab_config(column)
 
         lyrList = [0, 1]
         densList = [400, 500, 600, 700, 800]
@@ -96,82 +91,75 @@ def test_AD_solver(new_benchmark_ad, input_file):
                 for reff in reffList:
                     for zen in zenList:
                         for bc in bcList:
-                            for dz in dzList:                                
+                            for dz in dzList:
                                 # calculate irradiance
                                 irradiance.solzen = zen
                                 irradiance.calculate_irradiance()
-                                
-                                
+
                                 # calculate column ssa, g, mac
                                 column.thickness = dz
                                 column.layer_type = [layer_type] * len(column.thickness)
                                 column.rho = [density] * len(column.thickness)
-                                
-                                snow_idx = np.where(
-                                    np.array(column.layer_type) == 0)[0]
-                                ice_idx = np.where(
-                                    np.array(column.layer_type) != 0)[0]
 
-                                for i in snow_idx: 
+                                snow_idx = np.where(np.array(column.layer_type) == 0)[0]
+                                ice_idx = np.where(np.array(column.layer_type) != 0)[0]
+
+                                for i in snow_idx:
                                     file_ssps = str(
                                         "./tests/test_data/ice_spherical_grains_BH83/"
-                                        + f'ice_{column.rf_type}/ice_{column.rf_type}_'
-                                        + "{}.nc".format(
-                                            str(reff).rjust(4, "0"))
-                                        )
-                                    
+                                        + f"ice_{column.rf_type}/ice_{column.rf_type}_"
+                                        + "{}.nc".format(str(reff).rjust(4, "0"))
+                                    )
+
                                     with xr.open_dataset(file_ssps) as ssps:
-                                        column.ss_alb[i, :] = ssps["ss_alb"].values 
-                                        column.ext_cff[i, :] = ssps["ext_cff_mss"].values
+                                        column.ss_alb[i, :] = ssps["ss_alb"].values
+                                        column.ext_cff[i, :] = ssps[
+                                            "ext_cff_mss"
+                                        ].values
                                         column.asm_prm[i, :] = ssps["asm_prm"].values
-                                        column.tau[i,:] = column.layer_mass[i] * column.ext_cff[i, :]
-                                
-                                for i in ice_idx: 
+                                        column.tau[i, :] = (
+                                            column.layer_mass[i] * column.ext_cff[i, :]
+                                        )
+
+                                for i in ice_idx:
                                     file_ssps = str(
                                         "./tests/test_data/bubbly_ice_files_BH83/"
-                                        + "bbl_{}.nc".format(
-                                            str(reff).rjust(4, "0"))
-                                        )
+                                        + "bbl_{}.nc".format(str(reff).rjust(4, "0"))
+                                    )
                                     with xr.open_dataset(file_ssps) as ssps:
                                         column.asm_prm[i, :] = ssps["asm_prm"].values
                                         sca_cff_vlm_air_bbl = ssps["sca_cff_vlm"].values
-                                        vlm_frac_air = 1  - column.density[i] / 917
+                                        vlm_frac_air = 1 - column.density[i] / 917
                                         scattering_cff = (
-                                            sca_cff_vlm_air_bbl 
-                                            * vlm_frac_air 
+                                            sca_cff_vlm_air_bbl
+                                            * vlm_frac_air
                                             / column.density[i]
-                                            )
+                                        )
                                         abs_cff = (
-                                            (4 * np.pi * column.ref_idx_im) 
-                                            / (column.wavelengths) 
+                                            (4 * np.pi * column.ref_idx_im)
+                                            / (column.wavelengths)
                                             / 917
-                                            )
-                                        column.ext_cff[i, :] = (
-                                            scattering_cff
-                                            + abs_cff
-                                            )
+                                        )
+                                        column.ext_cff[i, :] = scattering_cff + abs_cff
                                         column.ss_alb[i, :] = (
-                                            scattering_cff 
-                                            / column.ext_cff[i, :]
-                                            )
-                                        column.tau[i,:] = column.layer_mass[i] * column.ext_cff[i, :]
-                                
+                                            scattering_cff / column.ext_cff[i, :]
+                                        )
+                                        column.tau[i, :] = (
+                                            column.layer_mass[i] * column.ext_cff[i, :]
+                                        )
 
-                                column.lap_concentrations[:,0] = [
+                                column.lap_concentrations[:, 0] = [
                                     bc,
                                     bc,
                                     bc,
                                     bc,
                                     bc,
-                                ]  
-
+                                ]
 
                                 column.add_laps_to_column_ops()
-                                
-                                
+
                                 # solve RTE
-                                outputs = adding_doubling_solver(
-                                    column, irradiance)
+                                outputs = adding_doubling_solver(column, irradiance)
 
                                 specOut[counter, 0:480] = outputs.albedo
                                 specOut[counter, 480] = outputs.BBA
@@ -210,14 +198,12 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
     """
 
     if new_benchmark_ad_clean:
-        
+
         model_config = ModelConfig("./tests/inputs_tests.yaml")
         column = ColumnProperties(model_config)
-        irradiance = SolarIrradiance(model_config) 
-                
-        column = match_matlab_config(
-            column
-        )
+        irradiance = SolarIrradiance(model_config)
+
+        column = match_matlab_config(column)
 
         print(
             "generating benchmark data using params equivalent to snicarv4 (AD solver)"
@@ -253,87 +239,79 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                     for zen in zenList:
                         for bc in bcList:
                             for dz in dzList:
-                                
+
                                 # calculate irradiance
                                 irradiance.solzen = zen
                                 irradiance.calculate_irradiance()
-                                
-                                
+
                                 # calculate column ssa, g, mac
                                 column.thickness = dz
                                 column.layer_type = [layer_type] * len(column.thickness)
                                 column.rho = [density] * len(column.thickness)
-                                
-                                snow_idx = np.where(
-                                    np.array(column.layer_type) == 0)[0]
-                                ice_idx = np.where(
-                                    np.array(column.layer_type) != 0)[0]
 
-                                
-                                for i in snow_idx: 
+                                snow_idx = np.where(np.array(column.layer_type) == 0)[0]
+                                ice_idx = np.where(np.array(column.layer_type) != 0)[0]
+
+                                for i in snow_idx:
                                     file_ssps = str(
                                         "./tests/test_data/ice_spherical_grains_BH83/"
-                                        + f'ice_{column.rf_type}/ice_{column.rf_type}_'
-                                        + "{}.nc".format(
-                                            str(reff).rjust(4, "0"))
-                                        )
-                                    
+                                        + f"ice_{column.rf_type}/ice_{column.rf_type}_"
+                                        + "{}.nc".format(str(reff).rjust(4, "0"))
+                                    )
+
                                     with xr.open_dataset(file_ssps) as ssps:
-                                        column.ss_alb[i, :] = ssps["ss_alb"].values 
-                                        column.ext_cff[i, :] = ssps["ext_cff_mss"].values
+                                        column.ss_alb[i, :] = ssps["ss_alb"].values
+                                        column.ext_cff[i, :] = ssps[
+                                            "ext_cff_mss"
+                                        ].values
                                         column.asm_prm[i, :] = ssps["asm_prm"].values
-                                        column.tau[i,:] = column.layer_mass[i] * column.ext_cff[i, :]
-                                
-                                for i in ice_idx: 
+                                        column.tau[i, :] = (
+                                            column.layer_mass[i] * column.ext_cff[i, :]
+                                        )
+
+                                for i in ice_idx:
                                     file_ssps = str(
                                         "./tests/test_data/bubbly_ice_files_BH83/"
-                                        + "bbl_{}.nc".format(
-                                            str(reff).rjust(4, "0"))
-                                        )
+                                        + "bbl_{}.nc".format(str(reff).rjust(4, "0"))
+                                    )
                                     with xr.open_dataset(file_ssps) as ssps:
                                         column.asm_prm[i, :] = ssps["asm_prm"].values
                                         sca_cff_vlm_air_bbl = ssps["sca_cff_vlm"].values
-                                        vlm_frac_air = 1  - column.density[i] / 917
+                                        vlm_frac_air = 1 - column.density[i] / 917
                                         scattering_cff = (
-                                            sca_cff_vlm_air_bbl 
-                                            * vlm_frac_air 
+                                            sca_cff_vlm_air_bbl
+                                            * vlm_frac_air
                                             / column.density[i]
-                                            )
+                                        )
                                         abs_cff = (
-                                            (4 * np.pi * column.ref_idx_im) 
-                                            / (column.wavelengths) 
+                                            (4 * np.pi * column.ref_idx_im)
+                                            / (column.wavelengths)
                                             / 917
-                                            )
-                                        column.ext_cff[i, :] = (
-                                            scattering_cff
-                                            + abs_cff
-                                            )
+                                        )
+                                        column.ext_cff[i, :] = scattering_cff + abs_cff
                                         column.ss_alb[i, :] = (
-                                            scattering_cff 
-                                            / column.ext_cff[i, :]
-                                            )
-                                        column.tau[i,:] = column.layer_mass[i] * column.ext_cff[i, :]
-                                
+                                            scattering_cff / column.ext_cff[i, :]
+                                        )
+                                        column.tau[i, :] = (
+                                            column.layer_mass[i] * column.ext_cff[i, :]
+                                        )
 
-                                column.lap_concentrations[:,0] = [
+                                column.lap_concentrations[:, 0] = [
                                     bc,
                                     bc,
                                     bc,
                                     bc,
                                     bc,
-                                ]  
+                                ]
 
                                 column.add_laps_to_column_ops()
-                                
-                                
+
                                 # solve RTE
-                                outputs = adding_doubling_solver(
-                                    column, irradiance)
+                                outputs = adding_doubling_solver(column, irradiance)
 
                                 specOut[counter, 0:480] = outputs.albedo
                                 specOut[counter, 480] = outputs.BBA
                                 counter += 1
-
 
         np.savetxt(
             "./tests/test_data/py_benchmark_data_clean.csv", specOut, delimiter=","
@@ -434,6 +412,7 @@ def test_compare_pyBBA_to_matBBA_clean(
     bb_mat = mat.loc[:, 481]
     error = np.array(abs(bb_mat - bb_py))
     assert len(error[error > tol]) == 0
+
 
 def test_compare_pyspec_to_matspec_ad(get_matlab_data, get_python_data, set_tolerance):
     """Tests that spectral albedo values match between BioSNICAR data and the AD benchmark.
@@ -545,14 +524,17 @@ def match_matlab_config(column):
     """
 
     column.ref_idx_im = xr.open_dataset(
-        './tests/test_data/rfidx_ice.nc').im_Pic16.values
+        "./tests/test_data/rfidx_ice.nc"
+    ).im_Pic16.values
     column.ref_idx_re = xr.open_dataset(
-        './tests/test_data/rfidx_ice.nc').re_Pic16.values
+        "./tests/test_data/rfidx_ice.nc"
+    ).re_Pic16.values
     column.fl_r_dif_b = xr.open_dataset(
-        './tests/test_data/fl_reflection_diffuse.nc').R_dif_fb_ice_Pic16.values
+        "./tests/test_data/fl_reflection_diffuse.nc"
+    ).R_dif_fb_ice_Pic16.values
     column.fl_r_dif_a = xr.open_dataset(
-        './tests/test_data/fl_reflection_diffuse.nc').R_dif_fa_ice_Pic16.values
-
+        "./tests/test_data/fl_reflection_diffuse.nc"
+    ).R_dif_fa_ice_Pic16.values
 
     return column
 
@@ -588,25 +570,20 @@ def test_config_fuzzer(dir, aprx, inc, ref, fuzz, input_file):
     if fuzz:
         model_config = ModelConfig("./tests/inputs_tests.yaml")
         column = ColumnProperties(model_config)
-        irradiance = SolarIrradiance(model_config) 
-        
-        
-        column = match_matlab_config(
-            column
-        )
+        irradiance = SolarIrradiance(model_config)
+
+        column = match_matlab_config(column)
 
         irradiance.direct = dir
         column.rf_type = ref
         irradiance.incoming = inc
         irradiance.calculate_irradiance()
-        
+
         column.calculate_column_ops_clean()
 
         column.add_laps_to_column_ops()
 
-        outputs_ad = adding_doubling_solver(
-            column, irradiance
-        )
+        outputs_ad = adding_doubling_solver(column, irradiance)
 
     else:
         pass
@@ -646,59 +623,46 @@ def test_var_fuzzer(ssa, rho, zen, dust, soot, fuzz, input_file):
     if fuzz:
         model_config = ModelConfig("./tests/inputs_tests.yaml")
         column = ColumnProperties(model_config)
-        irradiance = SolarIrradiance(model_config) 
-        
-        column = match_matlab_config(
-            column
-        )
-        
+        irradiance = SolarIrradiance(model_config)
+
+        column = match_matlab_config(column)
+
         irradiance.solzen = zen
         irradiance.calculate_irradiance()
-        
+
         column.ssa = [ssa] * len(column.thickness)
         column.density = [rho] * len(column.thickness)
         column.calculate_column_ops_clean()
 
         # add impurities to the ice column
-        
-        # to change: 
+
+        # to change:
         column.lap_concentrations = np.vstack(
-            [[np.ones(column.nbr_lyr) * soot],
-             [np.ones(column.nbr_lyr) * dust]
-             ]
-            ).T
-        
+            [[np.ones(column.nbr_lyr) * soot], [np.ones(column.nbr_lyr) * dust]]
+        ).T
+
         lap1 = xr.open_dataset(
-            './data/optical_properties/light_absorbing_particles/mie_sot_ChC90_dns_1317.nc'
-            )
+            "./data/optical_properties/light_absorbing_particles/mie_sot_ChC90_dns_1317.nc"
+        )
         lap2 = xr.open_dataset(
-            './data/optical_properties/light_absorbing_particles/dust_balkanski_central_size1.nc'
-            )
-        
+            "./data/optical_properties/light_absorbing_particles/dust_balkanski_central_size1.nc"
+        )
+
         column.lap_ext_cff = np.vstack(
-            [[lap1["ext_cff_mss"].values],
-             [lap2["ext_cff_mss"].values]
-             ]
-            )
-        
+            [[lap1["ext_cff_mss"].values], [lap2["ext_cff_mss"].values]]
+        )
+
         column.lap_ss_alb = np.vstack(
-            [[lap1["ss_alb"].values],
-             [lap2["ss_alb"].values]
-             ]
-            )
-        
+            [[lap1["ss_alb"].values], [lap2["ss_alb"].values]]
+        )
+
         column.lap_asm_prm = np.vstack(
-            [[lap1["asm_prm"].values],
-             [lap2["asm_prm"].values]
-             ]
-            )
-        
+            [[lap1["asm_prm"].values], [lap2["asm_prm"].values]]
+        )
+
         column.add_laps_to_column_ops()
 
-
-        outputs_ad = adding_doubling_solver(
-            column, irradiance
-        )
+        outputs_ad = adding_doubling_solver(column, irradiance)
 
     else:
         pass
