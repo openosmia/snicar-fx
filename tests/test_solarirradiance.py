@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 
 Test the SolarIrradiance class.
@@ -9,7 +8,6 @@ would catch changes in snicar-fx data files and code using them.
 
 """
 
-from snicarfx.classes import ColumnProperties
 import numpy as np
 
 

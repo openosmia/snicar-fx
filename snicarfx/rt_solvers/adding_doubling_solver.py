@@ -30,6 +30,7 @@ solid ice layers and fresnel reflection are included.
 """
 
 import numpy as np
+
 from snicarfx.rt_solvers.adding_doubling_solver_oo import Outputs
 
 

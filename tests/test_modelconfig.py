@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 
 Test the ModelConfig class.
@@ -9,7 +8,7 @@ of ModelConfig come from the YAML parser which is itself tested.
 
 """
 
-from snicarfx.classes import ColumnProperties, SolarIrradiance, ModelConfig
+from snicarfx.classes import ModelConfig
 
 
 def test_modelconfig_loading(model_config):

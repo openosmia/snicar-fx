@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Defines the shared fixtures that are then used throughout the different test files
 
@@ -8,9 +7,11 @@ Let's create them only once per test module.
 """
 
 from itertools import product
-import pytest
-from snicarfx.classes import ColumnProperties, SolarIrradiance, ModelConfig
+
 import pandas as pd
+import pytest
+
+from snicarfx.classes import ColumnProperties, ModelConfig, SolarIrradiance
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
 

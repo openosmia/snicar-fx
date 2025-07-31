@@ -30,7 +30,8 @@ solid ice layers and fresnel reflection are included.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Any
+
 import numpy as np
 
 
@@ -56,19 +57,19 @@ class Outputs:
         absorbed_flux_per_layer: Total absorbed flux per layer.
     """
 
-    heat_rt: Optional[Any] = None
-    BBAVIS: Optional[float] = None
-    BBANIR: Optional[float] = None
-    BBA: Optional[float] = None
-    abs_slr_btm: Optional[float] = None
-    abs_vis_btm: Optional[float] = None
-    abs_nir_btm: Optional[float] = None
-    albedo: Optional[float] = None
-    total_insolation: Optional[float] = None
-    abs_slr_tot: Optional[float] = None
-    abs_vis_tot: Optional[float] = None
-    abs_nir_tot: Optional[float] = None
-    absorbed_flux_per_layer: Optional[Any] = None
+    heat_rt: Any | None = None
+    BBAVIS: float | None = None
+    BBANIR: float | None = None
+    BBA: float | None = None
+    abs_slr_btm: float | None = None
+    abs_vis_btm: float | None = None
+    abs_nir_btm: float | None = None
+    albedo: float | None = None
+    total_insolation: float | None = None
+    abs_slr_tot: float | None = None
+    abs_vis_tot: float | None = None
+    abs_nir_tot: float | None = None
+    absorbed_flux_per_layer: Any | None = None
 
 
 class _AddingDoublingSolver:

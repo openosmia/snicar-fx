@@ -1,6 +1,8 @@
 import math
+
 import numpy as np
 import xarray as xr
+
 
 class SolarIrradiance:
     """Properties of incoming irradiance.
