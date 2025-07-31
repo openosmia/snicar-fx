@@ -4,6 +4,6 @@ from .solar_irradiance import SolarIrradiance
 
 __all__ = [
     'ColumnProperties',
-    'SolarIrradiance',
     'ModelConfig',
+    'SolarIrradiance',
 ] 
