@@ -11,27 +11,27 @@ would catch changes in snicar-fx data files and code using them.
 import numpy as np
 
 
-def test_columnproperties_shapes(irradiance, expected_shapes):
+def test_columnproperties_shapes(irradiance):
 
     assert len(irradiance.stubs) == 7
 
 
 def test_solarirradiance_values(
     irradiance,
-    expected_mean_Fs,
+    expected_mean_fs,
     expected_mean_flx_slr,
-    expected_Fd,
+    expected_fd,
     relative_tolerance_column_properties,
 ):
     """ """
 
-    assert np.all(~np.isnan(irradiance.Fs))
+    assert np.all(~np.isnan(irradiance.fs))
     assert np.all(~np.isnan(irradiance.flx_slr))
-    assert np.all(~np.isnan(irradiance.Fd))
+    assert np.all(~np.isnan(irradiance.fd))
 
     assert np.isclose(
-        np.nanmean(irradiance.Fs),
-        expected_mean_Fs,
+        np.nanmean(irradiance.fs),
+        expected_mean_fs,
         rtol=relative_tolerance_column_properties,
     )
 
@@ -42,5 +42,5 @@ def test_solarirradiance_values(
     )
 
     assert np.allclose(
-        irradiance.Fd, expected_Fd, rtol=relative_tolerance_column_properties
+        irradiance.fd, expected_fd, rtol=relative_tolerance_column_properties
     )

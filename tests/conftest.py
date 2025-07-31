@@ -67,7 +67,7 @@ def expected_tau():
 
 
 @pytest.fixture(scope="module")
-def expected_mean_Fs():
+def expected_mean_fs():
     return 0.0010316714047111436
 
 
@@ -77,7 +77,7 @@ def expected_mean_flx_slr():
 
 
 @pytest.fixture(scope="module")
-def expected_Fd():
+def expected_fd():
     return 0.0
 
 
@@ -91,12 +91,12 @@ def parameter_grid():
     parameter grid to test snicar-fx against Matlab benchmark data
     """
 
-    lyrList = [0, 1]
-    densList = [400, 500, 600, 700, 800]
-    reffList = [200, 400, 600, 800, 1000]
-    zenList = [30, 40, 50, 60]
-    bcList = [500, 1000, 2000]
-    dzList = [
+    lyrlist = [0, 1]
+    denslist = [400, 500, 600, 700, 800]
+    refflist = [200, 400, 600, 800, 1000]
+    zenlist = [30, 40, 50, 60]
+    bclist = [500, 1000, 2000]
+    dzlist = [
         [0.02, 0.04, 0.06, 0.08, 0.1],
         [0.04, 0.06, 0.08, 0.10, 0.15],
         [0.05, 0.10, 0.15, 0.2, 0.5],
@@ -104,7 +104,7 @@ def parameter_grid():
         [0.5, 0.5, 0.5, 1, 10],
     ]
 
-    return list(product(lyrList, densList, reffList, zenList, bcList, dzList))
+    return list(product(lyrlist, denslist, refflist, zenlist, bclist, dzlist))
 
 
 @pytest.fixture(scope="module")
