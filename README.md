@@ -1,3 +1,7 @@
+ [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+ [![Continuous integration](https://github.com/openosmia/snicar-fx/workflows/CI/badge.svg)](https://github.com/openosmia/snicar-fx/actions)
+ [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://pre-commit.com/)
+ [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 # SNICAR-fx: A flexible and light-weight version of the SNICAR model
 
 SNICAR-fx started as a fork of the biosnicar-py repository, a python translation of the SNICAR (SNow, ICe and Aerosols Radiative transfer) model, to then evolve into its own standalone version. SNICAR-fx solves the 1-D unpolarized radiative transfer equation for a column of snow and/or ice using an adding-doubling solver, originally developed by Briegleb et al. 2007 and improved by Whicker et al. 2022 to include spectrally-dependent Fresnel reflectance coefficients. 

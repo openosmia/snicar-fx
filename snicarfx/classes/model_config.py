@@ -1,6 +1,9 @@
 import os
+
 import yaml
+
 import snicarfx
+
 
 class ModelConfig:
     """Model configuration.
@@ -21,7 +24,7 @@ class ModelConfig:
     """
 
     def __init__(self, input_file):
-        with open(input_file, "r") as ymlfile:
+        with open(input_file) as ymlfile:
             self.inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
         self.dir_base = (
             str(os.path.dirname(os.path.dirname(snicarfx.__file__)))
