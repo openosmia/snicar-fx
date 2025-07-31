@@ -1,21 +1,18 @@
 RTM:
   DIRECT: 1
-  NBR_WVL: 480
-  WVL_START: 205
-  WVL_END: 5000
+  WVL_START: 350
+  WVL_END: 2500
   RESOLUTION: 10
   APRX_TYP: 2
   DELTA: True
   SOLZEN: 50
   INCOMING: 0
-  VIS_MAX_IDX: 39
-  NIR_MAX_IDX: 480
 
 ICE:
   THICKNESS: [100, 100]  # thickness of each vertical layer (unit : m)
-  LAYER_TYPE: [0,0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
+  LAYER_TYPE: [1,1]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
   DENSITY: [650, 650]  # density of each layer (unit : kg m-3)
-  RF_TYPE: "Pic16" # "Wrn08", "Pic16", "Coop21"
+  RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21"
   SPECIFIC_SURFACE_AREA: [0.1, 0.1] # m2 kg-1. for ice, should be below 3.5
   LWC: [0, 0] # LWC content in snow/ice 
   SFC: 0 # reflectance of lower boundary  
