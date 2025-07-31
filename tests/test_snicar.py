@@ -105,12 +105,12 @@ def test_AD_solver(new_benchmark_ad, input_file):
                                 
                                 
                                 # calculate column ssa, g, mac
-                                column.thickness = dz
-                                column.layer_type = [layer_type] * len(column.thickness)
-                                column.density = [density] * len(column.thickness)
+                                column.thickness_profile = dz
+                                column.layer_type = [layer_type] * len(column.thickness_profile)
+                                column.density = [density] * len(column.thickness_profile)
                                 column.layer_mass = [column.density[i] 
-                                                     * column.thickness[i]
-                                                     for i in range(len(column.thickness))]
+                                                     * column.thickness_profile[i]
+                                                     for i in range(len(column.thickness_profile))]
                                 
                                 snow_idx = np.where(
                                     np.array(column.layer_type) == 0)[0]
@@ -267,12 +267,12 @@ def test_AD_solver_clean(new_benchmark_ad_clean, input_file):
                                 
                                 
                                 # calculate column ssa, g, mac
-                                column.thickness = dz
-                                column.layer_type = [layer_type] * len(column.thickness)
-                                column.density = [density] * len(column.thickness)
+                                column.thickness_profile = dz
+                                column.layer_type = [layer_type] * len(column.thickness_profile)
+                                column.density = [density] * len(column.thickness_profile)
                                 column.layer_mass = [column.density[i] 
-                                                     * column.thickness[i]
-                                                     for i in range(len(column.thickness))]
+                                                     * column.thickness_profile[i]
+                                                     for i in range(len(column.thickness_profile))]
                                 
                                 snow_idx = np.where(
                                     np.array(column.layer_type) == 0)[0]
@@ -387,6 +387,7 @@ def test_compare_pyBBA_to_matBBA_clean(
     bb_py = py.loc[480]
     bb_mat = mat.loc[480]
     error = np.array(abs(bb_mat - bb_py))
+    print(np.max(error))
     assert len(error[error > tol]) == 0
 
 
@@ -415,6 +416,7 @@ def test_compare_pyBBA_to_matBBA(get_matlab_data, get_python_data, set_tolerance
     bb_py = py.loc[480]
     bb_mat = mat.loc[480]
     error = np.array(abs(bb_mat - bb_py))
+    print(np.max(error))
     assert len(error[error > tol]) == 0
 
 def test_compare_pyspec_to_matspec_ad(get_matlab_data, get_python_data, set_tolerance):
@@ -443,6 +445,7 @@ def test_compare_pyspec_to_matspec_ad(get_matlab_data, get_python_data, set_tole
     bb_py = py.iloc[:250, :] # only until 2705nm for now, as small issue in next 15 bands
     bb_mat = mat.iloc[:250, :] # only until 2705nm for now, as small issue in next 15 bands
     error = np.array(np.abs(bb_py - bb_mat))
+    print(np.max(error))
     assert len(error[error > tol]) == 0
 
 def test_compare_pyspec_to_matspec_clean(
@@ -473,6 +476,7 @@ def test_compare_pyspec_to_matspec_clean(
     bb_py = py.iloc[:250, :] # only until 2705nm for now, as small issue in next 15 bands
     bb_mat = mat.iloc[:250, :] # only until 2705nm for now, as small issue in next 15 bands
     error = np.array(abs(bb_py - bb_mat))
+    print(np.max(error))
     assert len(error[error > tol]) == 0
 
 
