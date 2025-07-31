@@ -40,13 +40,13 @@ def set_tolerance():
 @pytest.fixture
 def new_benchmark_ad():
     """Toggles generation of new BioSNICAR benchmarking data on/off."""
-    return False
+    return True
 
 
 @pytest.fixture
 def new_benchmark_ad_clean():
     """Toggles generation of new BioSNICAR becnhmarking data on/off for clean ice."""
-    return False
+    return True
 
 
 @pytest.fixture
