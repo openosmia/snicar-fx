@@ -669,13 +669,13 @@ class _AddingDoublingSolver:
         for n in np.arange(0, self.column.nbr_lyr + 1, 1):
             self.F_up[:, n] = (
                 self.fdirup[:, n]
-                * (self.irradiance.Fs * self.irradiance.mu_not * np.pi)
-                + self.fdifup[:, n] * self.irradiance.Fd
+                * (self.irradiance.fs * self.irradiance.mu_not * np.pi)
+                + self.fdifup[:, n] * self.irradiance.fd
             )
             self.F_dwn[:, n] = (
                 self.fdirdn[:, n]
-                * (self.irradiance.Fs * self.irradiance.mu_not * np.pi)
-                + self.fdifdn[:, n] * self.irradiance.Fd
+                * (self.irradiance.fs * self.irradiance.mu_not * np.pi)
+                + self.fdifdn[:, n] * self.irradiance.fd
             )
 
         self.F_net = self.F_up - self.F_dwn
@@ -703,8 +703,8 @@ class _AddingDoublingSolver:
         """
         # Incident direct+diffuse radiation equals (absorbed+transmitted+bulk_reflected)
         energy_sum = (
-            (self.irradiance.mu_not * np.pi * self.irradiance.Fs)
-            + self.irradiance.Fd
+            (self.irradiance.mu_not * np.pi * self.irradiance.fs)
+            + self.irradiance.fd
             - (np.sum(self.F_abs, axis=1) + self.F_btm_net + self.F_top_pls)
         )
 
@@ -744,7 +744,7 @@ class _AddingDoublingSolver:
 
         # Total incident insolation( Wm - 2)
         outputs.total_insolation = np.sum(
-            (self.irradiance.mu_not * np.pi * self.irradiance.Fs) + self.irradiance.Fd
+            (self.irradiance.mu_not * np.pi * self.irradiance.fs) + self.irradiance.fd
         )
 
         # Spectrally-integrated absorption by underlying surface:
@@ -818,7 +818,7 @@ def solve_adding_doubling(column, irradiance):
         # transmittivity to radiation from above (_a) are different from the
         # transmittivity to radiation radiation from below (_b)
         if lyr == ads.lyrfrsnl:
-            ads.calc_correction_fresnel_layer(lyr)
+            ads.calculate_correction_fresnel_layer(lyr)
 
         # combine layers from up down: calculate total & direct
         # transmission as well as reflection/transmission of diffuse radiation
