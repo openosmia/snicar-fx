@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 
+
 class ColumnProperties:
     """Snow or ice column physical & optical properties, including light 
     absorbing particles.

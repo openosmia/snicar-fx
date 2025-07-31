@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 
 Test snicar-fx against outputs from SNICAR_ADv4 Matlab code
 
 """
 
-from snicarfx.rt_solvers import adding_doubling_solver
-from snicarfx.classes import ColumnProperties, SolarIrradiance, ModelConfig
 import numpy as np
 import pytest
 import xarray as xr
+
+from snicarfx.classes import ColumnProperties, ModelConfig, SolarIrradiance
+from snicarfx.rt_solvers import adding_doubling_solver
 from tests.conftest import parameter_grid
 from tests.utils import match_matlab_config
 
