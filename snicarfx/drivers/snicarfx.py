@@ -1,10 +1,6 @@
 #!/usr/bin/python
 
-from biosnicar.classes import (
-    ColumnProperties,
-    SolarIrradiance,
-    ModelConfig
-)
+from biosnicar.classes import ColumnProperties, ModelConfig, SolarIrradiance
 from biosnicar.rt_solvers.adding_doubling_solver import adding_doubling_solver
 
 

@@ -32,3 +32,14 @@ node_modules/.yarn-integrity
 app/node_modules
 /build
 *dask*
+
+
+# emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
