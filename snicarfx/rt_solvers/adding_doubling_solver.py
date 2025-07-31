@@ -320,8 +320,7 @@ def define_constants_arrays(irradiance, column):
     ssa0 = column.ss_alb.T  # read and transpose ssa
     epsilon = 1e-5  # to deal with singularity
     exp_min = 1e-5  # exp(-500)  # min value > 0 to avoid error
-    nr = np.zeros(shape=480)
-    mu0 = irradiance.mu_not * np.ones(480)  # cos beam angle = incident beam
+    mu0 = irradiance.mu_not * np.ones(column.nbr_wvl)  # cos beam angle = incident beam
 
     # ice-adjusted real refractive index
     temp1 = (
@@ -606,6 +605,14 @@ def apply_gaussian_integral(
         0.1826034,
         0.1894506,
     ]
+    
+    # nodes, weights = np.polynomial.legendre.leggauss(8)
+    
+    # # change of variable in the interval a=0 to b=1 (equivalent to [-1; 0])
+    # a, b = 0, 1
+    # gauspt = 0.5 * (b - a) * nodes + 0.5 * (b + a)
+    # gauswt = (b - a) / 2 * weights
+    
     swt = 0
     smr = 0
     smt = 0

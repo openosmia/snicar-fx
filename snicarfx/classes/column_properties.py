@@ -5,39 +5,39 @@ class ColumnProperties:
     """Snow or ice column physical & optical properties, including light 
     absorbing particles.
 
-    Attributes:
-        TO DO
     """
 
     def __init__(self, modelconfig):
         self.modelconfig = modelconfig
-        self.thickness = modelconfig.inputs["ICE"]["THICKNESS"]
+        self.thickness_profile = np.array(modelconfig.inputs["ICE"]["THICKNESS"])
         self.layer_type = modelconfig.inputs["ICE"]["LAYER_TYPE"]
-        self.density = modelconfig.inputs["ICE"]["DENSITY"]
-        self.nbr_wvl = modelconfig.inputs["RTM"]["NBR_WVL"]
-        self.sfc = np.ones(
-            self.nbr_wvl
-            ) * modelconfig.inputs["ICE"]["SFC"]
+        self.density = np.array(modelconfig.inputs["ICE"]["DENSITY"])
         self.rf_type = modelconfig.inputs["ICE"]["RF_TYPE"]
         self.grain_shape = modelconfig.inputs["ICE"]["GRAIN_SHAPE"]
-        self.lwc = modelconfig.inputs["ICE"]["LWC"]
-        self.ssa = modelconfig.inputs["ICE"]["SPECIFIC_SURFACE_AREA"]
+        self.lwc = np.array(modelconfig.inputs["ICE"]["LWC"])
+        self.ssa = np.array(modelconfig.inputs["ICE"]["SPECIFIC_SURFACE_AREA"])
         self.nbr_lyr = len(self.density) 
         
         self.wavelengths = np.arange(
-                            self.modelconfig.inputs["RTM"]["WVL_START"]*1e-9, 
-                            self.modelconfig.inputs["RTM"]["WVL_END"]*1e-9,
-                            self.modelconfig.inputs["RTM"]["RESOLUTION"]*1e-9)
+                            self.modelconfig.inputs["RTM"]["WVL_START"], 
+                            self.modelconfig.inputs["RTM"]["WVL_END"],
+                            self.modelconfig.inputs["RTM"]["RESOLUTION"]
+                            ) * 1e-9
+        
+        self.nbr_wvl = len(self.wavelengths)
+        self.sfc = np.ones(
+            self.nbr_wvl
+            ) * modelconfig.inputs["ICE"]["SFC"]
 
         # init the ssps
         self.ext_cff = np.ones((self.nbr_lyr,
-                            self.modelconfig.inputs["RTM"]["NBR_WVL"]))
+                            self.nbr_wvl))
         self.ss_alb = np.ones((self.nbr_lyr,
-                            self.modelconfig.inputs["RTM"]["NBR_WVL"]))
+                            self.nbr_wvl))
         self.asm_prm = np.ones((self.nbr_lyr,
-                            self.modelconfig.inputs["RTM"]["NBR_WVL"]))
+                            self.nbr_wvl))
         self.tau = np.ones((self.nbr_lyr,
-                            self.modelconfig.inputs["RTM"]["NBR_WVL"]))
+                            self.nbr_wvl))
         self.layer_mass = np.zeros(self.nbr_lyr)
     
         self.set_refractive_index_and_diffuse_fresnel_coeffs()
@@ -92,8 +92,6 @@ class ColumnProperties:
         """Calculates light absorbing particle properties at user-defined 
         resolution.
 
-        Args:
-            self
             
         """
 
@@ -106,13 +104,13 @@ class ColumnProperties:
         nb_laps = len(self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"])
         
         self.lap_ss_alb = np.zeros((nb_laps,  
-                                    self.modelconfig.inputs["RTM"]["NBR_WVL"])
+                                    self.nbr_wvl)
                                    )
         self.lap_asm_prm = np.zeros((nb_laps, 
-                                    self.modelconfig.inputs["RTM"]["NBR_WVL"])
+                                    self.nbr_wvl)
                                    )
         self.lap_ext_cff = np.zeros((nb_laps,  
-                                    self.modelconfig.inputs["RTM"]["NBR_WVL"])
+                                    self.nbr_wvl)
                                    )
         
         
@@ -178,10 +176,10 @@ class ColumnProperties:
 
         """
         
+        self.layer_mass = self.density * self.thickness_profile
+        
         for lyr in range(self.nbr_lyr):
-            
-            self.layer_mass[lyr] = self.density[lyr] * self.thickness[lyr]
-                    
+        
             if self.layer_type[lyr] > 0: # ice - only air inclusions for now
                 vlm_frac_ice = (self.density[lyr] - self.lwc[lyr] * 1000) / 917
                 vlm_frac_air = 1 - self.lwc[lyr] - vlm_frac_ice
@@ -194,14 +192,16 @@ class ColumnProperties:
                     )
 
                 abs_cff = (4 
-                           * np.pi 
-                           / (self.wavelengths) 
-                           / self.density[lyr]
-                           * (
-                               vlm_frac_ice * self.ref_idx_im
-                               + self.lwc[lyr] * self.ref_idx_im_water
-                               )
-                           )
+                            * np.pi 
+                            / (self.wavelengths) 
+                            / self.density[lyr]
+                            * (
+                                vlm_frac_ice * self.ref_idx_im
+                                + self.lwc[lyr] * self.ref_idx_im_water
+                                )
+                            )
+                
+                
                 
                 self.ext_cff[lyr, :] = (
                     scattering_cff
@@ -216,11 +216,11 @@ class ColumnProperties:
                 # self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.86
                 #Kokhanovsky 2002 
                 self.asm_prm[lyr, :] = (0.49274 
-                                 + 0.44466 
-                                 / (0.69233 * np.sqrt(np.pi/2)) *
-                                 np.exp(-2 *((1/self.ref_idx_re - 1.04882) 
-                                             / 0.69233)**2)
-                                 )
+                                  + 0.44466 
+                                  / (0.69233 * np.sqrt(np.pi/2)) *
+                                  np.exp(-2 *((1/self.ref_idx_re - 1.04882) 
+                                              / 0.69233)**2)
+                                  )
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
 
                 self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
@@ -251,10 +251,10 @@ class ColumnProperties:
                     B = self.ref_idx_re**2
                     phi = 2.0 / 3 * B / (1 - W)
                     self.ss_alb[lyr, :] = 1 - 0.5 * (1 - W) * (1 - np.exp(-c * phi))
-        
+
 
     def add_laps_to_column_ops(self):
-        """Calculate optical properties of a clean snow/ice column mixed with light
+        """Calculate optical properties of a snow/ice column mixed with light
         absorbing particles.
 
 
