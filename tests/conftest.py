@@ -38,10 +38,10 @@ def irradiance(model_config):
 def expected_shapes(column):
     return {
         "1d_layers": (column.nbr_lyr,),
-        "1d_wavelengths": (column.modelconfig.inputs["RTM"]["NBR_WVL"],),
+        "1d_wavelengths": (column.nbr_wvl,),
         "2d_layers_wavelengths": (
             column.nbr_lyr,
-            column.modelconfig.inputs["RTM"]["NBR_WVL"],
+            column.nbr_wvl,
         ),
     }
 
