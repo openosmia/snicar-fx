@@ -15,14 +15,14 @@ class ColumnProperties:
         self.density = np.array(modelconfig.inputs["ICE"]["DENSITY"])
         self.rf_type = modelconfig.inputs["ICE"]["RF_TYPE"]
         self.grain_shape = modelconfig.inputs["ICE"]["GRAIN_SHAPE"]
-        self.lwc = np.array(modelconfig.inputs["ICE"]["LwC"])
+        self.lwc = np.array(modelconfig.inputs["ICE"]["LWC"])
         self.ssa = np.array(modelconfig.inputs["ICE"]["SPECIFIC_SURFACE_AREA"])
         self.nbr_lyr = len(self.density)
 
         self.wavelengths = (
             np.arange(
-                self.modelconfig.inputs["RTM"]["wVL_START"],
-                self.modelconfig.inputs["RTM"]["wVL_END"],
+                self.modelconfig.inputs["RTM"]["WVL_START"],
+                self.modelconfig.inputs["RTM"]["WVL_END"],
                 self.modelconfig.inputs["RTM"]["RESOLUTION"],
             )
             * 1e-9
@@ -41,7 +41,7 @@ class ColumnProperties:
         self.set_refractive_index_and_diffuse_fresnel_coeffs()
         self.calculate_column_ops_clean()
 
-        if self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"] is not None:
+        if self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"] is not None:
             self.get_lap_properties()
             self.add_laps_to_column_ops()
 
@@ -56,8 +56,8 @@ class ColumnProperties:
 
         # set spectral resolution
         resolution = self.modelconfig.inputs["RTM"]["RESOLUTION"]
-        wvl_start = self.modelconfig.inputs["RTM"]["wVL_START"]
-        wvl_end = self.modelconfig.inputs["RTM"]["wVL_END"]
+        wvl_start = self.modelconfig.inputs["RTM"]["WVL_START"]
+        wvl_end = self.modelconfig.inputs["RTM"]["WVL_END"]
         wvl_high_res = np.arange(200, 5001, 1)
 
         idx1 = np.where(wvl_high_res == wvl_start)[0][0]
@@ -93,11 +93,11 @@ class ColumnProperties:
 
         # set spectral resolution
         resolution = self.modelconfig.inputs["RTM"]["RESOLUTION"]
-        wvl_start = self.modelconfig.inputs["RTM"]["wVL_START"]
-        wvl_end = self.modelconfig.inputs["RTM"]["wVL_END"]
+        wvl_start = self.modelconfig.inputs["RTM"]["WVL_START"]
+        wvl_end = self.modelconfig.inputs["RTM"]["WVL_END"]
 
         # initialize properties
-        nb_laps = len(self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"])
+        nb_laps = len(self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"])
 
         self.lap_ss_alb = np.zeros((nb_laps, self.nbr_wvl))
         self.lap_asm_prm = np.zeros((nb_laps, self.nbr_wvl))
@@ -109,33 +109,33 @@ class ColumnProperties:
                 (
                     np.array(
                         # convert from ppb to kg kg-1
-                        self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"][name][
+                        self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][name][
                             "CONC"
                         ]
                     )
                     * 1e-9
-                    if self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"][name][
+                    if self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][name][
                         "UNIT"
                     ]
                     == 0
                     else np.array(
                         # convert from cells mL-1 to kg kg-1 (1cell=1ng)
-                        self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"][name][
+                        self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][name][
                             "CONC"
                         ]
                     )
                     * 0.917
                     * 1e-9
                 )
-                for name in self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"]
+                for name in self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"]
             ]
         ).T
 
         # get properties in a large array
-        for i, lap in enumerate(self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"]):
+        for i, lap in enumerate(self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"]):
 
             # first get the ext coeff tag
-            if self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"][lap]["COATED"]:
+            if self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][lap]["COATED"]:
                 ext_cff_tag = "ext_cff_mss_ncl"
             else:
                 ext_cff_tag = "ext_cff_mss"
@@ -143,7 +143,7 @@ class ColumnProperties:
             # then interpolate the properties to the right resolution
             properties = xr.open_dataset(
                 self.modelconfig.lap_path
-                + self.modelconfig.inputs["LIGHT_AbSORbING_PARTICLES"][lap]["FILE"]
+                + self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][lap]["FILE"]
             )
 
             ss_alb = np.interp(
