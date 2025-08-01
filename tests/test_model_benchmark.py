@@ -9,8 +9,12 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from snicarfx.classes import ColumnProperties, ModelInputs, SolarIrradiance
-from snicarfx.rt_solvers import solve_adding_doubling
+from snicarfx.core import (
+    ColumnProperties,
+    ModelInputs,
+    SolarIrradiance,
+    solve_adding_doubling,
+)
 from tests.conftest import parameter_grid
 from tests.utils import match_matlab_config
 
