@@ -1,9 +1,9 @@
 from .column_properties import ColumnProperties
-from .model_config import ModelConfig
+from .model_inputs import ModelInputs
 from .solar_irradiance import SolarIrradiance
 
 __all__ = [
     'ColumnProperties',
-    'ModelConfig',
+    'ModelInputs',
     'SolarIrradiance',
 ] 

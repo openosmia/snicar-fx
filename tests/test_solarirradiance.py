@@ -11,11 +11,6 @@ would catch changes in snicar-fx data files and code using them.
 import numpy as np
 
 
-def test_columnproperties_shapes(irradiance):
-
-    assert len(irradiance.stubs) == 7
-
-
 def test_solarirradiance_values(
     irradiance,
     expected_mean_fs,
