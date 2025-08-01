@@ -5,8 +5,8 @@ RTM:
   RESOLUTION: 10
   APRX_TYP: 2
   DELTA: True
-  SOLZEN: 50
-  INCOMING: 0
+  SZA: 50
+  IRRADIANCE_TYPE: "mls" # "mlw", "mls", "saw", "sas", "smm", "hmn", "trp"
 
 ICE:
   THICKNESS: [100, 100]  # thickness of each vertical layer (unit : m)

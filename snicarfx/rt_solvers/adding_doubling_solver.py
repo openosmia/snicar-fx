@@ -76,36 +76,7 @@ class _AddingDoublingSolver:
 
     def __init__(self, column, irradiance):
         """
-        column: instance of ColumnProperties class
-        irradiance: instance of SolarIrradiance class
-        tau0: initial optical thickness (m/m)
-        g0: initial asymmetry parameter (dimensionless)
-        ssa0: initial single scatterign albedo (dimensionless)
-        epsilon: small number to avoid singularity
-        exp_min: small number to avoid zero calcs
-        nr: real part of refractive index
-        mu0: cosine of direct beam zenith angle
-        mu0n: adjusted cosine of direct beam zenith angle after refraction
-        trnlay: direct transmission of solar beam through layer
-        rdif_a: reflectivity to diffuse irradiance coming from above
-        rdif_b: reflectivity to diffuse irradiance coming from bloe
-        tdif_a: transmissivity to diffuse irradiance coming from above
-        tdif_b: transmissivity to diffuse irradiance coming from below
-        rdir: reflectivity to direct beam
-        tdir: total transmission of the direct beam (direct + diffuse)
-        lyrfrsnl: index of uppermost fresnel reflecting layer in ice column
 
-        ws: layer delta-scaled single scattering albedo
-        gs:layer delta-scaled asymmetry parameter
-
-        smt: accumulator for tdif gaussian integration
-        smr: accumulator for rdif gaussian integration
-        swt: sum of gaussian weights
-
-        albedo: ratio of upwards fluxes to incoming irradiance
-        F_abs: absorbed flux in each layer
-        F_btm_net: net fluxes at bottom surface
-        F_top_pls: upwards flux from upper surface
         """
 
         self.column = column
@@ -126,21 +97,21 @@ class _AddingDoublingSolver:
         # exp(-500)  # min value > 0 to avoid error
         self.exp_min = 1e-5
 
-        self.nr = np.zeros(shape=480)
+        self.nr = np.zeros(shape=column.nbr_wvl)
 
         # cos beam angle = incident beam
-        self.mu0 = irradiance.mu_not * np.ones(480)
+        self.mu0 = irradiance.cos_sza * np.ones(column.nbr_wvl)
 
         # ice-adjusted real refractive index
         temp1 = (
             column.ref_idx_re**2
             - column.ref_idx_im**2
-            + np.sin(np.arccos(irradiance.mu_not)) ** 2
+            + np.sin(np.arccos(irradiance.cos_sza)) ** 2
         )
         temp2 = (
             column.ref_idx_re**2
             - column.ref_idx_im**2
-            - np.sin(np.arccos(irradiance.mu_not)) ** 2
+            - np.sin(np.arccos(irradiance.cos_sza)) ** 2
         )
         self.nr = (np.sqrt(2) / 2) * (
             temp1 + (temp2**2 + 4 * column.ref_idx_re**2 * column.ref_idx_im**2) ** 0.5
@@ -445,7 +416,7 @@ class _AddingDoublingSolver:
         # where TIR occurs
         ref_indx = self.column.ref_idx_re + 1j * self.column.ref_idx_im
         critical_angle = np.arcsin(ref_indx)
-        mask = np.arccos(self.irradiance.mu_not) >= critical_angle
+        mask = np.arccos(self.irradiance.cos_sza) >= critical_angle
         rf_dir_a[mask] = 1 
         tf_dir_a[mask] = 0 
         
@@ -523,7 +494,7 @@ class _AddingDoublingSolver:
         refkm1 = 1 / (1 - self.rdndif[:, lyr] * self.rdif_a[:, lyr])
 
         # transmission of solar beam (direct)
-        # trnlay = exp(-ts/mu_not), with ts changing every layer,
+        # trnlay = exp(-ts/cos_sza), with ts changing every layer,
         # mu0 is mu0n under fresnel lr
         self.trndir[:, lyr + 1] = self.trndir[:, lyr] * self.trnlay[:, lyr]
 
@@ -654,12 +625,12 @@ class _AddingDoublingSolver:
         for n in np.arange(0, self.column.nbr_lyr + 1, 1):
             self.F_up[:, n] = (
                 self.fdirup[:, n]
-                * (self.irradiance.fs * self.irradiance.mu_not * np.pi)
+                * (self.irradiance.fs * self.irradiance.cos_sza * np.pi)
                 + self.fdifup[:, n] * self.irradiance.fd
             )
             self.F_dwn[:, n] = (
                 self.fdirdn[:, n]
-                * (self.irradiance.fs * self.irradiance.mu_not * np.pi)
+                * (self.irradiance.fs * self.irradiance.cos_sza * np.pi)
                 + self.fdifdn[:, n] * self.irradiance.fd
             )
 
@@ -688,7 +659,7 @@ class _AddingDoublingSolver:
         """
         # Incident direct+diffuse radiation equals (absorbed+transmitted+bulk_reflected)
         energy_sum = (
-            (self.irradiance.mu_not * np.pi * self.irradiance.fs)
+            (self.irradiance.cos_sza * np.pi * self.irradiance.fs)
             + self.irradiance.fd
             - (np.sum(self.F_abs, axis=1) + self.F_btm_net + self.F_top_pls)
         )
@@ -729,7 +700,7 @@ class _AddingDoublingSolver:
 
         # Total incident insolation( Wm - 2)
         outputs.total_insolation = np.sum(
-            (self.irradiance.mu_not * np.pi * self.irradiance.fs) + self.irradiance.fd
+            (self.irradiance.cos_sza * np.pi * self.irradiance.fs) + self.irradiance.fd
         )
 
         # Spectrally-integrated absorption by underlying surface:

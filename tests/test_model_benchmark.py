@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from snicarfx.classes import ColumnProperties, ModelConfig, SolarIrradiance
+from snicarfx.classes import ColumnProperties, ModelInputs, SolarIrradiance
 from snicarfx.rt_solvers import solve_adding_doubling
 from tests.conftest import parameter_grid
 from tests.utils import match_matlab_config
@@ -27,16 +27,16 @@ def test_snicarfx_outputs(
     layer_type, density, radius, sza, bc, thickness_profile, direct = params
 
     # Setup inputs
-    model_config = ModelConfig("./tests/inputs_tests.yaml")
-    column = ColumnProperties(model_config)
-    irradiance = SolarIrradiance(model_config)
+    model_inputs = ModelInputs("./tests/inputs_tests.yaml")
+    column = ColumnProperties(model_inputs)
+    irradiance = SolarIrradiance(model_inputs)
 
     column = match_matlab_config(column)
 
     # calculate irradiance
     irradiance.direct = direct
-    irradiance.solzen = sza
-    irradiance.calculate_irradiance()
+    irradiance.sza = sza
+    irradiance.set_irradiance()
 
     # calculate column ssa, g, mac
     column.thickness_profile = thickness_profile
@@ -69,18 +69,18 @@ def test_snicarfx_outputs(
             + "bbl_{}.nc".format(str(radius).rjust(4, "0"))
         )
         with xr.open_dataset(file_ssps) as ssps:
-            column.asm_prm[i, :] = ssps["asm_prm"].values
             sca_cff_vlm_air_bbl = ssps["sca_cff_vlm"].values
             vlm_frac_air = 1 - column.density[i] / 917
             scattering_cff = sca_cff_vlm_air_bbl * vlm_frac_air / column.density[i]
             abs_cff = (4 * np.pi * column.ref_idx_im) / (column.wavelengths) / 917
             column.ext_cff[i, :] = scattering_cff + abs_cff
             column.ss_alb[i, :] = scattering_cff / column.ext_cff[i, :]
+            column.asm_prm[i, :] = ssps["asm_prm"].values
             column.tau[i, :] = column.layer_mass[i] * column.ext_cff[i, :]
 
     column.lap_concentrations[:, 0] = bc * 1e-9 
 
-    column.add_laps_to_column_ops()
+    column.update_column_ops_with_laps()
 
     # solve RTE
     outputs = solve_adding_doubling(column, irradiance)

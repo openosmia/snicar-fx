@@ -11,29 +11,21 @@ class SolarIrradiance:
 
     Attributes:
         direct: Boolean toggling between direct and diffuse irradiance
-        solzen: solar zenith angle in degrees from the vertical
-        incoming: choice of spectral distribution from file 0-6
+        sza: solar zenith angle in degrees from the vertical
+        incoming: choice of type of irradiance type
         flx_dir: directory containing irradiance files
-        stubs: array of stub strings for selecting irradiance files
     """
 
-    def __init__(self, modelconfig):
-        self.modelconfig = modelconfig
-        self.direct = modelconfig.inputs["RTM"]["DIRECT"]
-        self.solzen = modelconfig.inputs["RTM"]["SOLZEN"]
-        self.incoming = modelconfig.inputs["RTM"]["INCOMING"]
+    def __init__(self, model_inputs):
+        self.model_inputs = model_inputs
+        self.direct = model_inputs.inputs["RTM"]["DIRECT"]
+        self.sza = model_inputs.inputs["RTM"]["SZA"]
+        self.irradiance_type = model_inputs.inputs["RTM"]["IRRADIANCE_TYPE"]
 
-        self.stubs = [
-            f"swnb_480bnd_{i}"
-            for i in ["mlw", "mls", "saw", "sas", "smm", "hmn", "trp"]
-        ]
+        self.set_irradiance()
 
-        self.calculate_irradiance()
-
-    def calculate_irradiance(self):
+    def set_irradiance(self):
         """Calculates irradiance from initialized attributes.
-
-        Takes mu_not, incoming and file stubs from self and calculates irradiance.
 
         Args:
             self
@@ -43,55 +35,46 @@ class SolarIrradiance:
             fd: diffuse irradiance
             fs: direct irradiance
 
-
-        Raises:
-            ValueError is incoming is out of range
         """
 
-        if self.incoming < 0 or self.incoming > 6:
-            raise ValueError("Irradiance type out of range - between 0 and 6 only")
-
-        # update mu_not from solzen
-        self.mu_not = np.cos(math.radians(np.rint(self.solzen)))
+        self.cos_sza = np.cos(math.radians(np.rint(self.sza)))
 
         if self.direct:
 
-            incoming_file = xr.open_dataset(
+            flux_file = xr.open_dataset(
                 str(
-                    self.modelconfig.solar_fluxes_path
-                    + self.stubs[self.incoming]
+                    self.model_inputs.solar_fluxes_path
+                    + 'swnb_480bnd_'
+                    + self.irradiance_type
                     + "_clr_"
-                    + str("SZA" + str(self.solzen).rjust(2, "0"))
+                    + str("SZA" + str(self.sza).rjust(2, "0"))
                     + ".nc"
                 )
             )
         else:
 
-            incoming_file = xr.open_dataset(
+            flux_file = xr.open_dataset(
                 str(
-                    self.modelconfig.solar_fluxes_path
-                    + self.stubs[self.incoming]
-                    + "_cld"
-                    + ".nc"
+                    self.model_inputs.solar_fluxes_path
+                    + 'swnb_480bnd_'
+                    + self.irradiance_type
+                    + "_cld.nc"
                 )
             )
 
-        # set spectral resolution
-        resolution = self.modelconfig.inputs["RTM"]["RESOLUTION"]
-        wvl_start = self.modelconfig.inputs["RTM"]["WVL_START"]
-        wvl_end = self.modelconfig.inputs["RTM"]["WVL_END"]
-
         # interp at the correct spectral resolution
         self.flx_slr = np.interp(
-            np.arange(wvl_start, wvl_end, resolution),
-            incoming_file.wvl_ctr.values * 1e3,  # from um to nm
-            incoming_file["flx_frc_sfc"].values,
+            np.arange(self.model_inputs.inputs["RTM"]["WVL_START"], 
+                      self.model_inputs.inputs["RTM"]["WVL_END"], 
+                      self.model_inputs.inputs["RTM"]["RESOLUTION"]),
+            flux_file.wvl_ctr.values * 1e3,  # from um to nm
+            flux_file["flx_frc_sfc"].values,
         )
 
-        self.flx_slr[self.flx_slr <= 0] = 1e-30
+        self.flx_slr[self.flx_slr == 0] = 1e-30
 
         if self.direct:
-            self.fs = self.flx_slr / (self.mu_not * np.pi)
+            self.fs = self.flx_slr / (self.cos_sza * np.pi)
             self.fd = np.zeros_like(self.fs)
         else:
             self.fd = self.flx_slr 
