@@ -113,19 +113,19 @@ def parameter_grid():
 
 
 @pytest.fixture(scope="module")
-def benchmark_SNICARADv4_spectral_data():
+def benchmark_snicaradv4_spectral_data():
     return pd.read_csv(
         "./tests/test_data/benchmark_SNICARADv4_spectral_albedo.csv", 
         header=None)
 
 @pytest.fixture(scope="module")
-def benchmark_SNICARADv4_BBA_data():
+def benchmark_snicaradv4_bba_data():
     return pd.read_csv(
         "./tests/test_data/benchmark_SNICARADv4_BBA.csv", 
         header=None)
 
 @pytest.fixture(scope="module")
-def benchmark_SNICARADv4_absorbed_flux_data():
+def benchmark_snicaradv4_absorbed_flux_data():
     return pd.read_csv(
         "./tests/test_data/benchmark_SNICARADv4_absorbed_flux.csv", 
         header=None)
