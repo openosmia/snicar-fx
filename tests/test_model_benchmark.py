@@ -18,9 +18,9 @@ from tests.utils import match_matlab_config
 @pytest.mark.parametrize("idx, params", enumerate(parameter_grid()))
 def test_snicarfx_outputs(
     idx, params, column, 
-    benchmark_SNICARADv4_spectral_data, 
-    benchmark_SNICARADv4_BBA_data,
-    benchmark_SNICARADv4_absorbed_flux_data,
+    benchmark_snicaradv4_spectral_data, 
+    benchmark_snicaradv4_bba_data,
+    benchmark_snicaradv4_absorbed_flux_data,
     absolute_tolerance_benchmark
 ):
 
@@ -85,24 +85,22 @@ def test_snicarfx_outputs(
     # solve RTE
     outputs = solve_adding_doubling(column, irradiance)
 
-    if np.nanmax(np.abs(outputs.abs_slr_tot-benchmark_SNICARADv4_absorbed_flux_data[idx])) > 1e-5:
-        print(idx, params)
     # spectral albedo only until 2705nm for now, as small issue in next 15 bds
     assert np.allclose(
         outputs.albedo[:250],
-        benchmark_SNICARADv4_spectral_data[idx][:250],
+        benchmark_snicaradv4_spectral_data[idx][:250],
         atol=absolute_tolerance_benchmark,
     )
     #BBA
     assert np.allclose(
         outputs.BBA,
-        benchmark_SNICARADv4_BBA_data[idx],
+        benchmark_snicaradv4_bba_data[idx],
         atol=absolute_tolerance_benchmark,
     )
     #Absorbed flux
     assert np.allclose(
         outputs.abs_slr_tot,
-        benchmark_SNICARADv4_absorbed_flux_data[idx],
+        benchmark_snicaradv4_absorbed_flux_data[idx],
         atol=absolute_tolerance_benchmark,
     )
 
