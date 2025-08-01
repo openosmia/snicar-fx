@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from biosnicar.classes import ColumnProperties, ModelConfig, SolarIrradiance
+from biosnicar.classes import ColumnProperties, ModelInputs, SolarIrradiance
 from biosnicar.rt_solvers.adding_doubling_solver import adding_doubling_solver
 
 
@@ -17,9 +17,9 @@ def run(input_file):
     """
 
         
-    model_config = ModelConfig(input_file)
-    column = ColumnProperties(model_config)
-    irradiance = SolarIrradiance(model_config) 
+    model_inputs = ModelInputs(input_file)
+    column = ColumnProperties(model_inputs)
+    irradiance = SolarIrradiance(model_inputs) 
     
     outputs = adding_doubling_solver(
         column, irradiance

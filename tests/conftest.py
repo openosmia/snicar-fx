@@ -11,27 +11,27 @@ from itertools import product
 import pandas as pd
 import pytest
 
-from snicarfx.classes import ColumnProperties, ModelConfig, SolarIrradiance
+from snicarfx.classes import ColumnProperties, ModelInputs, SolarIrradiance
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
 
 
 @pytest.fixture(scope="module")
-def model_config():
-    """Provides a shared instance of ModelConfig."""
-    return ModelConfig(TEST_INPUT_FILE)
+def model_inputs():
+    """Provides a shared instance of ModelInputs."""
+    return ModelInputs(TEST_INPUT_FILE)
 
 
 @pytest.fixture(scope="module")
-def column(model_config):
-    """Provides a shared ColumnProperties instance using shared ModelConfig."""
-    return ColumnProperties(model_config)
+def column(model_inputs):
+    """Provides a shared ColumnProperties instance using shared ModelInputs."""
+    return ColumnProperties(model_inputs)
 
 
 @pytest.fixture(scope="module")
-def irradiance(model_config):
-    """Provides a SolarIrradiance instance using shared ModelConfig."""
-    return SolarIrradiance(model_config)
+def irradiance(model_inputs):
+    """Provides a SolarIrradiance instance using shared ModelInputs."""
+    return SolarIrradiance(model_inputs)
 
 
 @pytest.fixture(scope="module")
