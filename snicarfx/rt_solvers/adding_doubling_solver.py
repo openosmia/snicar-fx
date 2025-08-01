@@ -416,110 +416,95 @@ class _AddingDoublingSolver:
             In the diffuse radiation, coefficients are precalculated because
             ~256 gaussian points required for convergence.
         """
+        
+        # Eq. 22  Briegleb & Light 2007
+        # Inputs to equation 21 (i.e. Fresnel formulae for R and T)
 
+        # reflection amplitude factor for perpendicular polarization
+        r1 = (self.mu0 - self.nr * self.mu0n) / (
+            self.mu0 + self.nr * self.mu0n
+        )
+        # reflection amplitude factor for parallel polarization
+        r2 = (self.nr * self.mu0 - self.mu0n) / (
+            self.nr * self.mu0 + self.mu0n
+        )
+        
+        # transmission amplitude factor for perpendicular polarization
+        t1 = 2 * self.mu0/ (self.mu0 + self.nr * self.mu0n)
+        # transmission amplitude factor for parallel polarization
+        t2 = 2 * self.mu0 / (self.nr * self.mu0 + self.mu0n)
+
+
+        # unpolarized light for direct beam
+        # Eq. 21  Brigleb and light 2007
+        rf_dir_a = 0.5 * (r1**2 + r2**2)
+        tf_dir_a = (
+            0.5 * (t1**2 + t2**2) * self.nr * self.mu0n / self.mu0
+        )
+        
+        # where TIR occurs
         ref_indx = self.column.ref_idx_re + 1j * self.column.ref_idx_im
         critical_angle = np.arcsin(ref_indx)
+        mask = np.arccos(self.irradiance.mu_not) >= critical_angle
+        rf_dir_a[mask] = 1 
+        tf_dir_a[mask] = 0 
+        
+        # Eq. 25  Briegleb and light 2007
+        # diffuse reflection of flux arriving from above
 
-        for wl in np.arange(0, self.column.nbr_wvl, 1):
-            if np.arccos(self.irradiance.mu_not) < critical_angle[wl]:
-                # in this case, no total internal reflection
+        # reflection from diffuse unpolarized radiation
+        rf_dif_a = self.column.fl_r_dif_a
+        tf_dif_a = 1 - rf_dif_a  # transmission from diffuse unpolarized radiation
+        
+        # diffuse reflection of flux arriving from below
+        rf_dif_b = self.column.fl_r_dif_b
+        tif_dif_b = 1 - rf_dif_b
+        
+        # the lyr = lyrfrsnl layer properties are updated to combine
+        # the fresnel (refractive) layer, always taken to be above
+        # the present layer lyr (i.e. be the top interface):
 
-                # compute fresnel reflection and transmission amplitudes
-                # for two polarizations: 1=perpendicular and 2=parallel to
-                # the plane containing incident, reflected and refracted rays.
+        # save fluxes of lyr before merging with frsnl layer
+        rdif_a_0 = self.rdif_a[:, lyr].copy()
+        rdif_b_0 = self.rdif_b[:, lyr].copy()
+        tdif_a_0 = self.tdif_a[:, lyr].copy()
+        tdif_b_0 = self.tdif_b[:, lyr].copy()
+        tdir_0 = self.tdir[:, lyr].copy()
+        rdir_0 = self.rdir[:, lyr].copy()
 
-                # Eq. 22  Briegleb & Light 2007
-                # Inputs to equation 21 (i.e. Fresnel formulae for R and T)
+        # combined layer transmissivity to DIRECT radiation
+        # Eq. B7  Briegleb & Light 2007
+        self.tdir[:, lyr] = tf_dir_a * tdir_0 + tf_dir_a * self.rdir[
+            :, lyr
+        ] * rf_dif_b * self.tdif_a[:, lyr] * 1 / (1 - rf_dif_b * rdif_a_0)
 
-                # reflection amplitude factor for perpendicular polarization
-                r1 = (self.mu0[wl] - self.nr[wl] * self.mu0n[wl]) / (
-                    self.mu0[wl] + self.nr[wl] * self.mu0n[wl]
-                )
+        # combined layer reflectivity to DIRECT radiation
+        # Eq. B7  Briegleb & Light 2007
+        self.rdir[:, lyr] = rf_dir_a + tf_dir_a * rdir_0 * tif_dif_b * 1 / (
+            1 - rf_dif_b * rdif_a_0
+        )
 
-                # reflection amplitude factor for parallel polarization
-                r2 = (self.nr[wl] * self.mu0[wl] - self.mu0n[wl]) / (
-                    self.nr[wl] * self.mu0[wl] + self.mu0n[wl]
-                )
+        # combined layer reflectivity to DIFFUSE radiation (above)
+        # Eq. B9  Briegleb & Light 2007
+        self.rdif_a[:, lyr] = rf_dif_a + tf_dif_a * rdif_a_0 * tif_dif_b * 1 / (
+            1 - rf_dif_b * rdif_a_0
+        )
 
-                # transmission amplitude factor for perpendicular polarization
-                t1 = 2 * self.mu0[wl] / (self.mu0[wl] + self.nr[wl] * self.mu0n[wl])
-                # transmission amplitude factor for parallel polarization
-                t2 = 2 * self.mu0[wl] / (self.nr[wl] * self.mu0[wl] + self.mu0n[wl])
+        # combined layer reflectivity to DIFFUSE radiation (below)
+        # Eq. B10  Briegleb & Light 2007
+        self.rdif_b[:, lyr] = rdif_b_0 + tdif_b_0 * rf_dif_b * tdif_a_0 * 1 / (
+            1 - rf_dif_b * rdif_b_0
+        )
 
-                # unpolarized light for direct beam
-                # Eq. 21  Brigleb and light 2007
-                rf_dir_a = 0.5 * (r1**2 + r2**2)
-                tf_dir_a = (
-                    0.5 * (t1**2 + t2**2) * self.nr[wl] * self.mu0n[wl] / self.mu0[wl]
-                )
+        # combined layer transmissivity to DIFFUSE radiation (above)
+        # Eq. B9  Briegleb & Light 2007
+        self.tdif_a[:, lyr] = tdif_a_0 * tf_dif_a * 1 / (1 - rf_dif_b * rdif_a_0)
 
-            # in this case, total internal reflection occurs
-            else:
-                tf_dir_a = 0
-                rf_dir_a = 1
+        # Eq. B10  Briegleb & Light 2007
+        self.tdif_b[:, lyr] = tdif_b_0 * tif_dif_b * 1 / (1 - rf_dif_b * rdif_b_0)
 
-            # precalculated diffuse reflectivities and transmissivities
-            # for incident radiation above and below fresnel layer, using
-            # the direct albedos and accounting for complete internal
-            # reflection from below. Precalculated because high order
-            # number of gaussian points (~256) is required for convergence:
-
-            # Eq. 25  Briegleb and light 2007
-            # diffuse reflection of flux arriving from above
-
-            # reflection from diffuse unpolarized radiation
-            rf_dif_a = self.column.fl_r_dif_a[wl]
-            tf_dif_a = 1 - rf_dif_a  # transmission from diffuse unpolarized radiation
-
-            # diffuse reflection of flux arriving from below
-            rf_dif_b = self.column.fl_r_dif_b[wl]
-            tif_dif_b = 1 - rf_dif_b
-
-            # the lyr = lyrfrsnl layer properties are updated to combine
-            # the fresnel (refractive) layer, always taken to be above
-            # the present layer lyr (i.e. be the top interface):
-
-            # save fluxes of lyr before merging with frsnl layer
-            rdif_a_0 = self.rdif_a[wl, lyr].copy()
-            rdif_b_0 = self.rdif_b[wl, lyr].copy()
-            tdif_a_0 = self.tdif_a[wl, lyr].copy()
-            tdif_b_0 = self.tdif_b[wl, lyr].copy()
-            tdir_0 = self.tdir[wl, lyr].copy()
-            rdir_0 = self.rdir[wl, lyr].copy()
-
-            # combined layer transmissivity to DIRECT radiation
-            # Eq. B7  Briegleb & Light 2007
-            self.tdir[wl, lyr] = tf_dir_a * tdir_0 + tf_dir_a * self.rdir[
-                wl, lyr
-            ] * rf_dif_b * self.tdif_a[wl, lyr] * 1 / (1 - rf_dif_b * rdif_a_0)
-
-            # combined layer reflectivity to DIRECT radiation
-            # Eq. B7  Briegleb & Light 2007
-            self.rdir[wl, lyr] = rf_dir_a + tf_dir_a * rdir_0 * tif_dif_b * 1 / (
-                1 - rf_dif_b * rdif_a_0
-            )
-
-            # combined layer reflectivity to DIFFUSE radiation (above)
-            # Eq. B9  Briegleb & Light 2007
-            self.rdif_a[wl, lyr] = rf_dif_a + tf_dif_a * rdif_a_0 * tif_dif_b * 1 / (
-                1 - rf_dif_b * rdif_a_0
-            )
-
-            # combined layer reflectivity to DIFFUSE radiation (below)
-            # Eq. B10  Briegleb & Light 2007
-            self.rdif_b[wl, lyr] = rdif_b_0 + tdif_b_0 * rf_dif_b * tdif_a_0 * 1 / (
-                1 - rf_dif_b * rdif_b_0
-            )
-
-            # combined layer transmissivity to DIFFUSE radiation (above)
-            # Eq. B9  Briegleb & Light 2007
-            self.tdif_a[wl, lyr] = tdif_a_0 * tf_dif_a * 1 / (1 - rf_dif_b * rdif_a_0)
-
-            # Eq. B10  Briegleb & Light 2007
-            self.tdif_b[wl, lyr] = tdif_b_0 * tif_dif_b * 1 / (1 - rf_dif_b * rdif_b_0)
-
-            # update trnlay to include fresnel transmission (Eq. B8)
-            self.trnlay[wl, lyr] = tf_dir_a * self.trnlay[wl, lyr]
+        # update trnlay to include fresnel transmission (Eq. B8)
+        self.trnlay[:, lyr] = tf_dir_a * self.trnlay[:, lyr]
 
         return None
 
