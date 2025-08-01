@@ -91,25 +91,44 @@ def parameter_grid():
     parameter grid to test snicar-fx against Matlab benchmark data
     """
 
-    lyrlist = [0, 1]
-    denslist = [400, 500, 600, 700, 800]
-    refflist = [200, 400, 600, 800, 1000]
-    zenlist = [30, 40, 50, 60]
-    bclist = [500, 1000, 2000]
-    dzlist = [
-        [0.02, 0.04, 0.06, 0.08, 0.1],
-        [0.04, 0.06, 0.08, 0.10, 0.15],
-        [0.05, 0.10, 0.15, 0.2, 0.5],
-        [0.15, 0.2, 0.25, 0.3, 0.5],
-        [0.5, 0.5, 0.5, 1, 10],
+    layer_type_grid = [0, 1]
+    density_grid = [300, 600, 900]
+    radii_grid = [200, 600, 1000]
+    sza_grid = [30, 50, 70]
+    bc_grid = [0, 100, 1000]
+    thickness_profiles_grid = [
+        [0.01, 0.01, 0.01],
+        [0.01, 0.1, 1],
+        [0.01, 10, 100]
     ]
+    direct_diffuse_grid  = [1, 0]
 
-    return list(product(lyrlist, denslist, refflist, zenlist, bclist, dzlist))
+    return list(product(layer_type_grid, 
+                        density_grid, 
+                        radii_grid, 
+                        sza_grid, 
+                        bc_grid, 
+                        thickness_profiles_grid,
+                        direct_diffuse_grid))
 
 
 @pytest.fixture(scope="module")
-def benchmark_matlab_data():
-    return pd.read_csv("./tests/test_data/matlab_benchmark_data.csv", header=None)
+def benchmark_snicaradv4_spectral_data():
+    return pd.read_csv(
+        "./tests/test_data/benchmark_SNICARADv4_spectral_albedo.csv", 
+        header=None)
+
+@pytest.fixture(scope="module")
+def benchmark_snicaradv4_bba_data():
+    return pd.read_csv(
+        "./tests/test_data/benchmark_SNICARADv4_BBA.csv", 
+        header=None)
+
+@pytest.fixture(scope="module")
+def benchmark_snicaradv4_absorbed_flux_data():
+    return pd.read_csv(
+        "./tests/test_data/benchmark_SNICARADv4_absorbed_flux.csv", 
+        header=None)
 
 
 @pytest.fixture(scope="module")

@@ -90,11 +90,9 @@ class SolarIrradiance:
 
         self.flx_slr[self.flx_slr <= 0] = 1e-30
 
-        out = self.flx_slr / (self.mu_not * np.pi)
-
         if self.direct:
-            self.fs = out
-            self.fd = np.zeros_like(out)
+            self.fs = self.flx_slr / (self.mu_not * np.pi)
+            self.fd = np.zeros_like(self.fs)
         else:
-            self.fd = out
-            self.fs = np.zeros_like(out)
+            self.fd = self.flx_slr 
+            self.fs = np.zeros_like(self.fd)
