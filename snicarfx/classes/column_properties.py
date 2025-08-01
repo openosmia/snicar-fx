@@ -8,28 +8,28 @@ class ColumnProperties:
 
     """
 
-    def __init__(self, modelconfig):
-        self.modelconfig = modelconfig
-        self.thickness_profile = np.array(modelconfig.inputs["ICE"]["THICKNESS"])
-        self.layer_type = modelconfig.inputs["ICE"]["LAYER_TYPE"]
-        self.density = np.array(modelconfig.inputs["ICE"]["DENSITY"])
-        self.rf_type = modelconfig.inputs["ICE"]["RF_TYPE"]
-        self.grain_shape = modelconfig.inputs["ICE"]["GRAIN_SHAPE"]
-        self.lwc = np.array(modelconfig.inputs["ICE"]["LWC"])
-        self.ssa = np.array(modelconfig.inputs["ICE"]["SPECIFIC_SURFACE_AREA"])
+    def __init__(self, model_inputs):
+        self.model_inputs = model_inputs
+        self.thickness_profile = np.array(model_inputs.inputs["ICE"]["THICKNESS"])
+        self.layer_type = model_inputs.inputs["ICE"]["LAYER_TYPE"]
+        self.density = np.array(model_inputs.inputs["ICE"]["DENSITY"])
+        self.rf_type = model_inputs.inputs["ICE"]["RF_TYPE"]
+        self.grain_shape = model_inputs.inputs["ICE"]["GRAIN_SHAPE"]
+        self.lwc = np.array(model_inputs.inputs["ICE"]["LWC"])
+        self.ssa = np.array(model_inputs.inputs["ICE"]["SPECIFIC_SURFACE_AREA"])
         self.nbr_lyr = len(self.density)
 
         self.wavelengths = (
             np.arange(
-                self.modelconfig.inputs["RTM"]["WVL_START"],
-                self.modelconfig.inputs["RTM"]["WVL_END"],
-                self.modelconfig.inputs["RTM"]["RESOLUTION"],
+                self.model_inputs.inputs["RTM"]["WVL_START"],
+                self.model_inputs.inputs["RTM"]["WVL_END"],
+                self.model_inputs.inputs["RTM"]["RESOLUTION"],
             )
             * 1e-9
         )
 
         self.nbr_wvl = len(self.wavelengths)
-        self.sfc = np.ones(self.nbr_wvl) * modelconfig.inputs["ICE"]["SFC"]
+        self.sfc = np.ones(self.nbr_wvl) * model_inputs.inputs["ICE"]["SFC"]
 
         # init the ssps
         self.ext_cff = np.ones((self.nbr_lyr, self.nbr_wvl))
@@ -39,11 +39,11 @@ class ColumnProperties:
         self.layer_mass = np.zeros(self.nbr_lyr)
 
         self.set_refractive_index_and_diffuse_fresnel_coeffs()
-        self.calculate_column_ops_clean()
+        self.set_column_ops_without_laps()
 
-        if self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"] is not None:
-            self.get_lap_properties()
-            self.add_laps_to_column_ops()
+        if self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"] is not None:
+            self.set_lap_properties()
+            self.update_column_ops_with_laps()
 
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
         """Calculates ice refractive index and pre-calculated diffuse
@@ -55,19 +55,19 @@ class ColumnProperties:
         """
 
         # set spectral resolution
-        resolution = self.modelconfig.inputs["RTM"]["RESOLUTION"]
-        wvl_start = self.modelconfig.inputs["RTM"]["WVL_START"]
-        wvl_end = self.modelconfig.inputs["RTM"]["WVL_END"]
+        resolution = self.model_inputs.inputs["RTM"]["RESOLUTION"]
+        wvl_start = self.model_inputs.inputs["RTM"]["WVL_START"]
+        wvl_end = self.model_inputs.inputs["RTM"]["WVL_END"]
         wvl_high_res = np.arange(200, 5001, 1)
 
         idx1 = np.where(wvl_high_res == wvl_start)[0][0]
         idx2 = np.where(wvl_high_res == wvl_end)[0][0]
 
         refidx_file = xr.open_dataset(
-            self.modelconfig.op_path + "refractive_indices.nc"
+            self.model_inputs.op_path + "refractive_indices.nc"
         )
         fresnel_diffuse_file = xr.open_dataset(
-            self.modelconfig.op_path + "fresnel_diffuse_coefficients.nc"
+            self.model_inputs.op_path + "fresnel_diffuse_coefficients.nc"
         )
 
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values[
@@ -84,20 +84,20 @@ class ColumnProperties:
             str("R_dif_fb_ice_" + self.rf_type)
         ].values[idx1:idx2:resolution]
 
-    def get_lap_properties(self):
-        """Calculates light absorbing particle properties at user-defined
-        resolution.
+    def set_lap_properties(self):
+        """Updates attributes related to the light absorbing particle properties 
+        at user-defined resolution.
 
 
         """
 
         # set spectral resolution
-        resolution = self.modelconfig.inputs["RTM"]["RESOLUTION"]
-        wvl_start = self.modelconfig.inputs["RTM"]["WVL_START"]
-        wvl_end = self.modelconfig.inputs["RTM"]["WVL_END"]
+        resolution = self.model_inputs.inputs["RTM"]["RESOLUTION"]
+        wvl_start = self.model_inputs.inputs["RTM"]["WVL_START"]
+        wvl_end = self.model_inputs.inputs["RTM"]["WVL_END"]
 
         # initialize properties
-        nb_laps = len(self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"])
+        nb_laps = len(self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"])
 
         self.lap_ss_alb = np.zeros((nb_laps, self.nbr_wvl))
         self.lap_asm_prm = np.zeros((nb_laps, self.nbr_wvl))
@@ -109,41 +109,41 @@ class ColumnProperties:
                 (
                     np.array(
                         # convert from ppb to kg kg-1
-                        self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][name][
+                        self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"][name][
                             "CONC"
                         ]
                     )
                     * 1e-9
-                    if self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][name][
+                    if self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"][name][
                         "UNIT"
                     ]
                     == 0
                     else np.array(
                         # convert from cells mL-1 to kg kg-1 (1cell=1ng)
-                        self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][name][
+                        self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"][name][
                             "CONC"
                         ]
                     )
                     * 0.917
                     * 1e-9
                 )
-                for name in self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"]
+                for name in self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"]
             ]
         ).T
 
         # get properties in a large array
-        for i, lap in enumerate(self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"]):
+        for i, lap in enumerate(self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"]):
 
             # first get the ext coeff tag
-            if self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][lap]["COATED"]:
+            if self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"][lap]["COATED"]:
                 ext_cff_tag = "ext_cff_mss_ncl"
             else:
                 ext_cff_tag = "ext_cff_mss"
 
             # then interpolate the properties to the right resolution
             properties = xr.open_dataset(
-                self.modelconfig.lap_path
-                + self.modelconfig.inputs["LIGHT_ABSORBING_PARTICLES"][lap]["FILE"]
+                self.model_inputs.lap_path
+                + self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"][lap]["FILE"]
             )
 
             ss_alb = np.interp(
@@ -164,9 +164,9 @@ class ColumnProperties:
                 properties[ext_cff_tag].values,
             )
             self.lap_ext_cff[i, :] = ext_cff
-
-    def calculate_column_ops_clean(self):
-        """Calculate optical properties of a clean snow/ice column"""
+            
+    def set_column_ops_without_laps(self):
+        """Sets optical properties of a clean snow/ice column"""
 
         self.layer_mass = self.density * self.thickness_profile
 
@@ -235,7 +235,7 @@ class ColumnProperties:
                     phi = 2.0 / 3 * b / (1 - w)
                     self.ss_alb[lyr, :] = 1 - 0.5 * (1 - w) * (1 - np.exp(-c * phi))
 
-    def add_laps_to_column_ops(self):
+    def update_column_ops_with_laps(self):
         """Calculate optical properties of a snow/ice column mixed with light
         absorbing particles.
 
