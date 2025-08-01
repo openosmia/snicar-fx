@@ -11,7 +11,7 @@ from itertools import product
 import pandas as pd
 import pytest
 
-from snicarfx.classes import ColumnProperties, ModelInputs, SolarIrradiance
+from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
 

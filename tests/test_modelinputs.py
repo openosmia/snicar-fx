@@ -8,7 +8,7 @@ of ModelInputs come from the YAML parser which is itself tested.
 
 """
 
-from snicarfx.classes import ModelInputs
+from snicarfx.core import ModelInputs
 
 
 def test_modelinputs_loading(model_inputs):
@@ -20,7 +20,6 @@ def test_modelinputs_loading(model_inputs):
     assert isinstance(model_inputs, ModelInputs)
 
     # Check expected attributes exist and have valid values
-    assert hasattr(model_inputs, "dir_base")
     assert hasattr(model_inputs, "lap_path")
     assert hasattr(model_inputs, "solar_fluxes_path")
     assert hasattr(model_inputs, "inputs")

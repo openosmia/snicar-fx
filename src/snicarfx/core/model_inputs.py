@@ -1,5 +1,3 @@
-import os
-
 import yaml
 
 import snicarfx
@@ -20,9 +18,8 @@ class ModelInputs:
     def __init__(self, input_file):
         with open(input_file) as ymlfile:
             self.inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
-        self.dir_base = (
-            str(os.path.dirname(os.path.dirname(snicarfx.__file__)))
-            + "/")
+            
+        self.dir_base = snicarfx.__file__.rsplit('/', 3)[0]
         self.op_path = self.dir_base + '/data/optical_properties/'
         self.lap_path = self.op_path + 'light_absorbing_particles/'
         self.solar_fluxes_path = self.op_path + 'solar_fluxes/'
