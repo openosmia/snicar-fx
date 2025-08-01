@@ -1,0 +1,99 @@
+% SET FIXED INPUT ARGUMENTS
+input_args.atm                     = 2;      % atmospheric profile: mid-latitude summer
+input_args.nbr_lyr                 = 3;
+input_args.flx_dwn_bb              = 1.0;    % broadband surface insolation
+input_args.ice_ri                  = 3;      % ice refractive index data
+input_args.R_sfc_all_wvl           = 0.25;   % albedo of underlying surface
+input_args.sno_shp(1:nbr_lyr)      = 1;      % snow layer grain shape
+input_args.sno_fs(1:nbr_lyr)       = 0;      % snow layer grain shape factor
+input_args.sno_ar(1:nbr_lyr)       = 0;      % snow layer grain aspect ratio
+input_args.dust_type               = 1;      % type of dust
+input_args.ash_type                = 1;      % type of ash
+input_args.mss_cnc_sot1(1:nbr_lyr) = 0;      % uncoated black carbon [ng/g]
+input_args.mss_cnc_sot2(1:nbr_lyr) = 0;      % coated black carbon [ng/g]
+input_args.mss_cnc_brc1(1:nbr_lyr) = 0;      % uncoated brown carbon [ng/g]
+input_args.mss_cnc_brc2(1:nbr_lyr) = 0;      % coated brown carbon [ng/g]
+input_args.mss_cnc_dst1(1:nbr_lyr) = 0;      % dust species 1 [ng/g]
+input_args.mss_cnc_dst2(1:nbr_lyr) = 0;      % dust species 2 [ng/g]
+input_args.mss_cnc_dst3(1:nbr_lyr) = 0;      % dust species 3 [ng/g]
+input_args.mss_cnc_dst4(1:nbr_lyr) = 0;      % dust species 4 [ng/g]
+input_args.mss_cnc_dst5(1:nbr_lyr) = 0;      % dust species 5 [ng/g]
+input_args.mss_cnc_ash1(1:nbr_lyr) = 0;      % volcanic ash species 1 [ng/g]
+input_args.mss_cnc_ash2(1:nbr_lyr) = 0;      % volcanic ash species 2 [ng/g]
+input_args.mss_cnc_ash3(1:nbr_lyr) = 0;      % volcanic ash species 3 [ng/g]
+input_args.mss_cnc_ash4(1:nbr_lyr) = 0;      % volcanic ash species 4 [ng/g]
+input_args.mss_cnc_ash5(1:nbr_lyr) = 0;      % volcanic ash species 5 [ng/g]
+input_args.snw_alg_cell_nbr_conc(1:nbr_lyr) = 0;      % algae [cells/mL]
+input_args.alg_rds(1:nbr_lyr)               = 10;     % mean cell radius (um)
+input_args.dcmf_pig_chla(1:nbr_lyr)         = 0.015;  % dry cell mass fraction of chlorophyll-a
+input_args.dcmf_pig_chlb(1:nbr_lyr)         = 0.005;  % dry cell mass fraction of chlorophyll-b
+input_args.dcmf_pig_cara(1:nbr_lyr)         = 0.05;   % dry cell mass fraction of photoprotective carotenoids
+input_args.dcmf_pig_carb(1:nbr_lyr)         = 0.0;    % dry cell mass fraction of photosynthetic carotenoids
+input_args.glc_alg_mss_cnc(1:nbr_lyr)       = 0;      % GLACIER algae [UNITS ng/g]
+input_args.glc_alg_rds                   = 4;      % GLACIER algae radius [um]
+input_args.glc_alg_len                   = 40;     % GLACIER algae length [um]
+
+% SET VARIABLE INPUT ARGUMENTS
+lyr_array     = [1, 2];
+direct_array  = [1, 0];
+zen_array     = [30, 50, 70];
+density_array = [300, 600, 900];
+reff_array    = [200, 600, 1000];
+bc_array      = [0, 100, 1000];
+dz_array = [
+    0.01, 0.01, 0.01;   % very thin column
+    0.01, 0.1, 1;       % medium thick column
+    0.01, 10, 100       % very thick column
+];
+
+
+% RUN SNICAR
+idx = 1;
+tic;
+for lyr_type = 1:length(lyr_array)
+    for density = 1:length(density_array)
+        for reff = 1:length(reff_array)
+            for sza = 1:length(zen_array)
+                for bc = 1:length(bc_array)
+                    for dz = 1:length(dz_array)
+                        for direct = 1:length(direct_array)
+
+                            disp(idx);
+                    
+                            input_args.lyr_typ(1:nbr_lyr) = lyr_array(lyr_type);
+
+                            input_args.rho_snw(1:nbr_lyr) = density_array(density);
+                            
+                            input_args.rds_snw(1:nbr_lyr) = reff_array(reff);
+                            
+                            input_args.coszen = cosd(zen_array(sza));
+                            
+                            input_args.mss_cnc_sot1(1:nbr_lyr) = bc_array(bc);
+                            
+                            input_args.dz = dz_array(dz, :); 
+                            
+                            input_args.direct_beam = direct_array(direct);
+
+                            data_out = snicarAD_v4(input_args);
+                            
+                            albedo_out(:,idx) = data_out.albedo;
+                            bba_out(idx)      = data_out.alb_slr;
+                            flx_slr_abs(idx)  = data_out.abs_snw_slr;
+                            
+                            idx = idx+1;
+                                
+                            elapsed_time = toc;
+                            
+                            fprintf('Elapsed time: %.1f seconds\n', elapsed_time);
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+writematrix(albedo_out,'benchmark_SNICARADv4_spectral_albedo.csv');
+writematrix(bba_out,'benchmark_SNICARADv4_BBA.csv');
+writematrix(flx_slr_abs,'benchmark_SNICARADv4_absorbed_flux.csv');
+

@@ -17,10 +17,14 @@ from tests.utils import match_matlab_config
 
 @pytest.mark.parametrize("idx, params", enumerate(parameter_grid()))
 def test_snicarfx_outputs(
-    idx, params, column, benchmark_matlab_data, absolute_tolerance_benchmark
+    idx, params, column, 
+    benchmark_SNICARADv4_spectral_data, 
+    benchmark_SNICARADv4_BBA_data,
+    benchmark_SNICARADv4_absorbed_flux_data,
+    absolute_tolerance_benchmark
 ):
 
-    layer_type, density, reff, zen, bc, dz = params
+    layer_type, density, radius, sza, bc, thickness_profile, direct = params
 
     # Setup inputs
     model_config = ModelConfig("./tests/inputs_tests.yaml")
@@ -30,11 +34,12 @@ def test_snicarfx_outputs(
     column = match_matlab_config(column)
 
     # calculate irradiance
-    irradiance.solzen = zen
+    irradiance.direct = direct
+    irradiance.solzen = sza
     irradiance.calculate_irradiance()
 
     # calculate column ssa, g, mac
-    column.thickness_profile = dz
+    column.thickness_profile = thickness_profile
     column.layer_type = [layer_type] * len(column.thickness_profile)
     column.density = [density] * len(column.thickness_profile)
     column.layer_mass = [
@@ -49,7 +54,7 @@ def test_snicarfx_outputs(
         file_ssps = str(
             "./tests/test_data/ice_spherical_grains_BH83/"
             + f"ice_{column.rf_type}/ice_{column.rf_type}_"
-            + "{}.nc".format(str(reff).rjust(4, "0"))
+            + "{}.nc".format(str(radius).rjust(4, "0"))
         )
 
         with xr.open_dataset(file_ssps) as ssps:
@@ -61,7 +66,7 @@ def test_snicarfx_outputs(
     for i in ice_idx:
         file_ssps = str(
             "./tests/test_data/bubbly_ice_files_BH83/"
-            + "bbl_{}.nc".format(str(reff).rjust(4, "0"))
+            + "bbl_{}.nc".format(str(radius).rjust(4, "0"))
         )
         with xr.open_dataset(file_ssps) as ssps:
             column.asm_prm[i, :] = ssps["asm_prm"].values
@@ -73,29 +78,33 @@ def test_snicarfx_outputs(
             column.ss_alb[i, :] = scattering_cff / column.ext_cff[i, :]
             column.tau[i, :] = column.layer_mass[i] * column.ext_cff[i, :]
 
-    column.lap_concentrations[:, 0] = [
-        bc * 1e-9,
-        bc * 1e-9,
-        bc * 1e-9,
-        bc * 1e-9,
-        bc * 1e-9,
-    ]
+    column.lap_concentrations[:, 0] = bc * 1e-9 
 
     column.add_laps_to_column_ops()
 
     # solve RTE
     outputs = solve_adding_doubling(column, irradiance)
 
-    # only until 2705nm for now, as small issue in next 15 bands
-    try:
-        assert np.allclose(
-            outputs.albedo[:250],
-            benchmark_matlab_data[idx][:-1][:250],
-            atol=absolute_tolerance_benchmark,
-        )
-    except AssertionError:
-        print(
-            np.nanmean(
-                np.abs(outputs.albedo[:250] - benchmark_matlab_data[idx][:-1][:250])
-            )
-        )
+    if np.nanmax(np.abs(outputs.abs_slr_tot-benchmark_SNICARADv4_absorbed_flux_data[idx])) > 1e-5:
+        print(idx, params)
+    # spectral albedo only until 2705nm for now, as small issue in next 15 bds
+    assert np.allclose(
+        outputs.albedo[:250],
+        benchmark_SNICARADv4_spectral_data[idx][:250],
+        atol=absolute_tolerance_benchmark,
+    )
+    #BBA
+    assert np.allclose(
+        outputs.BBA,
+        benchmark_SNICARADv4_BBA_data[idx],
+        atol=absolute_tolerance_benchmark,
+    )
+    #Absorbed flux
+    assert np.allclose(
+        outputs.abs_slr_tot,
+        benchmark_SNICARADv4_absorbed_flux_data[idx],
+        atol=absolute_tolerance_benchmark,
+    )
+
+    
+    

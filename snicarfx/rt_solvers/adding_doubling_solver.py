@@ -448,7 +448,7 @@ class _AddingDoublingSolver:
 
                 # unpolarized light for direct beam
                 # Eq. 21  Brigleb and light 2007
-                rf_dif_a = 0.5 * (r1**2 + r2**2)
+                rf_dir_a = 0.5 * (r1**2 + r2**2)
                 tf_dir_a = (
                     0.5 * (t1**2 + t2**2) * self.nr[wl] * self.mu0n[wl] / self.mu0[wl]
                 )
@@ -456,7 +456,7 @@ class _AddingDoublingSolver:
             # in this case, total internal reflection occurs
             else:
                 tf_dir_a = 0
-                rf_dif_a = 1
+                rf_dir_a = 1
 
             # precalculated diffuse reflectivities and transmissivities
             # for incident radiation above and below fresnel layer, using
@@ -495,7 +495,7 @@ class _AddingDoublingSolver:
 
             # combined layer reflectivity to DIRECT radiation
             # Eq. B7  Briegleb & Light 2007
-            self.rdir[wl, lyr] = rf_dif_a + tf_dir_a * rdir_0 * tif_dif_b * 1 / (
+            self.rdir[wl, lyr] = rf_dir_a + tf_dir_a * rdir_0 * tif_dif_b * 1 / (
                 1 - rf_dif_b * rdif_a_0
             )
 
