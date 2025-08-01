@@ -3,6 +3,9 @@ name = "snicarfx"
 version = "0.0.0"
 description = ""
 authors = ["snicar-fx team"]
+packages = [
+    { include = "snicarfx", from = "src" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.10"
