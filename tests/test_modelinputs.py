@@ -8,7 +8,7 @@ of ModelInputs come from the YAML parser which is itself tested.
 
 """
 
-from snicarfx.classes import ModelInputs
+from src.snicarfx.core import ModelInputs
 
 
 def test_modelinputs_loading(model_inputs):

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
-from .core import ColumnProperties, ModelInputs, SolarIrradiance
-from .core.adding_doubling_solver import solve_adding_doubling
+from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
+from snicarfx.core.adding_doubling_solver import solve_adding_doubling
 
 
 def run(input_file):
