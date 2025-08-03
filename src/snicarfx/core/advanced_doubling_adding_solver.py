@@ -16,7 +16,9 @@ import numpy as np
 class _AdvancedDoublingAddingSolver:
 
     def __init__(self, column, irradiance):
-        """ """
+        """
+        Initialize all variables required for the ADA solver
+        """
 
         self.w = np.zeros(column.nbr_lyr)
         self.t_od = np.zeros(column.nbr_lyr)
@@ -222,7 +224,16 @@ class _AdvancedDoublingAddingSolver:
 
     def solve_advanced_adding_doubling(self, column, irradiance):
         """
-        Solve the ADA equations
+
+        This subroutine calculates IR/MW radiance at the top of the atmosphere
+        including atmospheric scattering. The scheme will include solar part.
+        The ADA algorithm computes layer reflectance and transmittance as well
+        as source function by the subroutine CRTM_Doubling_layer, then uses
+        an adding method to integrate the layer and surface components.
+
+        Translated by the snicar-fx team from the Fortran code of
+        Quanhua Liu (Quanhua.Liu@noaa.gov)
+
         """
 
         aads = _AdvancedDoublingAddingSolver(column, irradiance)
@@ -248,7 +259,14 @@ class _AdvancedDoublingAddingSolver:
         for k in range(column.nbr_lyr, 0, -1):
 
             if aads.w[k] > aads.SCATTERING_ALBEDO_THRESHOLD:
+
+                # call  multiple-stream algorithm for computing layer
+                # transmission, reflection, and source functions.
                 aads.crtm_anom_layer(k)
+
+                # then Adding method to add the layer to the present level
+                # to compute upward radiances and reflection matrix
+                # at new level.
 
                 # similar to equation B4 Briegleb and Light 2007
                 temporal_matrix = -np.matmul(
@@ -324,9 +342,20 @@ class _AdvancedDoublingAddingSolver:
         return None
 
     def crtm_anom_layer(self, column, k):
-        """
-        optical_depth is self.t_od[k]
-        single_albedo is self.w[k]
+        """Compute layer transmission, reflection matrices and source
+        function at the top and bottom of the layer.
+
+        Method and References The transmittance and reflectance
+        matrices is further derived from matrix operator method. The
+        matrix operator method is referred to the paper by
+
+        Weng, F., and Q. Liu, 2003: Satellite Data Assimilation in
+        Numerical Weather Prediction Model: Part 1: Forward Radiative
+        Transfer and Jacobian Modeling in Cloudy Atmospheres,
+        J. Atmos. Sci., 60, 2633-2646.
+
+        see also ADA method.  Translated by the snicar-fx team from
+        the Fortran code of Quanhua Liu Quanhua.Liu@noaa.gov
 
         """
         # for small layer optical depth, single scattering is applied.
