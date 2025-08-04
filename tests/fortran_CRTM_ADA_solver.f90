@@ -34,20 +34,20 @@ MODULE CRTM_Shared
   INTEGER, PARAMETER :: FAILURE = 1
 
   ! Grid sizes
-  INTEGER, PARAMETER :: nL = 2   ! number of layers
-  INTEGER, PARAMETER :: nA = 6   ! number of angles
-  INTEGER, PARAMETER :: nS = 4   ! number of streams
+  INTEGER, PARAMETER :: nL = 3   ! number of layers
+  INTEGER, PARAMETER :: nA = 1   ! number of angles
+  INTEGER, PARAMETER :: nS = 1   ! number of streams
 
   ! Global status and flags
   INTEGER :: Error_Status = 0, mth_Azi = 0
   LOGICAL :: Solar_Flag_true = .TRUE.
 
   ! Common radiative transfer scalars
-  REAL(fp) :: COS_SUN = ZERO
-  REAL(fp) :: Solar_irradiance = ZERO
-  REAL(fp) :: Cosmic_Background_Radiance = ZERO
-  REAL(fp) :: Planck_Surface = ZERO
-  REAL(fp) :: cosmic_background = ZERO
+  REAL(fp) :: COS_SUN = 0.64
+  REAL(fp) :: Solar_irradiance = 2.0
+  REAL(fp) :: Cosmic_Background_Radiance = 0.
+  REAL(fp) :: Planck_Surface = 0.
+  REAL(fp) :: cosmic_background = 0.
 
   ! Input arrays
   REAL(fp), ALLOCATABLE :: w(:), T_OD(:)
@@ -85,16 +85,23 @@ CONTAINS
   SUBROUTINE Initialize_CRTM_Shared()
     IMPLICIT NONE
 
-    ALLOCATE(w(nL));                        w = ONE
-    ALLOCATE(T_OD(nL));                     T_OD = TWO
+    ALLOCATE(w(nL));                        w = ZERO
+    w(1) = 0.99759019
+    w(2) = 0.99759019
+    w(3) = 0.99759019
+    ALLOCATE(T_OD(nL));                     T_OD = ZERO
+    T_OD(1) = 2.15377
+    T_OD(2) = 2.15377
+    T_OD(3) = 2.15377
+    
     ALLOCATE(emissivity(nL));              emissivity = ZERO
     ALLOCATE(direct_reflectivity(nL));     direct_reflectivity = ZERO
     ALLOCATE(reflectivity(nA, nA));        reflectivity = ZERO
 
     ALLOCATE(Planck_Atmosphere(0:nL));     Planck_Atmosphere = ZERO
     ALLOCATE(total_opt(0:nL));             total_opt = ZERO
-    ALLOCATE(COS_Angle(nA));               COS_Angle = ZERO
-    ALLOCATE(COS_Weight(nA));              COS_Weight = ZERO
+    ALLOCATE(COS_Angle(nA));               COS_Angle = 0.57735
+    ALLOCATE(COS_Weight(nA));              COS_Weight = 1.0
     ALLOCATE(temporal_matrix(nA,nA));      temporal_matrix = ZERO
     ALLOCATE(refl_down(nA,nL));            refl_down = ZERO
 
@@ -106,7 +113,21 @@ CONTAINS
     ALLOCATE(s_Layer_Source_DOWN(nA,nL));  s_Layer_Source_DOWN = ZERO
 
     ALLOCATE(Pff(nA,nA+1,nL));             Pff = ZERO
+    Pff(1,1,1) = 0.73594
+    Pff(1,2,1) = 0.76268
+    Pff(1,1,2) = 0.73594
+    Pff(1,2,2) = 0.76268
+    Pff(1,1,3) = 0.73594
+    Pff(1,2,3) = 0.76268
+    
     ALLOCATE(Pbb(nA,nA+1,nL));             Pbb = ZERO
+    Pbb(1,1,1) = 0.26406
+    Pbb(1,2,1) = 0.23732
+    Pbb(1,1,2) = 0.26406
+    Pbb(1,2,2) = 0.23732
+    Pbb(1,1,3) = 0.26406
+    Pbb(1,2,3) = 0.23732
+    
     ALLOCATE(Pplus(0:nA,nA));              Pplus = ZERO
     ALLOCATE(Pminus(0:nA,nA));             Pminus = ZERO
     ALLOCATE(Pleg(0:nA,nA+1));             Pleg = ZERO
@@ -189,7 +210,6 @@ CONTAINS
       ! Singular matrix check
       IF (ABS(b(m,k)) <= 1.E-40_fp) THEN
         Error_Status = FAILURE
-        CALL Display_Message(ROUTINE_NAME, 'Singular matrix', Error_Status)
         RETURN
       END IF
 
@@ -216,6 +236,579 @@ CONTAINS
   END FUNCTION matinv
 
 END MODULE matrix_utils
+
+module eigensolvers
+  USE CRTM_Shared
+  IMPLICIT NONE
+
+contains
+   SUBROUTINE  ASYMTX( AAD, M, IA, IEVEC, &
+                            EVECD, EVALD)
+
+!    =======  D O U B L E    P R E C I S I O N    V E R S I O N  ======
+
+!       Solves eigenfunction problem for real asymmetric matrix
+!       for which it is known a priori that the eigenvalues are real.
+
+!       This is an adaptation of a subroutine EIGRF in the IMSL
+!       library to use real instead of complex arithmetic, accounting
+!       for the known fact that the eigenvalues and eigenvectors in
+!       the discrete ordinate solution are real.  Other changes include
+!       putting all the called subroutines in-line, deleting the
+!       performance index calculation, updating many DO-loops
+!       to Fortran77, and in calculating the machine precision
+!       TOL instead of specifying it in a data statement.
+
+!       EIGRF is based primarily on EISPACK routines.  The matrix is
+!       first balanced using the parlett-reinsch algorithm.  Then
+!       the Martin-WWilkinson algorithm is applied.
+
+!       References:
+!          Dongarra, J. and C. Moler, EISPACK -- A Package for Solving
+!             Matrix Eigenvalue Problems, in Cowell, ed., 1984:
+!             Sources and Development of Mathematical Software,
+!             Prentice-Hall, Englewood Cliffs, NJ
+!         Parlett and Reinsch, 1969: Balancing a Matrix for Calculation
+!             of Eigenvalues and Eigenvectors, Num. Math. 13, 293-304
+!         WWilkinson, J., 1965: The Algebraic Eigenvalue Problem,
+!             Clarendon Press, Oxford
+
+!   I N P U T    V A R I A B L E S:
+
+!        AAD  :  input asymmetric matrix, destroyed after solved
+!        M    :  order of  A
+!       IA    :  first dimension of  A
+!    IEVEC    :  first dimension of  EVECD
+
+!   O U T P U T    V A R I A B L E S:
+
+!       EVECD :  (unnormalized) eigenvectors of  A
+!                   ( column J corresponds to EVALD(J) )
+
+!       EVALD :  (unordered) eigenvalues of  A ( dimension at least M )
+
+!       IER   :  if .NE. 0, signals that EVALD(IER) failed to converge;
+!                   in that case eigenvalues IER+1,IER+2,...,M  are
+!                   correct but eigenvalues 1,...,IER are set to zero.
+
+      LOGICAL            BAD_STATUS
+      CHARACTER(len=200) :: MESSAGE
+
+!   S C R A T C H   V A R I A B L E S:
+
+!       WWKD    :  WWORK AREA ( DIMENSION AT LEAST 2*M )
+!+---------------------------------------------------------------------+
+
+!  include file for dimensioning
+
+
+!!      INCLUDE '../includes/VLIDORT.PARS'
+
+!  input/output arguments
+
+      INTEGER :: M, IA, IEVEC, IER
+      INTEGER, PARAMETER :: MAXSTRMSTKS = 30
+      REAL( fp), PARAMETER :: C1=0.4375_fp,C2=0.5_fp,C3=0.75_fp,C4=0.95_fp,C5=16.0_fp,C6=256.0_fp
+      REAL( fp), DIMENSION(:,:) :: AAD, EVECD
+      REAL( fp), DIMENSION(:) :: EVALD
+      REAL( fp) :: WWKD(4*MAXSTRMSTKS), nor_factor
+      
+
+!  local variables (explicit declaration
+
+      LOGICAL           NOCONV, NOTLAS
+      INTEGER :: I, J, L, K, KKK, LLL,N, N1, N2, IN, LB, KA, II
+!      DOUBLE PRECISION  TOL, DISCRI, SGN, RNORM, WW, F, G, H, P, Q, R
+      REAL(fp) :: TOL, DISCRI, SGN, RNORM, WW, F, G, H, P, Q, R
+      REAL(fp) :: REPL, COL, ROWW, SCALE, T, X, Z, S, Y, UU, VV
+!
+      IER = 0
+      BAD_STATUS = .FALSE.
+      MESSAGE = ' '
+
+!       Here change to bypass D1MACH:
+      TOL = 1.0D-12
+!        TOL = D1MACH(4)
+      IF ( M.LT.1 .OR. IA.LT.M .OR. IEVEC.LT.M ) THEN
+        MESSAGE = 'ASYMTX--bad input variable(s)'
+        BAD_STATUS = .TRUE.
+        RETURN
+      ENDIF
+!                           ** HANDLE 1X1 AND 2X2 SPECIAL CASES
+      IF ( M.EQ.1 )  THEN
+         EVALD(1) = AAD(1,1)
+         EVECD(1,1) = 1.0D0
+         RETURN
+      ELSE IF ( M.EQ.2 )  THEN
+         DISCRI = ( AAD(1,1) - AAD(2,2) )**2 + 4.0D0*AAD(1,2)*AAD(2,1)
+         IF ( DISCRI.LT.ZERO ) THEN
+           MESSAGE = 'ASYMTX--COMPLEX EVALS IN 2X2 CASE'
+           BAD_STATUS = .TRUE.
+           RETURN
+         ENDIF
+         SGN = ONE
+         IF ( AAD(1,1).LT.AAD(2,2) )  SGN = - ONE
+         EVALD(1) = 0.5D0*( AAD(1,1) + AAD(2,2) + SGN*SQRT(DISCRI) )
+         EVALD(2) = 0.5D0*( AAD(1,1) + AAD(2,2) - SGN*SQRT(DISCRI) )
+         EVECD(1,1) = ONE
+         EVECD(2,2) = ONE
+         IF ( AAD(1,1).EQ.AAD(2,2) .AND. &
+               (AAD(2,1).EQ.ZERO.OR.AAD(1,2).EQ.ZERO) ) THEN
+            RNORM = ABS(AAD(1,1))+ABS(AAD(1,2))+ &
+                      ABS(AAD(2,1))+ABS(AAD(2,2))
+            WW = TOL * RNORM
+            EVECD(2,1) = AAD(2,1) / WW
+            EVECD(1,2) = - AAD(1,2) / WW
+         ELSE
+            EVECD(2,1) = AAD(2,1) / ( EVALD(1) - AAD(2,2) )
+            EVECD(1,2) = AAD(1,2) / ( EVALD(2) - AAD(1,1) )
+         ENDIF
+         RETURN
+      END IF
+!                                        ** INITIALIZE OUTPUT VARIABLES
+      DO 20 I = 1, M
+         EVALD(I) = ZERO
+         DO 10 J = 1, M
+            EVECD(I,J) = ZERO
+10       CONTINUE
+         EVECD(I,I) = ONE
+20    CONTINUE
+!                  ** BALANCE THE INPUT MATRIX AND REDUCE ITS NORM BY
+!                  ** DIAGONAL SIMILARITY TRANSFORMATION STORED IN WWK;
+!                  ** THEN SEARCH FOR ROWWS ISOLATING AN EIGENVALUE
+!                  ** AND PUSH THEM DOWWN
+      RNORM = ZERO
+      L  = 1
+      K  = M
+
+30    KKK = K
+         DO 70  J = KKK, 1, -1
+            ROWW = ZERO
+            DO 40 I = 1, K
+               IF ( I.NE.J ) ROWW = ROWW + ABS( AAD(J,I) )
+40          CONTINUE
+            IF ( ROWW.EQ.ZERO ) THEN
+               WWKD(K) = J
+               IF ( J.NE.K ) THEN
+                  DO 50 I = 1, K
+                     REPL   = AAD(I,J)
+                     AAD(I,J) = AAD(I,K)
+                     AAD(I,K) = REPL
+50                CONTINUE
+                  DO 60 I = L, M
+                     REPL   = AAD(J,I)
+                     AAD(J,I) = AAD(K,I)
+                     AAD(K,I) = REPL
+60                CONTINUE
+               END IF
+               K = K - 1
+               GO TO 30
+            END IF
+70       CONTINUE
+!                                     ** SEARCH FOR COLUMNS ISOLATING AN
+!                                       ** EIGENVALUE AND PUSH THEM LEFT
+80    LLL = L
+         DO 120 J = LLL, K
+            COL = ZERO
+            DO 90 I = L, K
+               IF ( I.NE.J ) COL = COL + ABS( AAD(I,J) )
+90          CONTINUE
+            IF ( COL.EQ.ZERO ) THEN
+               WWKD(L) = J
+               IF ( J.NE.L ) THEN
+                  DO 100 I = 1, K
+                     REPL   = AAD(I,J)
+                     AAD(I,J) = AAD(I,L)
+                     AAD(I,L) = REPL
+100               CONTINUE
+                  DO 110 I = L, M
+                     REPL   = AAD(J,I)
+                     AAD(J,I) = AAD(L,I)
+                     AAD(L,I) = REPL
+110               CONTINUE
+               END IF
+               L = L + 1
+               GO TO 80
+            END IF
+120      CONTINUE
+!                           ** BALANCE THE SUBMATRIX IN ROWWS L THROUGH K
+      DO 130 I = L, K
+         WWKD(I) = ONE
+130   CONTINUE
+
+140   NOCONV = .FALSE.
+         DO 200 I = L, K
+            COL = ZERO
+            ROWW = ZERO
+            DO 150 J = L, K
+               IF ( J.NE.I ) THEN
+                  COL = COL + ABS( AAD(J,I) )
+                  ROWW = ROWW + ABS( AAD(I,J) )
+               END IF
+150         CONTINUE
+            F = ONE
+            G = ROWW / C5
+            H = COL + ROWW
+160         IF ( COL.LT.G ) THEN
+               F   = F * C5
+               COL = COL * C6
+               GO TO 160
+            END IF
+            G = ROWW * C5
+170         IF ( COL.GE.G ) THEN
+               F   = F / C5
+               COL = COL / C6
+               GO TO 170
+            END IF
+!                                                         ** NOWW BALANCE
+            IF ( (COL+ROWW)/F .LT. C4*H ) THEN
+               WWKD(I)  = WWKD(I) * F
+               NOCONV = .TRUE.
+               DO 180 J = L, M
+                  AAD(I,J) = AAD(I,J) / F
+180            CONTINUE
+               DO 190 J = 1, K
+                  AAD(J,I) = AAD(J,I) * F
+190            CONTINUE
+            END IF
+200      CONTINUE
+
+      IF ( NOCONV ) GO TO 140
+!                                  ** IS -A- ALREADY IN HESSENBERG FORM?
+      IF ( K-1 .LT. L+1 ) GO TO 350
+!                                   ** TRANSFER -A- TO A HESSENBERG FORM
+      DO 290 N = L+1, K-1
+         H        = ZERO
+         WWKD(N+M) = ZERO
+         SCALE    = ZERO
+!                                                        ** SCALE COLUMN
+         DO 210 I = N, K
+            SCALE = SCALE + ABS(AAD(I,N-1))
+210      CONTINUE
+         IF ( SCALE.NE.ZERO ) THEN
+            DO 220 I = K, N, -1
+               WWKD(I+M) = AAD(I,N-1) / SCALE
+               H = H + WWKD(I+M)**2
+220         CONTINUE
+            G = - SIGN( SQRT(H), WWKD(N+M) )
+            H = H - WWKD(N+M) * G
+            WWKD(N+M) = WWKD(N+M) - G
+!                                                 ** FORM (I-(U*UT)/H)*A
+            DO 250 J = N, M
+               F = ZERO
+               DO 230  I = K, N, -1
+                  F = F + WWKD(I+M) * AAD(I,J)
+230            CONTINUE
+               DO 240 I = N, K
+                  AAD(I,J) = AAD(I,J) - WWKD(I+M) * F / H
+240            CONTINUE
+250         CONTINUE
+!                                    ** FORM (I-(U*UT)/H)*A*(I-(U*UT)/H)
+            DO 280 I = 1, K
+               F = ZERO
+               DO 260  J = K, N, -1
+                  F = F + WWKD(J+M) * AAD(I,J)
+260            CONTINUE
+               DO 270 J = N, K
+                  AAD(I,J) = AAD(I,J) - WWKD(J+M) * F / H
+270            CONTINUE
+280         CONTINUE
+            WWKD(N+M)  = SCALE * WWKD(N+M)
+            AAD(N,N-1) = SCALE * G
+         END IF
+290   CONTINUE
+
+      DO 340  N = K-2, L, -1
+         N1 = N + 1
+         N2 = N + 2
+         F  = AAD(N1,N)
+         IF ( F.NE.ZERO ) THEN
+            F  = F * WWKD(N1+M)
+            DO 300 I = N2, K
+               WWKD(I+M) = AAD(I,N)
+300         CONTINUE
+            IF ( N1.LE.K ) THEN
+               DO 330 J = 1, M
+                  G = ZERO
+                  DO 310 I = N1, K
+                     G = G + WWKD(I+M) * EVECD(I,J)
+310               CONTINUE
+                  G = G / F
+                  DO 320 I = N1, K
+                     EVECD(I,J) = EVECD(I,J) + G * WWKD(I+M)
+320               CONTINUE
+330            CONTINUE
+            END IF
+         END IF
+340   CONTINUE
+
+350   CONTINUE
+      N = 1
+      DO 370 I = 1, M
+         DO 360 J = N, M
+            RNORM = RNORM + ABS(AAD(I,J))
+360      CONTINUE
+         N = I
+         IF ( I.LT.L .OR. I.GT.K ) EVALD(I) = AAD(I,I)
+370   CONTINUE
+      N = K
+      T = ZERO
+!                                         ** SEARCH FOR NEXT EIGENVALUES
+380   IF ( N.LT.L ) GO TO 530
+      IN = 0
+      N1 = N - 1
+      N2 = N - 2
+!                          ** LOOK FOR SINGLE SMALL SUB-DIAGONAL ELEMENT
+390   CONTINUE
+      DO 400 I = L, N
+         LB = N+L - I
+         IF ( LB.EQ.L ) GO TO 410
+         S = ABS( AAD(LB-1,LB-1) ) + ABS( AAD(LB,LB) )
+         IF ( S.EQ.ZERO ) S = RNORM
+         IF ( ABS(AAD(LB,LB-1)) .LE. TOL*S ) GO TO 410
+400   CONTINUE
+
+410   X = AAD(N,N)
+      IF ( LB.EQ.N ) THEN
+!                                        ** ONE EIGENVALUE FOUND
+         AAD(N,N)  = X + T
+         EVALD(N) = AAD(N,N)
+         N = N1
+         GO TO 380
+      END IF
+
+      Y = AAD(N1,N1)
+      WW = AAD(N,N1) * AAD(N1,N)
+      IF ( LB.EQ.N1 ) THEN
+!                                        ** TWWO EIGENVALUES FOUND
+         P = (Y-X) * C2
+         Q = P**2 + WW
+         Z = SQRT( ABS(Q) )
+         AAD(N,N) = X + T
+         X = AAD(N,N)
+         AAD(N1,N1) = Y + T
+!                                        ** REAL PAIR
+         Z = P + SIGN(Z,P)
+         EVALD(N1) = X + Z
+         EVALD(N)  = EVALD(N1)
+         IF ( Z.NE.ZERO ) EVALD(N) = X - WW / Z
+         X = AAD(N,N1)
+!                                  ** EMPLOY SCALE FACTOR IN CASE
+!                                  ** X AND Z ARE VERY SMALL
+         R = SQRT( X*X + Z*Z )
+         P = X / R
+         Q = Z / R
+!                                             ** ROWW MODIFICATION
+         DO 420 J = N1, M
+            Z = AAD(N1,J)
+            AAD(N1,J) = Q * Z + P * AAD(N,J)
+            AAD(N,J)  = Q * AAD(N,J) - P * Z
+420      CONTINUE
+!                                             ** COLUMN MODIFICATION
+         DO 430 I = 1, N
+            Z = AAD(I,N1)
+            AAD(I,N1) = Q * Z + P * AAD(I,N)
+            AAD(I,N)  = Q * AAD(I,N) - P * Z
+430      CONTINUE
+!                                          ** ACCUMULATE TRANSFORMATIONS
+         DO 440 I = L, K
+            Z = EVECD(I,N1)
+            EVECD(I,N1) = Q * Z + P * EVECD(I,N)
+            EVECD(I,N)  = Q * EVECD(I,N) - P * Z
+440      CONTINUE
+
+         N = N2
+         GO TO 380
+      END IF
+
+      IF ( IN.EQ.30 ) THEN
+!                    ** NO CONVERGENCE AFTER 30 ITERATIONS; SET ERROR
+!                    ** INDICATOR TO THE INDEX OF THE CURRENT EIGENVALUE
+         IER = N
+         GO TO 670
+      END IF
+!                                                          ** FORM SHIFT
+      IF ( IN.EQ.10 .OR. IN.EQ.20 ) THEN
+         T = T + X
+         DO 450 I = L, N
+            AAD(I,I) = AAD(I,I) - X
+450      CONTINUE
+         S = ABS(AAD(N,N1)) + ABS(AAD(N1,N2))
+         X = C3 * S
+         Y = X
+         WW = - C1 * S**2
+      END IF
+
+      IN = IN + 1
+!                ** LOOK FOR TWWO CONSECUTIVE SMALL SUB-DIAGONAL ELEMENTS
+
+      DO 460 J = LB, N2
+         I = N2+LB - J
+         Z = AAD(I,I)
+         R = X - Z
+         S = Y - Z
+         P = ( R * S - WW ) / AAD(I+1,I) + AAD(I,I+1)
+         Q = AAD(I+1,I+1) - Z - R - S
+         R = AAD(I+2,I+1)
+         S = ABS(P) + ABS(Q) + ABS(R)
+         P = P / S
+         Q = Q / S
+         R = R / S
+         IF ( I.EQ.LB ) GO TO 470
+         UU = ABS( AAD(I,I-1) ) * ( ABS(Q) + ABS(R) )
+         VV = ABS(P)*(ABS(AAD(I-1,I-1))+ABS(Z)+ABS(AAD(I+1,I+1)))
+         IF ( UU .LE. TOL*VV ) GO TO 470
+460   CONTINUE
+
+470   CONTINUE
+      AAD(I+2,I) = ZERO
+      DO 480 J = I+3, N
+         AAD(J,J-2) = ZERO
+         AAD(J,J-3) = ZERO
+480   CONTINUE
+
+!             ** DOUBLE QR STEP INVOLVING ROWWS K TO N AND COLUMNS M TO N
+
+      DO 520 KA = I, N1
+         NOTLAS = KA.NE.N1
+         IF ( KA.EQ.I ) THEN
+            S = SIGN( SQRT( P*P + Q*Q + R*R ), P )
+            IF ( LB.NE.I ) AAD(KA,KA-1) = - AAD(KA,KA-1)
+         ELSE
+            P = AAD(KA,KA-1)
+            Q = AAD(KA+1,KA-1)
+            R = ZERO
+            IF ( NOTLAS ) R = AAD(KA+2,KA-1)
+            X = ABS(P) + ABS(Q) + ABS(R)
+            IF ( X.EQ.ZERO ) GO TO 520
+            P = P / X
+            Q = Q / X
+            R = R / X
+            S = SIGN( SQRT( P*P + Q*Q + R*R ), P )
+            AAD(KA,KA-1) = - S * X
+         END IF
+         P = P + S
+         X = P / S
+         Y = Q / S
+         Z = R / S
+         Q = Q / P
+         R = R / P
+!                                                    ** ROWW MODIFICATION
+         DO 490 J = KA, M
+            P = AAD(KA,J) + Q * AAD(KA+1,J)
+            IF ( NOTLAS ) THEN
+               P = P + R * AAD(KA+2,J)
+               AAD(KA+2,J) = AAD(KA+2,J) - P * Z
+            END IF
+            AAD(KA+1,J) = AAD(KA+1,J) - P * Y
+            AAD(KA,J)   = AAD(KA,J)   - P * X
+490      CONTINUE
+!                                                 ** COLUMN MODIFICATION
+         DO 500 II = 1, MIN0(N,KA+3)
+            P = X * AAD(II,KA) + Y * AAD(II,KA+1)
+            IF ( NOTLAS ) THEN
+               P = P + Z * AAD(II,KA+2)
+               AAD(II,KA+2) = AAD(II,KA+2) - P * R
+            END IF
+            AAD(II,KA+1) = AAD(II,KA+1) - P * Q
+            AAD(II,KA)   = AAD(II,KA) - P
+500      CONTINUE
+!                                          ** ACCUMULATE TRANSFORMATIONS
+         DO 510 II = L, K
+            P = X * EVECD(II,KA) + Y * EVECD(II,KA+1)
+            IF ( NOTLAS ) THEN
+               P = P + Z * EVECD(II,KA+2)
+               EVECD(II,KA+2) = EVECD(II,KA+2) - P * R
+            END IF
+            EVECD(II,KA+1) = EVECD(II,KA+1) - P * Q
+            EVECD(II,KA)   = EVECD(II,KA) - P
+510      CONTINUE
+
+520   CONTINUE
+      GO TO 390
+!                     ** ALL EVALS FOUND, NOWW BACKSUBSTITUTE REAL VECTOR
+530   CONTINUE
+      IF ( RNORM.NE.ZERO ) THEN
+         DO 560  N = M, 1, -1
+            N2 = N
+            AAD(N,N) = ONE
+            DO 550  I = N-1, 1, -1
+               WW = AAD(I,I) - EVALD(N)
+               IF ( WW.EQ.ZERO ) WW = TOL * RNORM
+               R = AAD(I,N)
+               DO 540 J = N2, N-1
+                  R = R + AAD(I,J) * AAD(J,N)
+540            CONTINUE
+               AAD(I,N) = - R / WW
+               N2 = I
+550         CONTINUE
+560      CONTINUE
+!                      ** END BACKSUBSTITUTION VECTORS OF ISOLATED EVALS
+
+         DO 580 I = 1, M
+            IF ( I.LT.L .OR. I.GT.K ) THEN
+               DO 570 J = I, M
+                  EVECD(I,J) = AAD(I,J)
+570            CONTINUE
+            END IF
+580      CONTINUE
+!                                   ** MULTIPLY BY TRANSFORMATION MATRIX
+         IF ( K.NE.0 ) THEN
+            DO J = M, L, -1
+               DO I = L, K
+                  Z = ZERO
+                  DO 590 N = L, MIN0(J,K)
+                     Z = Z + EVECD(I,N) * AAD(N,J)
+590               CONTINUE
+                  EVECD(I,J) = Z
+               END DO
+            END DO
+         END IF
+
+      END IF
+
+      DO I = L, K
+         DO J = 1, M
+            EVECD(I,J) = EVECD(I,J) * WWKD(I)
+         END DO
+      END DO
+!                           ** INTERCHANGE ROWWS IF PERMUTATIONS OCCURRED
+      DO 640  I = L-1, 1, -1
+         J = INT(WWKD(I))
+         IF ( I.NE.J ) THEN
+            DO 630 N = 1, M
+               REPL       = EVECD(I,N)
+               EVECD(I,N) = EVECD(J,N)
+               EVECD(J,N) = REPL
+630         CONTINUE
+         END IF
+640   CONTINUE
+
+      DO 660 I = K+1, M
+         J = INT(WWKD(I))
+         IF ( I.NE.J ) THEN
+            DO 650 N = 1, M
+               REPL       = EVECD(I,N)
+               EVECD(I,N) = EVECD(J,N)
+               EVECD(J,N) = REPL
+650         CONTINUE
+         END IF
+660   CONTINUE
+!
+  670 CONTINUE
+!
+!  normalizing eigenvector
+      DO j = 1, M
+        nor_factor = ZERO
+        DO i = 1, M
+        nor_factor = nor_factor + EVECD(I,J)**2
+        END DO
+        nor_factor = sqrt(nor_factor)
+        EVECD(:,j) = EVECD(:,j)/nor_factor
+      END DO
+      RETURN
+   END SUBROUTINE  ASYMTX
+end module eigensolvers
 
 SUBROUTINE CRTM_ADA()
 ! ------------------------------------------------------------------------- !
@@ -248,14 +841,7 @@ SUBROUTINE CRTM_ADA()
     DO k = 1, nL
       total_opt(k) = total_opt(k-1) + T_OD(k)
     END DO
-
-    s_Layer_Trans = ZERO
-    s_Layer_Refl = ZERO
-    s_Level_Refl_UP = ZERO
-    s_Level_Rad_UP = ZERO
-    s_Layer_Source_UP = ZERO
-    s_Layer_Source_DOWN = ZERO
-
+ 
     s_Level_Refl_UP(1:nA,1:nA,nL)=reflectivity(1:nA,1:nA)
 
     IF( mth_Azi == 0 ) THEN
@@ -264,12 +850,13 @@ SUBROUTINE CRTM_ADA()
 
     IF( Solar_Flag_true ) THEN
       s_Level_Rad_UP(1:nA,nL ) = s_Level_Rad_UP(1:nA,nL )+direct_reflectivity(1:nA)* &
-        COS_SUN*Solar_irradiance/PI*exp(-total_opt(nL)/COS_SUN)       
+           COS_SUN*Solar_irradiance/PI*exp(-total_opt(nL)/COS_SUN)
     END IF
 
+    
     ! UPWARD ADDING LOOP STARTS FROM BOTTOM LAYER TO ATMOSPHERIC TOP LAYER.
     DO 10 k = nL, 1, -1
-
+       
     ! Compute tranmission and reflection matrices for a layer
     IF(w(k) > SCATTERING_ALBEDO_THRESHOLD) THEN 
 
@@ -286,10 +873,10 @@ SUBROUTINE CRTM_ADA()
     !    to compute upward radiances and reflection matrix         !
     !    at new level.                                             !
     !  ----------------------------------------------------------- !
-
-    
+       
     temporal_matrix = -matmul(s_Level_Refl_UP(1:nA,1:nA,k),  &
-                       s_Layer_Refl(1:nA,1:nA,k))
+         s_Layer_Refl(1:nA,1:nA,k))
+   
     DO i = 1, nA 
       temporal_matrix(i,i) = ONE + temporal_matrix(i,i)
     END DO
@@ -299,12 +886,14 @@ SUBROUTINE CRTM_ADA()
       WRITE( Message,'("Error in matrix inversion matinv(temporal_matrix, Error_Status) ")' ) 
       RETURN                                                                                    
     END IF
-         
+
     Inv_GammaT(1:nA,1:nA,k) =   &
      matmul(s_Layer_Trans(1:nA,1:nA,k), Inv_Gamma(1:nA,1:nA,k))
     refl_down(1:nA,k) = matmul(s_Level_Refl_UP(1:nA,1:nA,k),  &
                                   s_Layer_Source_DOWN(1:nA,k))
 
+    print *, Inv_GammaT(1,1,k)
+    
     s_Level_Rad_UP(1:nA,k-1 )=s_Layer_Source_UP(1:nA,k)+ &
     matmul(Inv_GammaT(1:nA,1:nA,k),refl_down(1:nA,k) &
           +s_Level_Rad_UP(1:nA,k ))
@@ -332,8 +921,8 @@ SUBROUTINE CRTM_ADA()
             s_Level_Refl_UP(i,j,k-1)=s_Layer_Trans(i,i,k)*s_Level_Refl_UP(i,j,k)*s_Layer_Trans(j,j,k)
           ENDDO
         ENDDO
-    ENDIF
-    
+     ENDIF
+     
     10     CONTINUE
 
     !  Adding reflected cosmic background radiation
@@ -343,8 +932,10 @@ SUBROUTINE CRTM_ADA()
        ENDDO
     END IF
 
+    print *, "s_Level_Refl_UP", s_Level_Refl_UP(1,1,0)
+
     RETURN
-    
+
   END SUBROUTINE CRTM_ADA 
       
   SUBROUTINE CRTM_AMOM_layer(KL) !Input, KL-th layer 
@@ -369,6 +960,7 @@ SUBROUTINE CRTM_ADA()
 
     USE CRTM_Shared
     USE matrix_utils
+    USE eigensolvers
     
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: KL
@@ -431,7 +1023,7 @@ SUBROUTINE CRTM_ADA()
    IF( Error_Status /= SUCCESS  ) THEN
      WRITE( Message,'("Error in matrix inversion matinv( PPM(1:nA,1:nA,KL), Error_Status ) ")' ) 
 
-     RETURN                                                                                    
+     RETURN
    END IF
 
    PPP(1:nA,1:nA,KL) = PP(1:nA,1:nA,KL) + PM(1:nA,1:nA,KL)
@@ -439,7 +1031,7 @@ SUBROUTINE CRTM_ADA()
    !
    ! save phase element HH, call ASYMTX for calculating eigenvalue and vectors.
    tempo = HH(1:nA,1:nA,KL)
-   CALL ASYMTX(tempo,nA,nA,nA,EigVe(1:nA,1:nA,KL),EigVa(1:nA,KL),Error_Status)
+   CALL ASYMTX(tempo,nA,nA,nA,EigVe(1:nA,1:nA,KL),EigVa(1:nA,KL))
    DO i = 1, nA
      IF( EigVa(i,KL) > ZERO ) THEN         
        EigValue(i,KL) = sqrt( EigVa(i,KL) )
@@ -517,6 +1109,7 @@ SUBROUTINE CRTM_ADA()
      !
      ! Solar source  
      Sfactor = w(KL)*Solar_irradiance/PI
+            
      IF( mth_Azi == 0 ) Sfactor = Sfactor/TWO
        EXPfactor = exp(-T_OD(KL)/COS_SUN)
        s_transmittance = exp(-total_opt(KL-1)/COS_SUN)
@@ -534,7 +1127,7 @@ SUBROUTINE CRTM_ADA()
          V0(i,i) = V0(i,i) - ONE - COS_Angle(i)/COS_SUN
          V0(i+nA,i+nA) = V0(i+nA,i+nA) - ONE + COS_Angle(i)/COS_SUN
        ENDDO
-
+   
        V1(1:N2_1,1:N2_1) = matinv(V0(1:N2_1,1:N2_1))
        IF( Error_Status /= SUCCESS  ) THEN
          WRITE( Message,'("Error in matrix inversion matinv(V0(1:N2_1,1:N2_1), Error_Status) ")' ) 
@@ -544,8 +1137,7 @@ SUBROUTINE CRTM_ADA()
        Solar1(1:N2_1) = matmul( V1(1:N2_1,1:N2_1), Solar(1:N2_1) )
        Solar1(N2) = ZERO
        Sfac2 = Solar(N2) - sum( V0(N2,1:N2_1)*Solar1(1:N2_1) )
-
-
+       
        DO i = 1, nA
          source_up(i) = Solar1(i)
          source_down(i) = EXPfactor*Solar1(i+nA)
@@ -566,8 +1158,20 @@ SUBROUTINE CRTM_ADA()
 
        s_Layer_Source_UP(1:nA,KL) = s_Layer_Source_UP(1:nA,KL)+source_up(1:nA)
        s_Layer_Source_DOWN(1:nA,KL) = s_Layer_Source_DOWN(1:nA,KL)+source_down(1:nA)
-   END IF
+    END IF
 
    RETURN
 
   END SUBROUTINE CRTM_AMOM_layer
+
+
+
+PROGRAM main
+  USE CRTM_Shared
+  IMPLICIT NONE
+
+  CALL CRTM_ADA()
+
+END PROGRAM main
+
+
