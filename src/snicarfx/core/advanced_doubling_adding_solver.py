@@ -20,140 +20,42 @@ class _AdvancedDoublingAddingSolver:
         Initialize all variables required for the ADA solver
         """
         
-        #### ADDED OR MODIFIED
+        #################################################### ADDED OR MODIFIED
         self.mth_azi = 0
         self.planck_surface = 0
-        self.wvl = 50 # indexing the irradiance which is spectral in irr class
+        self.wvl = 70
         self.direct_reflectivity = np.zeros(column.model_inputs.nb_angles)
-        self.solar_irradiance = 5
+        self.solar_irradiance = 2
         self.cos_sun = irradiance.cos_sza
+        
+        # two-streams: gaussian nodes/weights are simplified
+        self.cos_angle = [1 / np.sqrt(3)] 
+        self.cos_weight = [1] 
 
         
-        # self.w = column.ss_alb[:, self.wvl]
-        # self.t_od = column.tau[:, self.wvl]
-        # self.g = column.asm_prm[:,self.wvl]
-        # ! try delta-scale of variables to handle forward peak:
-        tautot = column.tau[:, self.wvl]
+        # ! delta-eddington scale of variables to handle forward peak:
+        tautot = column.tau[:, self.wvl] 
         wtot = column.ss_alb[:, self.wvl]
         gtot = column.asm_prm[:, self.wvl]
         ftot = gtot * gtot
-        self.t_od = (1 - (wtot * ftot)) * tautot
+        self.t_od = (1 - (wtot * ftot)) * tautot 
         # layer delta-scaled single scattering albedo
         self.w = ((1 - ftot) * wtot) / (1 - (wtot * ftot))
         # layer delta-scaled asymmetry parameter
         self.g = gtot / (1 + gtot) 
-        
-        # two-streams: gaussian nodes/weights are simplified
-        self.cos_angle = [1 / np.sqrt(3), - 1 / np.sqrt(3)] 
-        self.cos_weight = [1, 1] # np.zeros(column.model_inputs.nb_angles)
-        
+    
         # compute fowards and backward scattering phase matrix
+
+        a = np.array([[0.5 + 1.5 * self.g * self.cos_angle[0]**2, 
+                       0.5 + 1.5 * self.g * self.cos_angle[0]*self.cos_sun]])
+        self.ff = a
+        
+        b = np.array([[0.5 - 1.5 * self.g * self.cos_angle[0]**2, 
+                       0.5 - 1.5 * self.g * self.cos_angle[0]*self.cos_sun]])
+        self.bb = b
     
-        # def hg_phase_function(mu1, mu2, g):
-        #     # Henyey-Greenstein phase function for cosine scattering angles
-        #     cos_theta = mu1 * mu2 + np.sqrt(1 - mu1**2) * np.sqrt(1 - mu2**2)
-        #     denom = 1 + g**2 - 2 * g * cos_theta
-        #     return (1 - g**2) / (denom ** 1.5) 
         
-        # def compute_pff_pbb(cos_angles, sza, g):
-        #     nb_angles = len(cos_angles)
-        #     nb_layers = len(g)
-            
-        #     pff = np.zeros((nb_angles, nb_angles + 1, nb_layers))
-        #     pbb = np.zeros((nb_angles, nb_angles + 1, nb_layers))
-            
-        #     # cos_sza is for solar zenith angle (last column)
-        #     for k in range(nb_layers):
-        #         for i in range(nb_angles):
-        #             for j in range(nb_angles):
-        #                 # Forward phase function between direction i and j
-        #                 pff[i, j, k] = hg_phase_function(
-        # cos_angles[i], cos_angles[j], g[k])
-        #                 # Backward phase function between backward i and forward j
-        #                 # Here backward direction cosine is -cos_angles[i]
-        #                 pbb[i, j, k] = hg_phase_function(
-        # -cos_angles[i], cos_angles[j], g[k])
-                    
-        #             # Last column corresponds to solar zenith angle in j dim
-        #             pff[i, -1, k] = hg_phase_function(cos_angles[i], sza, g[k])
-        #             pbb[i, -1, k] = hg_phase_function(-cos_angles[i], sza, g[k])
-            
-        #     return pff, pbb
-        
-    
-        # self.ff, self.bb = compute_pff_pbb(self.cos_angle,
-        #                                     self.cos_sun, 
-        #                                     self.g)
-    
-        def henvey_greenstein_phase(cos_theta, g):
-            """Henyey-Greenstein phase function."""
-            denominator = 1 + g**2 - 2 * g * cos_theta
-            return (1 - g**2) / (denominator * np.sqrt(denominator))
-        
-        def compute_pff_pbb(g, cos_angles, cos_weights, cos_sza):
-            """
-            Compute pff and pbb with shape (nb_angles, nb_angles+1, nb_layers),
-            normalized over the discrete scattering angles only (not including SZA).
-        
-            Parameters:
-            - g: array of shape (nb_layers,) with asymmetry parameters
-            - cos_angles: array of shape (nb_angles,) of cosines of discrete angles
-            - cos_weights: array of shape (nb_angles,) weights for discrete angles
-            - cos_sza: scalar cosine of solar zenith angle
-        
-            Returns:
-            - pff, pbb: arrays of shape (nb_angles, nb_angles+1, nb_layers)
-            """
-            nb_angles = len(cos_angles)
-            nb_layers = len(g)
-            nb_angles_total = nb_angles + 1  # +1 for SZA column
-        
-            pff = np.zeros((nb_angles, nb_angles_total, nb_layers))
-            pbb = np.zeros_like(pff)
-        
-            for k in range(nb_layers):
-                g_val = g[k]
-        
-                for i in range(nb_angles):          # viewing angle index
-                    mu_i = cos_angles[i]
-        
-                    for j in range(nb_angles_total):  # scattering angle index (+SZA)
-        
-                        mu_j = cos_angles[j] if j < nb_angles else cos_sza
-        
-                        cos_theta = (mu_i * mu_j + np.sqrt(1 - mu_i**2) 
-                                     * np.sqrt(1 - mu_j**2))
-        
-                        # pff: forward scattering phase function
-                        pff[i, j, k] = henvey_greenstein_phase(
-                            cos_theta, g_val)
-        
-                        # pbb: backward scattering approx with flipped sign on mu_j
-                        cos_theta_bb = (mu_i * (-mu_j) + np.sqrt(1 - mu_i**2) 
-                                        * np.sqrt(1 - mu_j**2))
-                        pbb[i, j, k] = henvey_greenstein_phase(
-                            cos_theta_bb, g_val)
-        
-                # Normalize pff and pbb over discrete scattering angles only 
-                for i in range(nb_angles):
-                    norm_factor_pff = np.sum(pff[i, :nb_angles, k] * cos_weights)
-                    if norm_factor_pff != 0:
-                        pff[i, :nb_angles, k] /= norm_factor_pff
-        
-                    norm_factor_pbb = np.sum(pbb[i, :nb_angles, k] * cos_weights)
-                    if norm_factor_pbb != 0:
-                        pbb[i, :nb_angles, k] /= norm_factor_pbb
-        
-            return pff, pbb
-        
-        self.ff, self.bb = compute_pff_pbb(self.g, 
-                                            self.cos_angle,
-                                            self.cos_weight,
-                                            self.cos_sun, 
-                                            )
-        
-        
-        #######################################
+        ######################################################################
         self.DELTA_OPTICAL_DEPTH = 1e-8
         self.max_albedo = 0.999999
         
@@ -359,6 +261,7 @@ class _AdvancedDoublingAddingSolver:
                 self.thermal_C[i, k] = 0.0
                 c = s / self.cos_angle[i]
                 for j in range(column.model_inputs.nb_angles):
+
                     self.s_layer_refl[i, j, k] = (c * self.bb[i, j, k] 
                                                   * self.cos_weight[j])
                     self.s_layer_trans[i, j, k] = (c * self.ff[i, j, k] 
@@ -405,6 +308,7 @@ class _AdvancedDoublingAddingSolver:
         self.ppp[:, :, k] = self.pp[:, :, k] + self.pm[:, :, k]
         self.hh[:, :, k] = np.matmul(self.ppm[:, :, k], self.ppp[:, :, k])
 
+        
         try:
             tempo = self.hh[:, :, k].copy()
 
@@ -412,18 +316,20 @@ class _AdvancedDoublingAddingSolver:
 
             self.eig_ve[:, :, k] = eig_vecs
             self.eig_va[:, k] = eig_vals
+            
+            
 
             self.eig_value[:, k] = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
             # eig_veva[i, j, k] = eig_ve[i, j, k] * eig_value[j, k]
             self.eig_veva[:, :, k] = (
                 self.eig_ve[:, :, k] * self.eig_value[np.newaxis, :, k]
             )
-
+            
             # eig_vef[:, :, k] = i_ppm @ eig_veva
             self.eig_vef[:, :, k] = np.matmul(
                 self.i_ppm[:, :, k], self.eig_veva[:, :, k]
             )
-
+            
         except np.linalg.LinAlgError as e:
             print(f"Error in eigenvalue or matmul at layer {k}: {e}")
             raise
@@ -465,7 +371,7 @@ class _AdvancedDoublingAddingSolver:
 
         trans = np.matmul(self.a4[:, :, k] - self.a3[:, :, k], self.i_gm_a5[:, :, k])
         refl = np.matmul(self.gp[:, :, k] - self.a6[:, :, k], self.i_gm_a5[:, :, k])
-
+        
         # post processing
         self.s_layer_trans[:, :, k] = trans[:, :]
         self.s_layer_refl[:, :, k] = refl[:, :]
@@ -487,8 +393,7 @@ class _AdvancedDoublingAddingSolver:
                 ) * self.planck_atmosphere[k]
                 
                 self.s_layer_source_down[i, k] = self.s_layer_source_up[i, k]
-
-
+        
         # compute visible part for visible channels during daytime
         if self.solar_flag:
             n2 = 2 * column.model_inputs.nb_angles
@@ -546,8 +451,8 @@ class _AdvancedDoublingAddingSolver:
 
             solar1 = v1 @ solar[:n2_1]
             solar1 = np.append(solar1, 0.0)  # solar1(N2) = 0.0
-
             sfac2 = solar[n2 - 1] - np.sum(v0[n2 - 1, :n2_1] * solar1[:n2_1])
+            
 
             for i in range(column.model_inputs.nb_angles):
                 source_up[i] = solar1[i]
@@ -629,6 +534,7 @@ def solve_advanced_adding_doubling(column, irradiance):
             * np.exp(-aads.total_opt[-1] / aads.cos_sun)
         )
 
+
     for k in range(column.nbr_lyr-1, -1, -1):
 
         if aads.w[k] > aads.SCATTERING_ALBEDO_THRESHOLD:
@@ -642,9 +548,11 @@ def solve_advanced_adding_doubling(column, irradiance):
 
             # similar to equation B4 Briegleb and Light 2007
             temporal_matrix = -np.matmul(
-                aads.s_level_refl_up[:, :, k],
+                aads.s_level_refl_up[:, :, k+1],
                 aads.s_layer_refl[:, :, k],
             )
+            
+            
 
             np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
             
@@ -659,26 +567,31 @@ def solve_advanced_adding_doubling(column, irradiance):
             )
 
             aads.refl_down[:, k] = np.matmul(
-                aads.s_level_refl_up[:, :, k], aads.s_layer_source_down[:, k]
+                aads.s_level_refl_up[:, :, k+1], aads.s_layer_source_down[:, k]
             )
+            
+            
 
             aads.s_level_rad_up[:, k] = aads.s_layer_source_up[
                 :, k
             ] + np.matmul(
                 aads.inv_gamma_t[:, :, k],
-                aads.refl_down[:, k] + aads.s_level_rad_up[:, k],
+                aads.refl_down[:, k] + aads.s_level_rad_up[:, k+1],
             )
+            
 
             aads.refl_trans[:, :, k] = np.matmul(
-                aads.s_level_refl_up[:, :, k], aads.s_layer_trans[:, :, k]
+                aads.s_level_refl_up[:, :, k+1], aads.s_layer_trans[:, :, k]
             )
+            
 
             aads.s_level_refl_up[:, :, k] = aads.s_layer_refl[
-                :, :, k
+                :, :, k 
             ] + np.matmul(aads.inv_gamma_t[:, :, k], aads.refl_trans[:, :, k])
+            
 
-        else:
-
+        else: # we dont enter in this loop anyway
+            print('a')
             for i in range(column.model_inputs.nb_angles):
                 aads.s_layer_trans[i, i, k] = np.exp(
                     -aads.t_od[k] / aads.cos_angle[i]
@@ -702,7 +615,7 @@ def solve_advanced_adding_doubling(column, irradiance):
                 for j in range(column.model_inputs.nb_angles):
                     aads.s_level_refl_up[i, j, k] = (
                         aads.s_layer_trans[i, i, k]
-                        * aads.s_level_refl_up[i, j, k]
+                        * aads.s_level_refl_up[i, j, k+1]
                         * aads.s_layer_trans[j, j, k]
                     )
 
