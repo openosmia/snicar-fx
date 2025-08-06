@@ -70,6 +70,10 @@ class SolarIrradiance:
             flux_file.wvl_ctr.values * 1e3,  # from um to nm
             flux_file["flx_frc_sfc"].values,
         )
+        
+        # normalize
+        
+        self.flx_slr = self.flx_slr / np.sum(self.flx_slr)
 
         self.flx_slr[self.flx_slr == 0] = 1e-30
 
