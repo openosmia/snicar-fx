@@ -34,7 +34,6 @@ class _AdvancedDoublingAddingSolver:
         self.cos_angle = nodes[n_angles:] # only positive 
         self.cos_weight = weights[n_angles:]
         
-        n_legendre = 14  # Order of expansion = n+1 terms
         mu = np.array(self.cos_angle)
         
         self.ff = np.zeros((len(self.cos_angle), 
@@ -43,20 +42,20 @@ class _AdvancedDoublingAddingSolver:
         self.bb = np.zeros((len(self.cos_angle), 
                             len(self.cos_angle)+1,
                             column.nbr_lyr))
-        self.phase_coeffs = np.zeros((n_legendre + 1, 
-                                      column.nbr_lyr))
         
         
         tau_unscaled = column.tau[:, self.wvl] 
         w_unscaled = column.ss_alb[:, self.wvl]
-        g_unscaled = column.asm_prm[:, self.wvl]        
+        g_unscaled = column.asm_prm[:, self.wvl] 
         
-        # hardcode g because g_snow too low
-        # g_unscaled = np.ones(column.nbr_lyr) * 0.85
+        m = 8 # Wiscombe
+        self.phase_coeffs = np.zeros((2 * m - 1, 
+                                      column.nbr_lyr))
         
         self.t_od = tau_unscaled
         self.w = w_unscaled
         self.g = g_unscaled
+    
 
         ######################################################################
         #### calc. phase coefficients + apply delta scaling (CRTM_Atm_Combine)
@@ -64,59 +63,41 @@ class _AdvancedDoublingAddingSolver:
         ######################################################################
         for k in range(column.nbr_lyr):
             
-            # instead of fetching phase coefficients from files, we 
-            # generate them with HG function (UNSCALED!!!!), 
+            g = g_unscaled[k]
             
-            g = g_unscaled[k]  # asymmetry parameter (scalar)
-            for leg_moment in range(n_legendre + 1):
-                self.phase_coeffs[leg_moment, k] = (
-                    0.5 * (2*leg_moment+1) * g**leg_moment
-                    )
-
-            # set the first coefficient to 0.5 for energy conservation 
-            # (already satisfied w HG)
-            # self.phase_coeffs[0, k] = 0.5
+            # HG Legendre expansion coefficients 
+            # for leg_moment in range(n_legendre + 1):
+            #     self.phase_coeffs[leg_moment, k] = (
+            #         0.5 * (2*leg_moment+1) * g**leg_moment
+            #         )
             
             ######################### DELTA CORRECTION ####################### 
             
-            # # Delta truncation: get highest Legendre term following 
+            # Delta truncation: get highest Legendre term following
             # Wicombe 1977 Eq. (15)
-            # f = self.phase_coeffs[n_legendre, k]  # Delta scaling factor
-            
-            # f = 0.5 # first legendre moment
-            
-            # for l in range(n_legendre + 1):
-            #     self.phase_coeffs[0, k] = 0.0  # remove low-order terms
-            #     if l > 0:
-            #         self.phase_coeffs[l, k] = (0.5 * (2*l + 1) * g**l) / (1 - f)
+            f = g ** (2*m) # original expansion coeff at 2M
             
             
-            # f = self.phase_coeffs[n_legendre, k]  # Delta scaling factor
-
-            # self.t_od[k] = (1.0 - w_unscaled[k] * f) * tau_unscaled[k]
-            # self.w[k] = (1.0 - f) * w_unscaled[k] / (1 - w_unscaled[k] * f)
-            # # g_scaled = (g - f) / (1 - f)
+            # # Wiscombe 1977 Eq. 14
+            for order in range(2*m-1):
+                self.phase_coeffs[order, k] = (g**order - f) / (1 - f)
+                self.phase_coeffs[order,k] = ((2*order + 1) * 0.5 
+                                              * self.phase_coeffs[order, k])
+                
+            # Wiscombe 1977 Eq. 20(a, b)
+            self.t_od[k] = (1.0 - w_unscaled[k] * f) * tau_unscaled[k]
+            self.w[k] = (1.0 - f) * w_unscaled[k] / (1 - w_unscaled[k] * f)
             
-            # for l in range(n_legendre + 1):
-            #     self.phase_coeffs[l, k] = 0.5 * (2*l+1) * (g)**l
-
-            
-            ###################################################################
-            
-        ######################################################################
-        #### calc. legendre polys + calc. phase matrices (CRTM_Phase_Matrix)
-        ######################################################################
-        leg_poly = np.zeros((n_legendre+1, 
-                        n_angles+1))
+        leg_poly = np.zeros((2*m-1, n_angles+1))
         
         for i in range(n_angles):
             mu = self.cos_angle[i]
-            for leg_moment in range(n_legendre + 1):
-                leg_poly[leg_moment, i] = legendre(leg_moment)(mu)
+            for order in range(2*m-1):
+                leg_poly[order, i] = legendre(order)(mu)
         
         # add SZA as last column
-        for leg_moment in range(n_legendre + 1):
-            leg_poly[leg_moment, n_angles] = legendre(leg_moment)(self.cos_sun)
+        for order in range(2*m-1):
+            leg_poly[order, n_angles] = legendre(order)(self.cos_sun)
             
         jn = n_angles + 1 if self.solar_flag else n_angles   
         
@@ -129,16 +110,65 @@ class _AdvancedDoublingAddingSolver:
                 for i in range(n_angles):  # outgoing angle
                     off = 0.0
                     obb = 0.0
-                    for leg in range(self.mth_azi, n_legendre + 1):
+                    for leg in range(self.mth_azi, 2*m-1):
                         ifac = (-1) ** (leg - self.mth_azi)
                         coeff = self.phase_coeffs[leg, k]  
                         off += coeff * leg_poly[leg, i] * leg_poly[leg, j] 
                         obb += coeff * leg_poly[leg, i] * leg_poly[leg, j] * ifac 
                     self.ff[i, j, k] = off
                     self.bb[i, j, k] = obb
-                    if (self.bb[i, j, k] < 0) or (self.ff[i, j, k] < 0):
-                        print(self.bb[i, j, k])
-                        raise ValueError("Negative phase matrix elements")
+                    if self.ff[i, j, k] < 0:
+                        if self.ff[i, j, k] < -0.1:
+                            raise ValueError("Negative phase matrix elements")
+                        else:
+                            self.ff[i, j, k] = 0
+                    if self.bb[i, j, k] < 0:
+                        if self.ff[i, j, k] < -0.1:
+                            raise ValueError("Negative phase matrix elements")
+                        else:
+                            self.bb[i, j, k] = 0
+
+            ###################################################################
+            
+        ######################################################################
+        #### calc. legendre polys + calc. phase matrices (CRTM_Phase_Matrix)
+        ######################################################################
+        
+        # n_legendre = 50  # Order of expansion = n+1 terms
+
+        # leg_poly = np.zeros((n_legendre+1, 
+        #                 n_angles+1))
+        
+        # for i in range(n_angles):
+        #     mu = self.cos_angle[i]
+        #     for leg_moment in range(n_legendre + 1):
+        #         leg_poly[leg_moment, i] = legendre(leg_moment)(mu)
+        
+        # # add SZA as last column
+        # for leg_moment in range(n_legendre + 1):
+        #     leg_poly[leg_moment, n_angles] = legendre(leg_moment)(self.cos_sun)
+            
+        # jn = n_angles + 1 if self.solar_flag else n_angles   
+        
+        # # !!!!!!!! the phase functions are clipped to pos. values in original
+        # # code but we don't want to clip them - they shouldnt be negative
+        # # off and obb are "original phase matrices" and pff/pff are clipped.
+        
+        # for k in range(column.nbr_lyr):
+        #     for j in range(jn):  # incoming angle
+        #         for i in range(n_angles):  # outgoing angle
+        #             off = 0.0
+        #             obb = 0.0
+        #             for leg in range(self.mth_azi, n_legendre + 1):
+        #                 ifac = (-1) ** (leg - self.mth_azi)
+        #                 coeff = self.phase_coeffs[leg, k]  
+        #                 off += coeff * leg_poly[leg, i] * leg_poly[leg, j] 
+        #                 obb += coeff * leg_poly[leg, i] * leg_poly[leg, j] * ifac 
+        #             self.ff[i, j, k] = off
+        #             self.bb[i, j, k] = obb
+        #             if (self.bb[i, j, k] < 0) or (self.ff[i, j, k] < 0):
+        #                 print(self.bb[i, j, k])
+        #                 raise ValueError("Negative phase matrix elements")
         
         ######################################################################
         self.direct_reflectivity = np.zeros(len(self.cos_angle))
