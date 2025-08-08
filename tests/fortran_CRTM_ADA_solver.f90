@@ -35,7 +35,7 @@ MODULE CRTM_Shared
 
   ! Grid sizes
   INTEGER, PARAMETER :: nL = 3   ! number of layers
-  INTEGER, PARAMETER :: nA = 1   ! number of angles
+  INTEGER, PARAMETER :: nA = 8   ! number of angles
   INTEGER, PARAMETER :: nS = 1   ! number of streams
 
   ! Global status and flags
@@ -43,7 +43,7 @@ MODULE CRTM_Shared
   LOGICAL :: Solar_Flag_true = .TRUE.
 
   ! Common radiative transfer scalars
-  REAL(fp) :: COS_SUN = 0.64
+  REAL(fp) :: COS_SUN = 0.6427876096865394
   REAL(fp) :: Solar_irradiance = 2.0
   REAL(fp) :: Cosmic_Background_Radiance = 0.
   REAL(fp) :: Planck_Surface = 0.
@@ -84,24 +84,47 @@ CONTAINS
 
   SUBROUTINE Initialize_CRTM_Shared()
     IMPLICIT NONE
+    INTEGER :: i, j, k
+    REAL(fp) :: norm_ff = 0.
+    REAL(fp) :: norm_bb = 0.
+
 
     ALLOCATE(w(nL));                        w = ZERO
-    w(1) = 0.99759019
-    w(2) = 0.99759019
-    w(3) = 0.99759019
+    w(1) = 0.43
+    w(2) = 0.43
+    w(3) = 0.43
     ALLOCATE(T_OD(nL));                     T_OD = ZERO
     T_OD(1) = 2.15377
     T_OD(2) = 2.15377
     T_OD(3) = 2.15377
     
-    ALLOCATE(emissivity(nL));              emissivity = ZERO
-    ALLOCATE(direct_reflectivity(nL));     direct_reflectivity = ZERO
+    ALLOCATE(emissivity(nA));              emissivity = ZERO
+    ALLOCATE(direct_reflectivity(nA));     direct_reflectivity = ZERO
     ALLOCATE(reflectivity(nA, nA));        reflectivity = ZERO
 
     ALLOCATE(Planck_Atmosphere(0:nL));     Planck_Atmosphere = ZERO
     ALLOCATE(total_opt(0:nL));             total_opt = ZERO
-    ALLOCATE(COS_Angle(nA));               COS_Angle = 0.57735
-    ALLOCATE(COS_Weight(nA));              COS_Weight = 1.0
+    ALLOCATE(COS_Angle(nA));               COS_Angle = ZERO
+    COS_Angle(1) = 0.09501251
+    COS_Angle(2) = 0.28160355
+    COS_Angle(3) = 0.45801678
+    COS_Angle(4) = 0.61787624
+    COS_Angle(5) = 0.75540441
+    COS_Angle(6) = 0.8656312
+    COS_Angle(7) = 0.94457502
+    COS_Angle(8) = 0.98940093
+
+
+    ALLOCATE(COS_Weight(nA));              COS_Weight = 0
+    COS_Weight(1) = 0.18945061
+    COS_Weight(2) = 0.18260342
+    COS_Weight(3) = 0.16915652
+    COS_Weight(4) = 0.14959599
+    COS_Weight(5) = 0.12462897
+    COS_Weight(6) = 0.09515851
+    COS_Weight(7) = 0.06225352
+    COS_Weight(8) = 0.02715246
+
     ALLOCATE(temporal_matrix(nA,nA));      temporal_matrix = ZERO
     ALLOCATE(refl_down(nA,nL));            refl_down = ZERO
 
@@ -113,20 +136,87 @@ CONTAINS
     ALLOCATE(s_Layer_Source_DOWN(nA,nL));  s_Layer_Source_DOWN = ZERO
 
     ALLOCATE(Pff(nA,nA+1,nL));             Pff = ZERO
-    Pff(1,1,1) = 0.73594
-    Pff(1,2,1) = 0.76268
-    Pff(1,1,2) = 0.73594
-    Pff(1,2,2) = 0.76268
-    Pff(1,1,3) = 0.73594
-    Pff(1,2,3) = 0.76268
+    ! Pff(1,1,1) = 0.9316589925760314
+    ! Pff(1,2,1) = 0.8669709174543205
+    ! Pff(1,3,1) = 0.8903629442838776
+    ! Pff(2,1,1) = 1.1281231425626386
+    ! Pff(2,2,1) = 1.2493979054514104
+    ! Pff(2,3,1) = 1.2055434160125955
+
+    ! Pff(1,1,2) = Pff(1,1,1)
+    ! Pff(1,2,2) = Pff(1,2,1)
+    ! Pff(1,3,2) = Pff(1,3,1)
+    ! Pff(2,1,2) = Pff(2,1,1)
+    ! Pff(2,2,2) = Pff(2,2,1)
+    ! Pff(2,3,2) = Pff(2,3,1)
+    ! Pff(1,1,3) = Pff(1,1,1)
+    ! Pff(1,2,3) = Pff(1,2,1)
+    ! Pff(1,3,3) = Pff(1,3,1)
+    ! Pff(2,1,3) = Pff(2,1,1)
+    ! Pff(2,2,3) = Pff(2,2,1)
+    ! Pff(2,3,3) = Pff(2,3,1)
     
     ALLOCATE(Pbb(nA,nA+1,nL));             Pbb = ZERO
-    Pbb(1,1,1) = 0.26406
-    Pbb(1,2,1) = 0.23732
-    Pbb(1,1,2) = 0.26406
-    Pbb(1,2,2) = 0.23732
-    Pbb(1,1,3) = 0.26406
-    Pbb(1,2,3) = 0.23732
+    ! Pbb(1,1,1) = 1.1125905373366631
+    ! Pbb(1,2,1) = 1.533400686947725
+    ! Pbb(1,3,1) = 1.296714615446841
+    ! Pbb(2,1,1) = 0.7889195080649332
+    ! Pbb(2,2,1) = 5.145835193398101e-07
+    ! Pbb(2,3,1) = 0.44373063248141464
+    ! Pbb(1,1,2) = 1.1125905373366631
+    ! Pbb(1,2,2) = 1.533400686947725
+    ! Pbb(1,3,2) = 1.296714615446841
+    ! Pbb(2,1,2) = 0.7889195080649332
+    ! Pbb(2,2,2) = 5.145835193398101e-07
+    ! Pbb(2,3,2) = 0.44373063248141464
+    ! Pbb(1,1,3) = 1.1125905373366631
+    ! Pbb(1,2,3) = 1.533400686947725
+    ! Pbb(1,3,3) = 1.296714615446841
+    ! Pbb(2,1,3) = 0.7889195080649332
+    ! Pbb(2,2,3) = 5.145835193398101e-07
+    ! Pbb(2,3,3) = 0.44373063248141464
+
+    
+    do k = 1, nL
+        do j = 1, nA + 1
+            do i = 1, nA
+                if (j == nA + 1) then
+                    Pff(i, j, k) = 0.5 + 1.5 * 0.33 * COS_Angle(i) * COS_SUN
+                    Pbb(i, j, k) = 0.5 - 1.5 * 0.33 * COS_Angle(i) * COS_SUN
+                else
+                    Pff(i, j, k) = 0.5 + 1.5 * 0.33 * COS_Angle(i) * COS_Angle(j)
+                    Pbb(i, j, k) = 0.5 - 1.5 * 0.33 * COS_Angle(i) * COS_Angle(j)
+                end if
+
+                if (Pbb(i, j, k) < 0.0) then
+                    Pbb(i, j, k) = 1.0e-7
+                end if
+            end do
+            
+        end do
+    end do
+
+    ! Normalize 
+    do k = 1, nL
+        do j = 1, nA
+            norm_ff = 0.0
+            norm_bb = 0.0
+
+            ! Compute the weighted sum (dot product with cos_weight)
+            do i = 1, nA
+                norm_ff = norm_ff + Pff(i, j, k) * COS_Weight(i)
+                norm_bb = norm_bb + Pbb(i, j, k) * COS_Weight(i)
+            end do
+
+            ! Normalize
+            do i = 1, nA
+                Pff(i, j, k) = Pff(i, j, k) / norm_ff
+                Pbb(i, j, k) = Pbb(i, j, k) / norm_bb
+            end do
+        end do
+    end do
+
+    ! print *, Pff(1:nA, 1:nA+1, 1)
     
     ALLOCATE(Pplus(0:nA,nA));              Pplus = ZERO
     ALLOCATE(Pminus(0:nA,nA));             Pminus = ZERO
@@ -876,7 +966,7 @@ SUBROUTINE CRTM_ADA()
        
     temporal_matrix = -matmul(s_Level_Refl_UP(1:nA,1:nA,k),  &
          s_Layer_Refl(1:nA,1:nA,k))
-   
+        
     DO i = 1, nA 
       temporal_matrix(i,i) = ONE + temporal_matrix(i,i)
     END DO
@@ -891,8 +981,6 @@ SUBROUTINE CRTM_ADA()
      matmul(s_Layer_Trans(1:nA,1:nA,k), Inv_Gamma(1:nA,1:nA,k))
     refl_down(1:nA,k) = matmul(s_Level_Refl_UP(1:nA,1:nA,k),  &
                                   s_Layer_Source_DOWN(1:nA,k))
-
-    print *, Inv_GammaT(1,1,k)
     
     s_Level_Rad_UP(1:nA,k-1 )=s_Layer_Source_UP(1:nA,k)+ &
     matmul(Inv_GammaT(1:nA,1:nA,k),refl_down(1:nA,k) &
@@ -901,6 +989,7 @@ SUBROUTINE CRTM_ADA()
           s_Layer_Trans(1:nA,1:nA,k))
     s_Level_Refl_UP(1:nA,1:nA,k-1)=s_Layer_Refl(1:nA,1:nA,k) + &
     matmul(Inv_GammaT(1:nA,1:nA,k),Refl_Trans(1:nA,1:nA,k)) 
+
 
     ELSE
       DO i = 1, nA 
@@ -932,7 +1021,9 @@ SUBROUTINE CRTM_ADA()
        ENDDO
     END IF
 
-    print *, "s_Level_Refl_UP", s_Level_Refl_UP(1,1,0)
+    print *, "s_Level_Rad_UP(:,0)", s_Level_Rad_UP(1:nA, 0)
+    print *, "s_Level_Refl_UP(1,1,0)", s_Level_Refl_UP(1, 1, 0)
+
 
     RETURN
 
@@ -1008,6 +1099,7 @@ SUBROUTINE CRTM_ADA()
    ELSE
      s = max_albedo
    END IF
+
    !
    ! building phase matrices
    DO i = 1, nA
@@ -1015,22 +1107,29 @@ SUBROUTINE CRTM_ADA()
      DO j = 1, nA
        PM(i,j,KL) = c * Pbb(i,j,KL) * COS_Weight(j)
        PP(i,j,KL) = c * Pff(i,j,KL) * COS_Weight(j)
+       
      ENDDO
        PP(i,i,KL) = PP(i,i,KL) - ONE/COS_Angle(i)
+       
    ENDDO
+  
+
    PPM(1:nA,1:nA,KL) = PP(1:nA,1:nA,KL) - PM(1:nA,1:nA,KL)
+
    i_PPM(1:nA,1:nA,KL) = matinv( PPM(1:nA,1:nA,KL))
    IF( Error_Status /= SUCCESS  ) THEN
      WRITE( Message,'("Error in matrix inversion matinv( PPM(1:nA,1:nA,KL), Error_Status ) ")' ) 
 
      RETURN
    END IF
-
+   
    PPP(1:nA,1:nA,KL) = PP(1:nA,1:nA,KL) + PM(1:nA,1:nA,KL)
+   
    HH(1:nA,1:nA,KL) = matmul( PPM(1:nA,1:nA,KL), PPP(1:nA,1:nA,KL) )   
    !
    ! save phase element HH, call ASYMTX for calculating eigenvalue and vectors.
    tempo = HH(1:nA,1:nA,KL)
+
    CALL ASYMTX(tempo,nA,nA,nA,EigVe(1:nA,1:nA,KL),EigVa(1:nA,KL))
    DO i = 1, nA
      IF( EigVa(i,KL) > ZERO ) THEN         
@@ -1039,6 +1138,9 @@ SUBROUTINE CRTM_ADA()
        EigValue(i,KL) = ZERO
      END IF
    END DO
+   print *, "Eig values", EigVa(1:nA,KL)
+   ! print *, "HH21", HH(2, 1, KL)
+   ! print *, "HH22", HH(2, 2, KL)
 
    DO i = 1, nA
      DO j = 1, nA
@@ -1127,7 +1229,7 @@ SUBROUTINE CRTM_ADA()
          V0(i,i) = V0(i,i) - ONE - COS_Angle(i)/COS_SUN
          V0(i+nA,i+nA) = V0(i+nA,i+nA) - ONE + COS_Angle(i)/COS_SUN
        ENDDO
-   
+
        V1(1:N2_1,1:N2_1) = matinv(V0(1:N2_1,1:N2_1))
        IF( Error_Status /= SUCCESS  ) THEN
          WRITE( Message,'("Error in matrix inversion matinv(V0(1:N2_1,1:N2_1), Error_Status) ")' ) 

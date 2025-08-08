@@ -9,7 +9,7 @@ RTM:
   IRRADIANCE_TYPE: "mls"
 
 ICE:
-  THICKNESS: [0.01, 0.01, 0.01]  # thickness of each vertical layer (unit : m)
+  THICKNESS: [1, 1, 1]  # thickness of each vertical layer (unit : m)
   LAYER_TYPE: [0, 0, 0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
   DENSITY: [650, 650, 650]  # density of each layer (unit : kg m-3)
   RF_TYPE: "Pic16" # "Wrn08", "Pic16", "Coop21"
@@ -24,5 +24,3 @@ LIGHT_ABSORBING_PARTICLES:
     COATED: False
     UNIT: 0
     CONC: [0, 0, 0]
-
-
