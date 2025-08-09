@@ -141,6 +141,10 @@ class _AdvancedDoublingAddingSolver:
                             obb += coeff * leg_poly[leg, i] * leg_poly[leg, j] * ifac
                         self.ff[i, j, k] = off
                         self.bb[i, j, k] = obb
+
+                        if j == jn - 1:
+                            print(self.ff[i, j, k], self.bb[i, j, k])
+
                         if self.ff[i, j, k] < 0:
                             if self.ff[i, j, k] < -0.1:
                                 raise ValueError("Negative phase matrix elements")

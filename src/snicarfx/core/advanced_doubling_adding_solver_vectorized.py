@@ -33,7 +33,7 @@ class _AdvancedDoublingAddingSolver:
         self.solar_irradiance = 2
         self.solar_flag = True
         self.cos_sun = irradiance.cos_sza
-        self.delta_scaling = True
+        self.delta_scaling = False  # True !!!!!!!!!!!!!!!!!!!!!!!
         self.DELTA_OPTICAL_DEPTH = 1e-8
         self.max_albedo = 0.999999
         self.planck_atmosphere = np.zeros(column.nbr_lyr + 1)
@@ -47,7 +47,7 @@ class _AdvancedDoublingAddingSolver:
         self.g = column.asm_prm[:, self.wvl]
 
         m = 8  # cf Wiscombe 1977
-        n_legendre = 50  # Legendre order of expansion = n+1 terms
+        self.n_legendre = 50  # Legendre order of expansion = n+1 terms
         self.n_angles = 8
 
         self.ff = np.zeros((self.n_angles, self.n_angles + 1, column.nbr_lyr))
@@ -84,7 +84,6 @@ class _AdvancedDoublingAddingSolver:
         nodes, weights = np.polynomial.legendre.leggauss(self.n_angles * 2)
         self.cos_angle = nodes[self.n_angles :]  # only positive
         self.cos_weight = weights[self.n_angles :]
-        mu = np.array(self.cos_angle)
 
         ######################################################################
         # CALCULATE PHASE COEFFS & PHASE MATRICES WITH DELTA SCALING
@@ -122,22 +121,20 @@ class _AdvancedDoublingAddingSolver:
             for order in orders:
                 leg_poly[order, self.n_angles] = legendre(order)(self.cos_sun)
 
-            jn = self.n_angles + 1 if self.solar_flag else self.n_angles
-
             legs = np.arange(self.mth_azi, 2 * m - 1)
             ifac = (-1) ** (legs - self.mth_azi)
 
             # Calculate phase matrices
             self.ff = np.sum(
                 self.phase_coeffs[:, None, None, :]
-                * leg_poly[:, :-1, None, None]
+                * leg_poly[:, :-1, None, None]  # -1 to exclude SZA
                 * leg_poly[:, None, :, None],
                 axis=0,
             )
 
             self.bb = np.sum(
                 self.phase_coeffs[:, None, None, :]
-                * leg_poly[:, :-1, None, None]
+                * leg_poly[:, :-1, None, None]  # -1 to exclude SZA
                 * leg_poly[:, None, :, None]
                 * ifac[:, None, None, None],
                 axis=0,
@@ -153,43 +150,53 @@ class _AdvancedDoublingAddingSolver:
         # CALCULATE PHASE COEFFS & PHASE MATRICES WITHOUT DELTA SCALING
         ######################################################################
         else:
+            orders = np.arange(self.n_legendre + 1)
 
-            self.phase_coeffs = np.zeros((n_legendre + 1, column.nbr_lyr))
+            self.phase_coeffs = np.zeros((self.n_legendre + 1, column.nbr_lyr))
+
             # HG Legendre expansion coefficients
-            for k in range(column.nbr_lyr):
-                for leg_moment in range(n_legendre + 1):
-                    self.phase_coeffs[leg_moment, k] = (
-                        0.5 * (2 * leg_moment + 1) * self.g**leg_moment
-                    )
+            leg_moments = np.arange(0, self.n_legendre + 1)
+            self.phase_coeffs = (
+                0.5
+                * (2 * leg_moments[:, None] + 1)
+                * self.g[None, :] ** leg_moments[:, None]
+            )
 
-            leg_poly = np.zeros((n_legendre + 1, self.n_angles + 1))
+            # Calculate Legendre polynomials (different indexing than with scaling)
+            leg_poly = np.zeros((self.n_legendre + 1, self.n_angles + 1))
 
-            for i in range(self.n_angles):
-                mu = self.cos_angle[i]
-                for leg_moment in range(n_legendre + 1):
-                    leg_poly[leg_moment, i] = legendre(leg_moment)(mu)
+            # for all but the last column
+            for order in orders:
+                leg_poly[order, :-1] = legendre(order)(self.cos_angle)
 
-            # add SZA as last column
-            for leg_moment in range(n_legendre + 1):
-                leg_poly[leg_moment, self.n_angles] = legendre(leg_moment)(self.cos_sun)
+            # add SZA in the last column
+            for order in orders:
+                leg_poly[order, self.n_angles] = legendre(order)(self.cos_sun)
 
-            jn = self.n_angles + 1 if self.solar_flag else self.n_angles
+            legs = np.arange(self.mth_azi, self.n_legendre + 1)
+            ifac = (-1) ** (legs - self.mth_azi)
 
-            for k in range(column.nbr_lyr):
-                for j in range(jn):  # incoming angle
-                    for i in range(self.n_angles):  # outgoing angle
-                        off = 0.0
-                        obb = 0.0
-                        for leg in range(self.mth_azi, n_legendre + 1):
-                            ifac = (-1) ** (leg - self.mth_azi)
-                            coeff = self.phase_coeffs[leg, k]
-                            off += coeff * leg_poly[leg, i] * leg_poly[leg, j]
-                            obb += coeff * leg_poly[leg, i] * leg_poly[leg, j] * ifac
-                        self.ff[i, j, k] = off
-                        self.bb[i, j, k] = obb
-                        if (self.bb[i, j, k] < 0) or (self.ff[i, j, k] < 0):
-                            print(self.bb[i, j, k])
-                            raise ValueError("Negative phase matrix elements")
+            # Calculate phase matrices
+            self.ff = np.sum(
+                self.phase_coeffs[:, None, None, :]
+                * leg_poly[:, :-1, None, None]  # -1 to exclude SZA
+                * leg_poly[:, None, :, None],
+                axis=0,
+            )
+
+            self.bb = np.sum(
+                self.phase_coeffs[:, None, None, :]
+                * leg_poly[:, :-1, None, None]  # -1 to exclude SZA
+                * leg_poly[:, None, :, None]
+                * ifac[:, None, None, None],
+                axis=0,
+            )
+
+            if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
+                raise ValueError("Negative phase matrix elements")
+
+            self.ff[self.ff < 0] = 0
+            self.ff[self.bb < 0] = 0
 
         return None
 
