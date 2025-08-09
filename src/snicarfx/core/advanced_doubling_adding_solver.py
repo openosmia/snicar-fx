@@ -13,6 +13,11 @@ https://doi.org/10.1175/JAS3808.1
 import numpy as np
 from scipy.special import legendre
 
+## GENERAL COMMENTS: 
+    # loops in k in __init__ should be vectorized
+    # maybe we can remove the solar flag? (ie always true)
+    # maybe we keep emission for now even if we don't use it (ie set at 0)
+
 
 class _AdvancedDoublingAddingSolver:
 
@@ -21,213 +26,56 @@ class _AdvancedDoublingAddingSolver:
         Initialize all variables required for the ADA solver
         """
         
-        #################################################### ADDED OR MODIFIED
+        self.wvl = wvl
+        
         self.mth_azi = 0
         self.planck_surface = 0
-        self.wvl = wvl
         self.solar_irradiance = 2
         self.solar_flag = True
         self.cos_sun = irradiance.cos_sza
-        
-        n_angles = 8
-        nodes, weights = np.polynomial.legendre.leggauss(n_angles*2)
-        self.cos_angle = nodes[n_angles:] # only positive 
-        self.cos_weight = weights[n_angles:]
-        
-        mu = np.array(self.cos_angle)
-        
-        self.ff = np.zeros((len(self.cos_angle), 
-                            len(self.cos_angle)+1,
-                            column.nbr_lyr))
-        self.bb = np.zeros((len(self.cos_angle), 
-                            len(self.cos_angle)+1,
-                            column.nbr_lyr))
-        
+        self.delta_scaling = True
+        self.DELTA_OPTICAL_DEPTH = 1e-8
+        self.max_albedo = 0.999999
+        self.planck_atmosphere = np.zeros(column.nbr_lyr + 1)
+        self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
+        self.cosmic_background = 0
+        self.total_opt = np.zeros(column.nbr_lyr + 1)
         
         tau_unscaled = column.tau[:, self.wvl] 
         w_unscaled = column.ss_alb[:, self.wvl]
-        g_unscaled = column.asm_prm[:, self.wvl] 
+        g_unscaled = column.asm_prm[:, self.wvl]
         
-        m = 8 # Wiscombe
-        self.phase_coeffs = np.zeros((2 * m - 1, 
-                                      column.nbr_lyr))
-        
+        # initialize (not needed once loops vectorized in k)
         self.t_od = tau_unscaled
         self.w = w_unscaled
         self.g = g_unscaled
-    
-
-        ######################################################################
-        #### calc. phase coefficients + apply delta scaling (CRTM_Atm_Combine)
-        #### (Delta-scaling does nothing if g is low (ie low forward scatter))
-        ######################################################################
-        for k in range(column.nbr_lyr):
-            
-            g = g_unscaled[k]
-            
-            # HG Legendre expansion coefficients 
-            # for leg_moment in range(n_legendre + 1):
-            #     self.phase_coeffs[leg_moment, k] = (
-            #         0.5 * (2*leg_moment+1) * g**leg_moment
-            #         )
-            
-            ######################### DELTA CORRECTION ####################### 
-            
-            # Delta truncation: get highest Legendre term following
-            # Wicombe 1977 Eq. (15)
-            f = g ** (2*m) # original expansion coeff at 2M
-            
-            
-            # # Wiscombe 1977 Eq. 14
-            for order in range(2*m-1):
-                self.phase_coeffs[order, k] = (g**order - f) / (1 - f)
-                self.phase_coeffs[order,k] = ((2*order + 1) * 0.5 
-                                              * self.phase_coeffs[order, k])
-                
-            # Wiscombe 1977 Eq. 20(a, b)
-            self.t_od[k] = (1.0 - w_unscaled[k] * f) * tau_unscaled[k]
-            self.w[k] = (1.0 - f) * w_unscaled[k] / (1 - w_unscaled[k] * f)
-            
-        leg_poly = np.zeros((2*m-1, n_angles+1))
         
-        for i in range(n_angles):
-            mu = self.cos_angle[i]
-            for order in range(2*m-1):
-                leg_poly[order, i] = legendre(order)(mu)
+        m = 8 # cf Wiscombe 1977
+        n_legendre = 50  # Legendre order of expansion = n+1 terms
+        n_angles = 8
         
-        # add SZA as last column
-        for order in range(2*m-1):
-            leg_poly[order, n_angles] = legendre(order)(self.cos_sun)
-            
-        jn = n_angles + 1 if self.solar_flag else n_angles   
-        
-        # !!!!!!!! the phase functions are clipped to pos. values in original
-        # code but we don't want to clip them - they shouldnt be negative
-        # off and obb are "original phase matrices" and pff/pff are clipped.
-        
-        for k in range(column.nbr_lyr):
-            for j in range(jn):  # incoming angle
-                for i in range(n_angles):  # outgoing angle
-                    off = 0.0
-                    obb = 0.0
-                    for leg in range(self.mth_azi, 2*m-1):
-                        ifac = (-1) ** (leg - self.mth_azi)
-                        coeff = self.phase_coeffs[leg, k]  
-                        off += coeff * leg_poly[leg, i] * leg_poly[leg, j] 
-                        obb += coeff * leg_poly[leg, i] * leg_poly[leg, j] * ifac 
-                    self.ff[i, j, k] = off
-                    self.bb[i, j, k] = obb
-                    if self.ff[i, j, k] < 0:
-                        if self.ff[i, j, k] < -0.1:
-                            raise ValueError("Negative phase matrix elements")
-                        else:
-                            self.ff[i, j, k] = 0
-                    if self.bb[i, j, k] < 0:
-                        if self.ff[i, j, k] < -0.1:
-                            raise ValueError("Negative phase matrix elements")
-                        else:
-                            self.bb[i, j, k] = 0
-
-            ###################################################################
-            
-        ######################################################################
-        #### calc. legendre polys + calc. phase matrices (CRTM_Phase_Matrix)
-        ######################################################################
-        
-        # n_legendre = 50  # Order of expansion = n+1 terms
-
-        # leg_poly = np.zeros((n_legendre+1, 
-        #                 n_angles+1))
-        
-        # for i in range(n_angles):
-        #     mu = self.cos_angle[i]
-        #     for leg_moment in range(n_legendre + 1):
-        #         leg_poly[leg_moment, i] = legendre(leg_moment)(mu)
-        
-        # # add SZA as last column
-        # for leg_moment in range(n_legendre + 1):
-        #     leg_poly[leg_moment, n_angles] = legendre(leg_moment)(self.cos_sun)
-            
-        # jn = n_angles + 1 if self.solar_flag else n_angles   
-        
-        # # !!!!!!!! the phase functions are clipped to pos. values in original
-        # # code but we don't want to clip them - they shouldnt be negative
-        # # off and obb are "original phase matrices" and pff/pff are clipped.
-        
-        # for k in range(column.nbr_lyr):
-        #     for j in range(jn):  # incoming angle
-        #         for i in range(n_angles):  # outgoing angle
-        #             off = 0.0
-        #             obb = 0.0
-        #             for leg in range(self.mth_azi, n_legendre + 1):
-        #                 ifac = (-1) ** (leg - self.mth_azi)
-        #                 coeff = self.phase_coeffs[leg, k]  
-        #                 off += coeff * leg_poly[leg, i] * leg_poly[leg, j] 
-        #                 obb += coeff * leg_poly[leg, i] * leg_poly[leg, j] * ifac 
-        #             self.ff[i, j, k] = off
-        #             self.bb[i, j, k] = obb
-        #             if (self.bb[i, j, k] < 0) or (self.ff[i, j, k] < 0):
-        #                 print(self.bb[i, j, k])
-        #                 raise ValueError("Negative phase matrix elements")
-        
-        ######################################################################
-        self.direct_reflectivity = np.zeros(len(self.cos_angle))
-
-        self.DELTA_OPTICAL_DEPTH = 1e-8
-        self.max_albedo = 0.999999
-        
-
-        self.planck_atmosphere = np.zeros(column.nbr_lyr + 1)
-        
-        self.emissivity = np.zeros(len(self.cos_angle))
-
-
-        self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
-        
-        self.cosmic_background = 0
-
-        self.total_opt = np.zeros(column.nbr_lyr + 1)
-        
-        # these are the Legendre matrices built from ff and bb
-        self.pp = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.pm = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.ppm = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.i_ppm = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.ppp = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-
+        self.ff = np.zeros((n_angles, 
+                            n_angles+1,
+                            column.nbr_lyr))
+        self.bb = np.zeros((n_angles, 
+                            n_angles+1,
+                            column.nbr_lyr))
+        self.direct_reflectivity = np.zeros(n_angles)
+        self.emissivity = np.zeros_like(self.direct_reflectivity)
         self.reflectivity = np.zeros(
-            (len(self.cos_angle), len(self.cos_angle))
+            (n_angles, n_angles)
         )
-
-        self.temporal_matrix = np.zeros(
-            (len(self.cos_angle), len(self.cos_angle))
-        )
-        self.refl_down = np.zeros((len(self.cos_angle),
-                                  column.nbr_lyr))
         
+        ## attributes for adding method
+        self.refl_down = np.zeros(
+            (n_angles, column.nbr_lyr)
+            )
+        self.temporal_matrix = np.zeros_like(
+            (n_angles, n_angles)
+        )
         self.inv_gamma = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
+            (n_angles,
+             n_angles,
             column.nbr_lyr)
         )
         self.inv_gamma_t = np.zeros_like(
@@ -238,114 +86,153 @@ class _AdvancedDoublingAddingSolver:
             self.inv_gamma
         )
 
-        self.s_layer_trans = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
+        self.s_layer_trans = np.zeros_like(
+            self.inv_gamma
         )
+        
         self.s_layer_refl = np.zeros_like(
-            self.s_layer_trans
+            self.inv_gamma
         )
+        
         self.s_level_refl_up = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
+            (n_angles,
+            n_angles,
             column.nbr_lyr + 1)
         )
         self.s_level_rad_up = np.zeros(
-            (len(self.cos_angle), column.nbr_lyr + 1)
+            (n_angles, column.nbr_lyr + 1)
             )
         self.s_layer_source_up = np.zeros(
-            (len(self.cos_angle), column.nbr_lyr)
+            (n_angles, column.nbr_lyr)
             )
         self.s_layer_source_down = np.zeros(
-            (len(self.cos_angle), column.nbr_lyr)
+            (n_angles, column.nbr_lyr)
         )
-
-
 
         self.thermal_c = np.zeros(
-            (len(self.cos_angle),
+            (n_angles,
             column.nbr_lyr)
         )
-
+        
+        
+        ######################################################################
+        # SET GAUSSIAN QUADRATURE
+        ######################################################################
 
         
-        self.hh = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
+        nodes, weights = np.polynomial.legendre.leggauss(n_angles*2)
+        self.cos_angle = nodes[n_angles:] # only positive 
+        self.cos_weight = weights[n_angles:]
+        mu = np.array(self.cos_angle)
 
-        self.eig_value = np.zeros(
-            (len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.eig_va = np.zeros(
-            (len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.eig_ve = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.eig_veva = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.eig_vef = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
+        ######################################################################
+        # CALCULATE PHASE COEFFS & PHASE MATRICES WITH DELTA SCALING
+        ######################################################################
 
-        self.gp = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.gm = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.i_gm = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.a1 = np.zeros(
-            (len(self.cos_angle),
-            len(self.cos_angle),
-            column.nbr_lyr)
-        )
-        self.a2 = np.zeros_like(
-            self.a1
-        )
-        self.a3 = np.zeros_like(
-            self.a1
-        )
-        self.a4 = np.zeros_like(
-            self.a1
-        )
-        self.a5 = np.zeros_like(
-            self.a1
-        )
-        self.a6 = np.zeros_like(
-            self.a1
-        )
-        self.gm_a5 = np.zeros_like(
-            self.a1
-        )
-        self.i_gm_a5 = np.zeros_like(
-            self.a1
-        )
+        if self.delta_scaling:
+            self.phase_coeffs = np.zeros((2 * m - 1, 
+                                          column.nbr_lyr))
+            for k in range(column.nbr_lyr):
+                g = g_unscaled[k]
+                
+                # Delta truncation: get highest Legendre term following
+                # Wicombe 1977 Eq. (15)
+                f = g ** (2*m) # original expansion coeff at 2M
 
-        self.exp_x = np.zeros(
-            (len(self.cos_angle),
-            column.nbr_lyr)
-        )
+                # Calculate scaled expansion coefficients
+                for order in range(2*m-1):
+                    # Wiscombe 1977 Eq. 14
+                    self.phase_coeffs[order, k] = (g**order - f) / (1 - f)
+                    # Convention is 0.5 * (2l+1) * Bl for the expansion
+                    self.phase_coeffs[order,k] = ((2*order + 1) * 0.5 
+                                                  * self.phase_coeffs[order, k])
+                    
+                # Wiscombe 1977 Eq. 20(a, b)
+                self.t_od[k] = (1.0 - w_unscaled[k] * f) * tau_unscaled[k]
+                self.w[k] = (1.0 - f) * w_unscaled[k] / (1 - w_unscaled[k] * f)
+                
+            # Calculate Legendre polynomials
+            leg_poly = np.zeros((2*m-1, n_angles+1))
+            
+            for i in range(n_angles):
+                mu = self.cos_angle[i]
+                for order in range(2*m-1):
+                    leg_poly[order, i] = legendre(order)(mu)
+            
+            # add SZA as last column
+            for order in range(2*m-1):
+                leg_poly[order, n_angles] = legendre(order)(self.cos_sun)
+                
+            jn = n_angles + 1 if self.solar_flag else n_angles   
+            
+            # Calculate phase matrices
+            for k in range(column.nbr_lyr):
+                for j in range(jn):  # incoming angle
+                    for i in range(n_angles):  # outgoing angle
+                        off = 0.0
+                        obb = 0.0
+                        for leg in range(self.mth_azi, 2*m-1):
+                            ifac = (-1) ** (leg - self.mth_azi)
+                            coeff = self.phase_coeffs[leg, k]  
+                            off += coeff * leg_poly[leg, i] * leg_poly[leg, j] 
+                            obb += coeff * leg_poly[leg, i] * leg_poly[leg, j] * ifac 
+                        self.ff[i, j, k] = off
+                        self.bb[i, j, k] = obb
+                        if self.ff[i, j, k] < 0:
+                            if self.ff[i, j, k] < -0.1:
+                                raise ValueError("Negative phase matrix elements")
+                            else:
+                                self.ff[i, j, k] = 0
+                        if self.bb[i, j, k] < 0:
+                            if self.ff[i, j, k] < -0.1:
+                                raise ValueError("Negative phase matrix elements")
+                            else:
+                                self.bb[i, j, k] = 0
+                                
+        ######################################################################
+        # CALCULATE PHASE COEFFS & PHASE MATRICES WITHOUT DELTA SCALING
+        ######################################################################
+        else:
+            
+            self.phase_coeffs = np.zeros((n_legendre+1, 
+                                          column.nbr_lyr))
+            # HG Legendre expansion coefficients 
+            for leg_moment in range(n_legendre + 1):
+                self.phase_coeffs[leg_moment, k] = (
+                    0.5 * (2*leg_moment+1) * g**leg_moment
+                    )
+    
+            leg_poly = np.zeros((n_legendre+1, 
+                            n_angles+1))
+            
+            for i in range(n_angles):
+                mu = self.cos_angle[i]
+                for leg_moment in range(n_legendre + 1):
+                    leg_poly[leg_moment, i] = legendre(leg_moment)(mu)
+            
+            # add SZA as last column
+            for leg_moment in range(n_legendre + 1):
+                leg_poly[leg_moment, n_angles] = legendre(leg_moment)(self.cos_sun)
+                
+            jn = n_angles + 1 if self.solar_flag else n_angles   
+            
+            for k in range(column.nbr_lyr):
+                for j in range(jn):  # incoming angle
+                    for i in range(n_angles):  # outgoing angle
+                        off = 0.0
+                        obb = 0.0
+                        for leg in range(self.mth_azi, n_legendre + 1):
+                            ifac = (-1) ** (leg - self.mth_azi)
+                            coeff = self.phase_coeffs[leg, k]  
+                            off += coeff * leg_poly[leg, i] * leg_poly[leg, j] 
+                            obb += coeff * leg_poly[leg, i] * leg_poly[leg, j] * ifac 
+                        self.ff[i, j, k] = off
+                        self.bb[i, j, k] = obb
+                        if (self.bb[i, j, k] < 0) or (self.ff[i, j, k] < 0):
+                            print(self.bb[i, j, k])
+                            raise ValueError("Negative phase matrix elements")
+        
+
 
         return None
     
@@ -367,79 +254,65 @@ class _AdvancedDoublingAddingSolver:
 
         """
 
+        pp = np.zeros((len(self.cos_angle), 
+                       len(self.cos_angle)))
+        pm = np.zeros((len(self.cos_angle), 
+                       len(self.cos_angle)))
+        
         for i in range(len(self.cos_angle)):
-            c = self.w[k] / self.cos_angle[i]
-
             for j in range(len(self.cos_angle)):
-                # EQUATION 6A AMOM PAPER (without the Kronecker delta)
-                self.pp[i, j, k] = c * self.ff[i, j, k] * self.cos_weight[j]
-                # EQUATION 6B AMOM PAPER 
-                self.pm[i, j, k] = c * self.bb[i, j, k] * self.cos_weight[j]
                 
-            # EQUATION 6A + 7 (apply Kronecker delta) such that pp = alpha
-            self.pp[i, i, k] -= 1.0 / self.cos_angle[i]
-        
-        # First term in H matrix: alpha - beta 
-        self.ppm[:, :, k] = self.pp[:, :, k] - self.pm[:, :, k]
-        # First term in H matrix: alpha + beta 
-        self.ppp[:, :, k] = self.pp[:, :, k] + self.pm[:, :, k]
-        # EQUATION 10 IN AMOM PAPER
-        self.hh[:, :, k] = np.matmul(self.ppm[:, :, k], self.ppp[:, :, k])
+                # EQUATION 6A L&W2013 (without the Kronecker delta)
+                pp[i, j] = (self.w[k] * self.ff[i, j, k] 
+                            * self.cos_weight[j] / self.cos_angle[i])
+                # EQUATION 6B L&W2013
+                pm[i, j] = (self.w[k] * self.bb[i, j, k] 
+                            * self.cos_weight[j] / self.cos_angle[i])
                 
+            # EQUATION 6A + 7 L&W2013 (apply Kronecker delta to get alpha) 
+            pp[i, i] -= 1.0 / self.cos_angle[i]
+            
         
-        tempo = self.hh[:, :, k].copy()
+        # EQUATION 10 L&W2013 [matrix H = (alpha - beta) * (alpha + beta)]
+        hh = np.matmul(pp - pm, pp + pm)
         
-        eig_vals, eig_vecs = np.linalg.eig(tempo)
-
-        self.eig_ve[:, :, k] = eig_vecs
-        self.eig_va[:, k] = eig_vals
-       
-        self.eig_value[:, k] = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
-    
+        # get eigen values & vectors
+        eig_vals, eig_vecs = np.linalg.eig(hh) 
         
+        # why do we take the square roots here?
+        eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
         
-        # eig_veva[i, j, k] = eig_ve[i, j, k] * eig_value[j, k]
-        self.eig_veva[:, :, k] = (
-            self.eig_ve[:, :, k] * self.eig_value[np.newaxis, :, k]
-        )
+        # scale eigenvectors by square roots of eigen values
+        eig_veva = eig_vecs @ np.diag(eig_value)
         
-        self.eig_vef[:, :, k] = np.linalg.solve(self.ppm[:,:,k], 
-                                                self.eig_veva[:,:,k])
-
+        eig_vef = np.linalg.solve(pp - pm, eig_veva)
 
         # Compute layer reflection (Gp) and transmission (Gm) matrices
+        gp = (eig_vecs + eig_vef) / 2.0
+        gm = (eig_vecs - eig_vef) / 2.0
 
-        self.gp[:, :, k] = (self.eig_ve[:, :, k] + self.eig_vef[:, :, k]) / 2.0
-        self.gm[:, :, k] = (self.eig_ve[:, :, k] - self.eig_vef[:, :, k]) / 2.0
-
-
-        for i in range(len(self.cos_angle)):
-            xx = self.eig_value[i, k] * self.t_od[k]
-            self.exp_x[i, k] = np.exp(-xx)
-
-        for i in range(len(self.cos_angle)):
-            for j in range(len(self.cos_angle)):
-                self.a1[i, j, k] = self.gp[i, j, k] * self.exp_x[j, k]
-                self.a4[i, j, k] = self.gm[i, j, k] * self.exp_x[j, k]
-                
-
-        self.a2[:, :, k] = np.linalg.solve(self.gm[:, :, k], self.a1[:, :, k])
-        self.a3[:, :, k] = np.matmul(self.gp[:, :, k], self.a2[:, :, k])
-        self.a5[:, :, k] = np.matmul(self.a1[:, :, k], self.a2[:, :, k])
-        self.a6[:, :, k] = np.matmul(self.a4[:, :, k], self.a2[:, :, k])
-
-        self.gm_a5[:, :, k] = self.gm[:, :, k] - self.a5[:, :, k]
+        exp_x = np.exp(- eig_value * self.t_od[k])   
+             
+        a1 = gp * exp_x[np.newaxis, :]
+        a4 = gm * exp_x[np.newaxis, :]
         
-        trans = np.linalg.solve(self.gm_a5[:, :, k].T, 
-                                (self.a4[:, :, k] - self.a3[:, :, k]).T).T
+        a2 = np.linalg.solve(gm, a1)
+        a3 = np.matmul(gp, a2)
+        a5 = np.matmul(a1, a2)
+        a6 = np.matmul(a4, a2)
 
-        refl = np.linalg.solve(self.gm_a5[:, :, k].T, 
-                                (self.gp[:, :, k] - self.a6[:, :, k]).T).T
+        gm_a5 = gm - a5
+        
+        trans = np.linalg.solve(gm_a5.T, 
+                                (a4 - a3).T).T
+
+        refl = np.linalg.solve(gm_a5.T, 
+                                (gp - a6).T).T
 
 
         # post processing
-        self.s_layer_trans[:, :, k] = trans[:, :]
-        self.s_layer_refl[:, :, k] = refl[:, :]
+        self.s_layer_trans[:, :, k] = trans
+        self.s_layer_refl[:, :, k] = refl
         self.s_layer_source_up[:, k] = 0.0
 
         if self.mth_azi == 0:
@@ -459,7 +332,7 @@ class _AdvancedDoublingAddingSolver:
                 
                 self.s_layer_source_down[i, k] = self.s_layer_source_up[i, k]
                 
-        # compute visible part for visible channels during daytime
+        # treatment of solar radiation is not in L&W2013 paper
         if self.solar_flag:
             n2 = 2 * len(self.cos_angle)
             n2_1 = -1 
@@ -552,7 +425,6 @@ class _AdvancedDoublingAddingSolver:
             self.s_layer_source_down[:, k] += source_down
 
         return None
-
 
 def solve_advanced_adding_doubling(column, irradiance, wvl):
     """
