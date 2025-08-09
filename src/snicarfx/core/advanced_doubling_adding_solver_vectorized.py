@@ -33,7 +33,7 @@ class _AdvancedDoublingAddingSolver:
         self.solar_irradiance = 2
         self.solar_flag = True
         self.cos_sun = irradiance.cos_sza
-        self.delta_scaling = False  # True !!!!!!!!!!!!!!!!!!!!!!!
+        self.delta_scaling = True
         self.DELTA_OPTICAL_DEPTH = 1e-8
         self.max_albedo = 0.999999
         self.planck_atmosphere = np.zeros(column.nbr_lyr + 1)
