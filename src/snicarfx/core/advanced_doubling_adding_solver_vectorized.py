@@ -200,7 +200,7 @@ class _AdvancedDoublingAddingSolver:
 
         return None
 
-    def crtm_anom_layer(self, column, k):
+    def crtm_amom_layer(self, column, k):
         """Compute layer transmission, reflection matrices and source
         function at the top and bottom of the layer.
 
@@ -218,29 +218,23 @@ class _AdvancedDoublingAddingSolver:
 
         """
 
-        pp = np.zeros((len(self.cos_angle), len(self.cos_angle)))
-        pm = np.zeros((len(self.cos_angle), len(self.cos_angle)))
+        # EQUATION 6A L&W2013 (without the Kronecker delta)
+        pp = (
+            self.w[k]
+            * self.ff[:, : self.n_angles, k]
+            * self.cos_weight[None, :]
+            / self.cos_angle[:, None]
+        )
+        # EQUATION 6A + 7 L&W2013 (apply Kronecker delta to get alpha)
+        np.fill_diagonal(pp, pp.diagonal() - 1.0 / self.cos_angle)
 
-        for i in range(len(self.cos_angle)):
-            for j in range(len(self.cos_angle)):
-
-                # EQUATION 6A L&W2013 (without the Kronecker delta)
-                pp[i, j] = (
-                    self.w[k]
-                    * self.ff[i, j, k]
-                    * self.cos_weight[j]
-                    / self.cos_angle[i]
-                )
-                # EQUATION 6B L&W2013
-                pm[i, j] = (
-                    self.w[k]
-                    * self.bb[i, j, k]
-                    * self.cos_weight[j]
-                    / self.cos_angle[i]
-                )
-
-            # EQUATION 6A + 7 L&W2013 (apply Kronecker delta to get alpha)
-            pp[i, i] -= 1.0 / self.cos_angle[i]
+        # EQUATION 6B L&W2013
+        pm = (
+            self.w[k]
+            * self.bb[:, : self.n_angles, k]
+            * self.cos_weight[None, :]
+            / self.cos_angle[:, None]
+        )
 
         # EQUATION 10 L&W2013 [matrix H = (alpha - beta) * (alpha + beta)]
         hh = np.matmul(pp - pm, pp + pm)
@@ -282,21 +276,50 @@ class _AdvancedDoublingAddingSolver:
         self.s_layer_source_up[:, k] = 0.0
 
         if self.mth_azi == 0:
-            for i in range(len(self.cos_angle)):
-                self.thermal_c[i, k] = 0.0
-                for j in range(column.model_inputs.nb_streams):
-                    self.thermal_c[i, k] += trans[i, j] + refl[i, j]
-                if (i == len(self.cos_angle) - 1) and (
-                    len(self.cos_angle) == (column.model_inputs.nb_streams + 1)
-                ):
-                    self.thermal_c[i, k] += trans[
-                        len(self.cos_angle) - 1, len(self.cos_angle) - 1
-                    ]
-                self.s_layer_source_up[i, k] = (
-                    1.0 - self.thermal_c[i, k]
-                ) * self.planck_atmosphere[k]
 
-                self.s_layer_source_down[i, k] = self.s_layer_source_up[i, k]
+            # for i in range(len(self.cos_angle)):
+            #     self.thermal_c[i, k] = 0.0
+            #     for j in range(column.model_inputs.nb_streams):
+            #         self.thermal_c[i, k] += trans[i, j] + refl[i, j]
+            #     if (i == len(self.cos_angle) - 1) and (
+            #         len(self.cos_angle) == (column.model_inputs.nb_streams + 1)
+            #     ):
+            #         self.thermal_c[i, k] += trans[
+            #             len(self.cos_angle) - 1, len(self.cos_angle) - 1
+            #         ]
+            #     self.s_layer_source_up[i, k] = (
+            #         1.0 - self.thermal_c[i, k]
+            #     ) * self.planck_atmosphere[k]
+
+            #     self.s_layer_source_down[i, k] = self.s_layer_source_up[i, k]
+
+            self.thermal_c[:, k] = 0.0
+            self.thermal_c[:, k] = trans[:, : column.model_inputs.nb_streams].sum(
+                axis=1
+            ) + refl[:, : column.model_inputs.nb_streams].sum(axis=1)
+
+            if self.n_angles == (column.model_inputs.nb_streams + 1):
+                self.thermal_c[self.n_angles - 1, k] += trans[
+                    self.n_angles - 1, self.n_angles - 1
+                ]
+
+            self.s_layer_source_up[:, k] = (
+                1.0 - self.thermal_c[:, k]
+            ) * self.planck_atmosphere[k]
+
+            self.s_layer_source_down[:, k] = self.s_layer_source_up[:, k]
+
+            print(
+                self.thermal_c.shape,
+                self.s_layer_source_up.shape,
+                self.s_layer_source_down.shape,
+                trans.shape,
+                refl.shape,
+                # np.nanmean(self.thermal_c),
+                # np.nanmean(self.s_layer_source_up),
+                # np.nanmean(self.s_layer_source_down),
+            )
+            return
 
         # treatment of solar radiation is not in L&W2013 paper
         if self.solar_flag:
@@ -425,7 +448,7 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
 
         # call  multiple-stream algorithm for computing layer
         # transmission, reflection, and source functions.
-        aads.crtm_anom_layer(column, k)
+        aads.crtm_amom_layer(column, k)
         # then Adding method to add the layer to the present level
         # to compute upward radiances and reflection matrix
         # at new level.
