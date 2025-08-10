@@ -277,22 +277,6 @@ class _AdvancedDoublingAddingSolver:
 
         if self.mth_azi == 0:
 
-            # for i in range(len(self.cos_angle)):
-            #     self.thermal_c[i, k] = 0.0
-            #     for j in range(column.model_inputs.nb_streams):
-            #         self.thermal_c[i, k] += trans[i, j] + refl[i, j]
-            #     if (i == len(self.cos_angle) - 1) and (
-            #         len(self.cos_angle) == (column.model_inputs.nb_streams + 1)
-            #     ):
-            #         self.thermal_c[i, k] += trans[
-            #             len(self.cos_angle) - 1, len(self.cos_angle) - 1
-            #         ]
-            #     self.s_layer_source_up[i, k] = (
-            #         1.0 - self.thermal_c[i, k]
-            #     ) * self.planck_atmosphere[k]
-
-            #     self.s_layer_source_down[i, k] = self.s_layer_source_up[i, k]
-
             self.thermal_c[:, k] = 0.0
             self.thermal_c[:, k] = trans[:, : column.model_inputs.nb_streams].sum(
                 axis=1
@@ -309,24 +293,12 @@ class _AdvancedDoublingAddingSolver:
 
             self.s_layer_source_down[:, k] = self.s_layer_source_up[:, k]
 
-            print(
-                self.thermal_c.shape,
-                self.s_layer_source_up.shape,
-                self.s_layer_source_down.shape,
-                trans.shape,
-                refl.shape,
-                # np.nanmean(self.thermal_c),
-                # np.nanmean(self.s_layer_source_up),
-                # np.nanmean(self.s_layer_source_down),
-            )
-            return
-
         # treatment of solar radiation is not in L&W2013 paper
         if self.solar_flag:
-            n2 = 2 * len(self.cos_angle)
+            n2 = 2 * self.n_angles
             n2_1 = -1
-            source_up = np.zeros(len(self.cos_angle))
-            source_down = np.zeros(len(self.cos_angle))
+            source_up = np.zeros(self.n_angles)
+            source_down = np.zeros(self.n_angles)
 
             # solar source
             sfactor = self.w[k] * self.solar_irradiance / np.pi
@@ -339,65 +311,71 @@ class _AdvancedDoublingAddingSolver:
             solar = np.zeros(n2)
             v0 = np.zeros((n2, n2))
 
-            for i in range(len(self.cos_angle)):
-                solar[i] = -self.bb[i, len(self.cos_angle), k] * sfactor  # bb(i, nZ+1)
-                solar[i + len(self.cos_angle)] = (
-                    -self.ff[i, len(self.cos_angle), k] * sfactor
-                )  # ff(i, nZ+1)
+            solar[: self.n_angles] = (
+                -self.bb[:, self.n_angles, k] * sfactor
+            )  # bb(i, nZ+1)
 
-                for j in range(len(self.cos_angle)):
-                    v0[i, j] = self.w[k] * self.ff[i, j, k] * self.cos_weight[j]
-                    v0[i + len(self.cos_angle), j] = (
-                        self.w[k] * self.bb[i, j, k] * self.cos_weight[j]
-                    )
-                    v0[i, j + len(self.cos_angle)] = v0[i + len(self.cos_angle), j]
-                    v0[
-                        len(self.cos_angle) + i,
-                        j + len(self.cos_angle),
-                    ] = v0[i, j]
+            solar[self.n_angles :] = (
+                -self.ff[:, self.n_angles, k] * sfactor
+            )  # ff(i, nZ+1)
 
-                v0[i, i] -= 1.0 + self.cos_angle[i] / self.cos_sun
-                v0[i + len(self.cos_angle), i + len(self.cos_angle)] -= (
-                    1.0 - self.cos_angle[i] / self.cos_sun
-                )
+            v0[: self.n_angles, : self.n_angles] = (
+                self.w[k]
+                * self.ff[: self.n_angles, : self.n_angles, k]
+                * self.cos_weight
+            )
+            v0[self.n_angles :, : self.n_angles] = (
+                self.w[k]
+                * self.bb[: self.n_angles, : self.n_angles, k]
+                * self.cos_weight
+            )
+            v0[: self.n_angles, self.n_angles :] = v0[self.n_angles :, : self.n_angles]
+            v0[
+                self.n_angles :,
+                self.n_angles :,
+            ] = v0[: self.n_angles, : self.n_angles]
+
+            np.fill_diagonal(
+                v0[: self.n_angles, : self.n_angles],
+                v0[: self.n_angles, : self.n_angles].diagonal()
+                - (1.0 + self.cos_angle / self.cos_sun),
+            )
+            np.fill_diagonal(
+                v0[self.n_angles :, self.n_angles :],
+                v0[self.n_angles :, self.n_angles :].diagonal()
+                - (1.0 - self.cos_angle / self.cos_sun),
+            )
 
             solar1 = np.linalg.solve(v0[:n2_1, :n2_1], solar[:n2_1])
             solar1 = np.append(solar1, 0.0)
             sfac2 = solar[n2 - 1] - np.sum(v0[n2 - 1, :n2_1] * solar1[:n2_1])
 
-            for i in range(len(self.cos_angle)):
-                source_up[i] = solar1[i]
-                source_down[i] = expfactor * solar1[i + len(self.cos_angle)]
+            source_up = solar1[: self.n_angles].copy()
+            source_down = expfactor * solar1[self.n_angles :].copy()
 
-                for j in range(len(self.cos_angle)):
-                    source_up[i] -= (
-                        refl[i, j] * solar1[j + len(self.cos_angle)]
-                        + trans[i, j] * expfactor * solar1[j]
-                    )
-                    source_down[i] -= (
-                        trans[i, j] * solar1[j + len(self.cos_angle)]
-                        + refl[i, j] * expfactor * solar1[j]
-                    )
+            source_up -= refl @ solar1[self.n_angles :] + trans @ (
+                expfactor * solar1[: self.n_angles]
+            )
+            source_down -= trans @ solar1[self.n_angles :] + refl @ (
+                expfactor * solar1[: self.n_angles]
+            )
 
             # Specific treatment for downward source function
             if abs(v0[n2 - 1, n2 - 1]) > 1e-4:
-                source_down[len(self.cos_angle) - 1] += (
+                source_down[self.n_angles - 1] += (
                     (
                         expfactor
                         - trans[
-                            len(self.cos_angle) - 1,
-                            len(self.cos_angle) - 1,
+                            self.n_angles - 1,
+                            self.n_angles - 1,
                         ]
                     )
                     * sfac2
                     / v0[n2 - 1, n2 - 1]
                 )
             else:
-                source_down[len(self.cos_angle) - 1] -= (
-                    expfactor
-                    * sfac2
-                    * self.t_od[k]
-                    / self.cos_angle[len(self.cos_angle) - 1]
+                source_down[self.n_angles - 1] -= (
+                    expfactor * sfac2 * self.t_od[k] / self.cos_angle[self.n_angles - 1]
                 )
 
             source_up *= s_transmittance
