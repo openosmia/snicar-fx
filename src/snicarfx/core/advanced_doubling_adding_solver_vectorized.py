@@ -42,9 +42,9 @@ class _AdvancedDoublingAddingSolver:
         self.total_opt = np.zeros(column.nbr_lyr + 1)
 
         # initialize (not needed once loops vectorized in k)
-        self.t_od = column.tau[:, self.wvl]
-        self.w = column.ss_alb[:, self.wvl]
-        self.g = column.asm_prm[:, self.wvl]
+        self.t_od = np.array(column.tau[:, self.wvl])
+        self.w = np.array(column.ss_alb[:, self.wvl])
+        self.g = np.array(column.asm_prm[:, self.wvl])
 
         m = 8  # cf Wiscombe 1977
         self.n_legendre = 50  # Legendre order of expansion = n+1 terms
@@ -124,6 +124,8 @@ class _AdvancedDoublingAddingSolver:
             legs = np.arange(self.mth_azi, 2 * m - 1)
             ifac = (-1) ** (legs - self.mth_azi)
 
+            # leg_poly is OK
+
             # Calculate phase matrices
             self.ff = np.sum(
                 self.phase_coeffs[:, None, None, :]
@@ -144,7 +146,7 @@ class _AdvancedDoublingAddingSolver:
                 raise ValueError("Negative phase matrix elements")
 
             self.ff[self.ff < 0] = 0
-            self.ff[self.bb < 0] = 0
+            self.bb[self.bb < 0] = 0
 
         ######################################################################
         # CALCULATE PHASE COEFFS & PHASE MATRICES WITHOUT DELTA SCALING
