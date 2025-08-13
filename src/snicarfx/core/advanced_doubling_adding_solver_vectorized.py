@@ -372,22 +372,37 @@ class _AdvancedDoublingAddingSolver:
             source_down = expfactor[None, :] * solar1[self.n_angles :, :].copy()
 
             print(
-                np.moveaxis(refl_t, 0, -1).shape,
-                np.moveaxis(solar1[self.n_angles :, :], 0, 1).shape,
-                np.moveaxis(trans_t, 0, -1).shape,
-                expfactor[None, None, :].shape,
-                solar1[: self.n_angles, :].shape,
+                source_up.shape,
+                refl_t.shape,
+                np.moveaxis(solar1[self.n_angles :, :], -1, 0).shape,
+                trans_t.shape,
+                expfactor[:, None, None].shape,
             )
+            # return
 
-            source_up -= np.moveaxis(refl_t, 0, -1) @ np.moveaxis(
-                solar1[self.n_angles :, :], 0, 1
-            ) + np.moveaxis(trans_t, 0, -1) @ (
-                expfactor[None, None, :] * np.moveaxis(solar1[self.n_angles :, :], 0, 1)
+            source_up -= np.moveaxis(
+                refl_t @ np.moveaxis(solar1[self.n_angles :, :], -1, 0)
+                + trans_t
+                @ (
+                    expfactor[:, None, None]
+                    * np.moveaxis(solar1[self.n_angles :, :], -1, 0)
+                ),
+                0,
+                -1,
             )
-            source_down -= np.moveaxis(trans_t, 0, -1) @ np.moveaxis(
-                solar1[self.n_angles :, :], 0, 1
-            ) + np.moveaxis(refl_t, 0, -1) @ (
-                expfactor[None, None, :] * np.moveaxis(solar1[self.n_angles :, :], 0, 1)
+            source_down -= np.moveaxis(
+                trans_t @ np.moveaxis(solar1[self.n_angles :, :], -1, 0)
+                + refl_t
+                @ (
+                    expfactor[
+                        :,
+                        None,
+                        None,
+                    ]
+                    * np.moveaxis(solar1[self.n_angles :, :], -1, 0)
+                ),
+                0,
+                -1,
             )
 
             print(
