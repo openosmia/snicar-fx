@@ -142,9 +142,6 @@ class _AdvancedDoublingAddingSolver:
                         self.ff[i, j, k] = off
                         self.bb[i, j, k] = obb
 
-                        # if j == jn - 1:
-                        #     print(self.ff[i, j, k], self.bb[i, j, k])
-
                         if self.ff[i, j, k] < 0:
                             if self.ff[i, j, k] < -0.1:
                                 raise ValueError("Negative phase matrix elements")
@@ -195,12 +192,11 @@ class _AdvancedDoublingAddingSolver:
                         self.ff[i, j, k] = off
                         self.bb[i, j, k] = obb
                         if (self.bb[i, j, k] < 0) or (self.ff[i, j, k] < 0):
-                            print(self.bb[i, j, k])
                             raise ValueError("Negative phase matrix elements")
 
         return None
 
-    def crtm_anom_layer(self, column, k):
+    def crtm_anom_layer(self, k):
         """Compute layer transmission, reflection matrices and source
         function at the top and bottom of the layer.
 
@@ -262,8 +258,8 @@ class _AdvancedDoublingAddingSolver:
 
         exp_x = np.exp(-eig_value * self.t_od[k])
 
-        a1 = gp * exp_x[None, :]
-        a4 = gm * exp_x[None, :]
+        a1 = gp * exp_x[np.newaxis, :]
+        a4 = gm * exp_x[np.newaxis, :]
 
         a2 = np.linalg.solve(gm, a1)
         a3 = np.matmul(gp, a2)
@@ -273,120 +269,282 @@ class _AdvancedDoublingAddingSolver:
         gm_a5 = gm - a5
 
         trans = np.linalg.solve(gm_a5.T, (a4 - a3).T).T
-
         refl = np.linalg.solve(gm_a5.T, (gp - a6).T).T
 
         # post processing
         self.s_layer_trans[:, :, k] = trans
         self.s_layer_refl[:, :, k] = refl
-        self.s_layer_source_up[:, k] = 0.0
 
-        if self.mth_azi == 0:
-            for i in range(len(self.cos_angle)):
-                self.thermal_c[i, k] = 0.0
-                for j in range(column.model_inputs.nb_streams):
-                    self.thermal_c[i, k] += trans[i, j] + refl[i, j]
-                if (i == len(self.cos_angle) - 1) and (
-                    len(self.cos_angle) == (column.model_inputs.nb_streams + 1)
-                ):
-                    self.thermal_c[i, k] += trans[
-                        len(self.cos_angle) - 1, len(self.cos_angle) - 1
-                    ]
-                self.s_layer_source_up[i, k] = (
-                    1.0 - self.thermal_c[i, k]
-                ) * self.planck_atmosphere[k]
+        # if self.mth_azi == 0:
+        #     for i in range(len(self.cos_angle)):
+        #         self.thermal_c[i, k] = 0.0
+        #         for j in range(column.model_inputs.nb_streams):
+        #             self.thermal_c[i, k] += trans[i, j] + refl[i, j]
+        #         if (i == len(self.cos_angle) - 1) and (
+        #             len(self.cos_angle) == (column.model_inputs.nb_streams + 1)
+        #         ):
+        #             self.thermal_c[i, k] += trans[
+        #                 len(self.cos_angle) - 1, len(self.cos_angle) - 1
+        #             ]
+        #         self.s_layer_source_up[i, k] = (
+        #             1.0 - self.thermal_c[i, k]
+        #         ) * self.planck_atmosphere[k]
 
-                self.s_layer_source_down[i, k] = self.s_layer_source_up[i, k]
+        #         self.s_layer_source_down[i, k] = self.s_layer_source_up[i, k]
 
-        # treatment of solar radiation is not in L&W2013 paper
-        if self.solar_flag:
-            n2 = 2 * len(self.cos_angle)
-            n2_1 = -1
-            source_up = np.zeros(len(self.cos_angle))
-            source_down = np.zeros(len(self.cos_angle))
+        # # treatment of solar radiation is not in L&W2013 paper
+        # if self.solar_flag:
+        #     n2 = 2 * len(self.cos_angle)
+        #     n2_1 = -1
+        #     source_up = np.zeros(len(self.cos_angle))
+        #     source_down = np.zeros(len(self.cos_angle))
 
-            # solar source
-            sfactor = self.w[k] * self.solar_irradiance / np.pi
-            if self.mth_azi == 0:
-                sfactor /= 2.0
+        #     # solar source
+        #     sfactor = self.w[k] * self.solar_irradiance / np.pi
+        #     if self.mth_azi == 0:
+        #         sfactor /= 2.0
 
-            expfactor = np.exp(-self.t_od[k] / self.cos_sun)
-            s_transmittance = np.exp(-self.total_opt[k] / self.cos_sun)
+        #     expfactor = np.exp(-self.t_od[k] / self.cos_sun)
+        #     s_transmittance = np.exp(-self.total_opt[k] / self.cos_sun)
 
-            solar = np.zeros(n2)
-            v0 = np.zeros((n2, n2))
+        #     solar = np.zeros(n2)
+        #     v0 = np.zeros((n2, n2))
 
-            for i in range(len(self.cos_angle)):
-                solar[i] = -self.bb[i, len(self.cos_angle), k] * sfactor  # bb(i, nZ+1)
-                solar[i + len(self.cos_angle)] = (
-                    -self.ff[i, len(self.cos_angle), k] * sfactor
-                )  # ff(i, nZ+1)
+        #     for i in range(len(self.cos_angle)):
+        #         solar[i] = -self.bb[i, len(self.cos_angle), k] * sfactor
+        #         solar[i + len(self.cos_angle)] = (
+        #             -self.ff[i, len(self.cos_angle), k] * sfactor
+        #         )  # ff(i, nZ+1)
 
-                for j in range(len(self.cos_angle)):
-                    v0[i, j] = self.w[k] * self.ff[i, j, k] * self.cos_weight[j]
-                    v0[i + len(self.cos_angle), j] = (
-                        self.w[k] * self.bb[i, j, k] * self.cos_weight[j]
-                    )
-                    v0[i, j + len(self.cos_angle)] = v0[i + len(self.cos_angle), j]
-                    v0[
-                        len(self.cos_angle) + i,
-                        j + len(self.cos_angle),
-                    ] = v0[i, j]
+        #         for j in range(len(self.cos_angle)):
+        #             v0[i, j] = self.w[k] * self.ff[i, j, k] * self.cos_weight[j]
+        #             v0[i + len(self.cos_angle), j] = (
+        #                 self.w[k] * self.bb[i, j, k] * self.cos_weight[j]
+        #             )
+        #             v0[i, j + len(self.cos_angle)] = v0[i + len(self.cos_angle), j]
+        #             v0[
+        #                 len(self.cos_angle) + i,
+        #                 j + len(self.cos_angle),
+        #             ] = v0[i, j]
 
-                v0[i, i] -= 1.0 + self.cos_angle[i] / self.cos_sun
-                v0[i + len(self.cos_angle), i + len(self.cos_angle)] -= (
-                    1.0 - self.cos_angle[i] / self.cos_sun
-                )
+        #         v0[i, i] -= 1.0 + self.cos_angle[i] / self.cos_sun
+        #         v0[i + len(self.cos_angle), i + len(self.cos_angle)] -= (
+        #             1.0 - self.cos_angle[i] / self.cos_sun
+        #         )
 
-            solar1 = np.linalg.solve(v0[:n2_1, :n2_1], solar[:n2_1])
-            solar1 = np.append(solar1, 0.0)
-            sfac2 = solar[n2 - 1] - np.sum(v0[n2 - 1, :n2_1] * solar1[:n2_1])
+        #     solar1 = np.linalg.solve(v0[:n2_1, :n2_1], solar[:n2_1])
+        #     solar1 = np.append(solar1, 0.0)
+        #     sfac2 = solar[n2 - 1] - np.sum(v0[n2 - 1, :n2_1] * solar1[:n2_1])
 
-            for i in range(len(self.cos_angle)):
-                source_up[i] = solar1[i]
-                source_down[i] = expfactor * solar1[i + len(self.cos_angle)]
+        #     for i in range(len(self.cos_angle)):
+        #         source_up[i] = solar1[i]
+        #         source_down[i] = expfactor * solar1[i + len(self.cos_angle)]
 
-                for j in range(len(self.cos_angle)):
-                    source_up[i] -= (
-                        refl[i, j] * solar1[j + len(self.cos_angle)]
-                        + trans[i, j] * expfactor * solar1[j]
-                    )
-                    source_down[i] -= (
-                        trans[i, j] * solar1[j + len(self.cos_angle)]
-                        + refl[i, j] * expfactor * solar1[j]
-                    )
+        #         for j in range(len(self.cos_angle)):
+        #             source_up[i] -= (
+        #                 refl[i, j] * solar1[j + len(self.cos_angle)]
+        #                 + trans[i, j] * expfactor * solar1[j]
+        #             )
+        #             source_down[i] -= (
+        #                 trans[i, j] * solar1[j + len(self.cos_angle)]
+        #                 + refl[i, j] * expfactor * solar1[j]
+        #             )
 
-            print("nv", np.nanmean(source_up), np.nanmean(source_down))
-            return
+        #     # Specific treatment for downward source function
+        #     if abs(v0[n2 - 1, n2 - 1]) > 1e-4:
+        #         source_down[len(self.cos_angle) - 1] += (
+        #             (
+        #                 expfactor
+        #                 - trans[
+        #                     len(self.cos_angle) - 1,
+        #                     len(self.cos_angle) - 1,
+        #                 ]
+        #             )
+        #             * sfac2
+        #             / v0[n2 - 1, n2 - 1]
+        #         )
+        #     else:
+        #         source_down[len(self.cos_angle) - 1] -= (
+        #             expfactor
+        #             * sfac2
+        #             * self.t_od[k]
+        #             / self.cos_angle[len(self.cos_angle) - 1]
+        #         )
 
-            # Specific treatment for downward source function
-            if abs(v0[n2 - 1, n2 - 1]) > 1e-4:
-                source_down[len(self.cos_angle) - 1] += (
-                    (
-                        expfactor
-                        - trans[
-                            len(self.cos_angle) - 1,
-                            len(self.cos_angle) - 1,
-                        ]
-                    )
-                    * sfac2
-                    / v0[n2 - 1, n2 - 1]
-                )
-            else:
-                source_down[len(self.cos_angle) - 1] -= (
-                    expfactor
-                    * sfac2
-                    * self.t_od[k]
-                    / self.cos_angle[len(self.cos_angle) - 1]
-                )
+        #     source_up *= s_transmittance
+        #     source_down *= s_transmittance
 
-            source_up *= s_transmittance
-            source_down *= s_transmittance
-
-            self.s_layer_source_up[:, k] += source_up
-            self.s_layer_source_down[:, k] += source_down
+        #     self.s_layer_source_up[:, k] += source_up
+        #     self.s_layer_source_down[:, k] += source_down
 
         return None
+
+
+# def solve_advanced_adding_doubling_(column, irradiance, wvl):
+#     """
+
+#     This subroutine calculates IR/MW radiance at the top of the atmosphere
+#     including atmospheric scattering. The scheme will include solar part.
+#     The ADA algorithm computes layer reflectance and transmittance as well
+#     as source function by the subroutine CRTM_Doubling_layer, then uses
+#     an adding method to integrate the layer and surface components.
+
+#     Translated by the snicar-fx team from the Fortran code of
+#     Quanhua Liu (Quanhua.Liu@noaa.gov)
+
+#     """
+
+#     aads = _AdvancedDoublingAddingSolver(column, irradiance, wvl)
+
+#     I = np.eye(len(aads.cos_angle))  # identity matrix, size = n_angles
+
+
+#     for k in range(1, column.nbr_lyr + 1):
+#         aads.total_opt[k] = aads.total_opt[k - 1] + aads.t_od[k - 1]
+
+#     aads.s_level_refl_up[:, :, -1] = aads.reflectivity
+
+#     if aads.mth_azi == 0:
+#         aads.s_level_rad_up[:, -1] = aads.emissivity * aads.planck_surface
+
+#     # adds a solar reflection term to the upward radiance at the
+#     # last layer for all viewing angles
+#     if aads.solar_flag:
+#         aads.s_level_rad_up[:, -1] += (
+#             aads.direct_reflectivity
+#             * aads.cos_sun
+#             * aads.solar_irradiance
+#             / np.pi
+#             * np.exp(-aads.total_opt[-1] / aads.cos_sun)
+#         )
+
+#     for k in range(column.nbr_lyr - 1, -1, -1):
+
+#         # call  multiple-stream algorithm for computing
+#         # layer transmission and reflection source functions.
+#         aads.crtm_anom_layer(column, k)
+
+#         # then Adding method to add the layer to the present level
+#         # to compute upward radiances and reflection matrix
+#         # at new level.
+
+#         # similar to equation B4 Briegleb and Light 2007: (1 / (1-R1R2))
+
+#         temporal_matrix = I - np.matmul(aads.s_level_refl_up[:, :, k + 1],
+#                                         aads.s_layer_refl[:, :, k])
+
+#         aads.inv_gamma_t[:, :, k] = np.matmul(
+#             aads.s_layer_trans[:, :, k], np.linalg.inv(temporal_matrix)
+#             )
+
+#         aads.refl_down[:, k] = np.matmul(
+#             aads.s_level_refl_up[:, :, k + 1], aads.s_layer_source_down[:, k]
+#         )
+
+#         aads.s_level_rad_up[:, k] = aads.s_layer_source_up[:, k] + np.matmul(
+#             aads.inv_gamma_t[:, :, k],
+#             aads.refl_down[:, k] + aads.s_level_rad_up[:, k + 1],
+#         )
+
+#         aads.refl_trans[:, :, k] = np.matmul(
+#             aads.s_level_refl_up[:, :, k + 1], aads.s_layer_trans[:, :, k]
+#         )
+
+#         aads.s_level_refl_up[:, :, k] = aads.s_layer_refl[:, :, k] + np.matmul(
+#             aads.inv_gamma_t[:, :, k], aads.refl_trans[:, :, k]
+#         )
+
+#     if aads.mth_azi == 0:
+#         for i in range(len(aads.cos_angle)):
+#             aads.s_level_rad_up[i, 0] += (
+#                 np.sum(aads.s_level_refl_up[i, :, 0]) * aads.cosmic_background
+#             )
+
+#     albedo = (
+#         2
+#         * np.pi
+#         * np.sum(
+#             aads.s_level_rad_up[:, 0]
+#             * np.array(aads.cos_angle)
+#             * np.array(aads.cos_weight)
+#         )
+#         / (aads.solar_irradiance * aads.cos_sun)
+#     )
+
+#     return albedo
+
+
+def rf(mu, re1, im1, re2, im2):
+    """
+    This function calculate the Fresnel reflectivity from the refractive
+    indices of two media and the angle of incidence, accounting for TIR.
+    The critical angle is calculated from the complex RI, while the
+    Fresnel coefficients are calculated with the adjusted RI from
+    Liou et al. 2002, following the formalism of Whicker et al. 2022.
+
+    Parameters
+    ----------
+    mu : array or list
+        nodes/points of the gaussian integration (in cos(theta))
+    re1 : float
+        real part of the relative refractive index of medium 1 (incident)
+    im1 : float
+        imaginary part of the relative refractive index of medium 1
+    re2 : float
+        real part of the relative refractive index of medium 2 (transm.)
+    im2 : float
+        imaginary part of the relative refractive index of medium 2
+    use_scipy: boolean
+
+
+
+    Returns
+    -------
+    result : array or list
+        Fresnel reflectivity coefficient (* mu if scipy used)
+
+    """
+
+    # 1 - calculate values of theta where TIR occurs using complex ref index
+    theta_c = np.arcsin((re2 - 1j * im2) / (re1 - 1j * im1))  # critical angle
+    mask = np.arccos(mu) >= theta_c  # mask where TIR occurs
+
+    if im1 == 0:  # in this case air is above, rfix of ice is _2
+        temp1 = re2**2 - im2**2 + np.sin(np.arccos(mu)) ** 2
+        temp2 = re2**2 - im2**2 - np.sin(np.arccos(mu)) ** 2
+        nr = (np.sqrt(2) / 2) * (
+            temp1 + (temp2**2 + 4 * (re2**2) * (im2**2)) ** 0.5
+        ) ** 0.5
+
+        # angle of transmitted radiation
+        mu0n = np.cos(np.arcsin(np.sin(np.arccos(mu)) / nr))
+
+    else:  # in this case air is below, rfix of ice is _1
+        temp1 = re1**2 - im1**2 + np.sin(np.arccos(mu)) ** 2
+        temp2 = re1**2 - im1**2 - np.sin(np.arccos(mu)) ** 2
+        nr = (np.sqrt(2) / 2) * (
+            temp1 + (temp2**2 + 4 * (re1**2) * (im1**2)) ** 0.5
+        ) ** 0.5
+
+        # angle of transmitted radiation
+        # first clip the few values above 1 due to mu close to 0
+        temp = np.clip(np.sin(np.arccos(mu)) * nr, 0, 1)
+        mu0n = np.cos(np.arcsin(temp))
+
+    # 3 - calculate reflectivity using Fresnel equations
+    # Eq. 22  Briegleb & Light 2007 or from Liou 2002
+    r1 = (mu - nr * mu0n) / (
+        mu + nr * mu0n
+    )  # reflection amplitude factor for perpendicular polarization
+    r2 = (nr * mu - mu0n) / (
+        nr * mu + mu0n
+    )  # reflection amplitude factor for parallel polarization
+    rf = 0.5 * (r1**2 + r2**2)
+
+    # 4 - mask reflectivity where TIR occurs
+    rf[mask] = 1
+
+    return rf
 
 
 def solve_advanced_adding_doubling(column, irradiance, wvl):
@@ -424,53 +582,236 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
             * np.exp(-aads.total_opt[-1] / aads.cos_sun)
         )
 
+    identity_matrix = np.eye(len(aads.cos_angle))  # identity matrix, size = n_angles
+
     for k in range(column.nbr_lyr - 1, -1, -1):
+        print("layer: ", k)
 
-        # call  multiple-stream algorithm for computing layer
-        # transmission, reflection, and source functions.
+        #######################################################################
+        ## GET LAYER TRANS/REFL MATRICES
+        #######################################################################
+
+        # call multiple-stream algorithm for computing symmetric layer
+        # transmission & reflection (s_layer_trans[:,:,k] & s_layer_refl[:,:,k])
         aads.crtm_anom_layer(column, k)
-        # then Adding method to add the layer to the present level
-        # to compute upward radiances and reflection matrix
-        # at new level.
 
-        # similar to equation B4 Briegleb and Light 2007
-        temporal_matrix = -np.matmul(
-            aads.s_level_refl_up[:, :, k + 1],
-            aads.s_layer_refl[:, :, k],
+        # modify the trans/refl matrices with Fresnel if necessary
+        # (!) trans and refl up/down are updated and become asymmetric
+
+        if k == 0:
+
+            # air -> ice interface:
+            # reflectance/transmittance to light traveling downwards
+            s_layer_fresnel_refl_down_vec = rf(
+                aads.cos_angle,
+                1,
+                0,
+                column.ref_idx_re[aads.wvl],
+                column.ref_idx_im[aads.wvl],
+            )
+            # Convert to diagonal reflection/transmission matrices
+            s_layer_fresnel_refl_down = np.diag(s_layer_fresnel_refl_down_vec)
+            s_layer_fresnel_trans_down = np.diag(1.0 - s_layer_fresnel_refl_down_vec)
+
+            # ice -> air interface:
+            # reflectance/transmittance to light traveling upwards
+            s_layer_fresnel_refl_up_vec = rf(
+                aads.cos_angle,
+                column.ref_idx_re[aads.wvl],
+                column.ref_idx_im[aads.wvl],
+                1,
+                0,  # Air below
+            )
+            # Convert to diagonal reflection/transmission matrices
+            s_layer_fresnel_refl_up = np.diag(s_layer_fresnel_refl_up_vec)
+            s_layer_fresnel_trans_up = np.diag(1.0 - s_layer_fresnel_refl_up_vec)
+
+            # Combine reflectance of current layer with pseudo-Fresnel layer
+
+            s_layer_refl_up = aads.s_layer_refl[:, :, k]
+            s_layer_refl_down = aads.s_layer_refl[:, :, k]
+            s_layer_trans_down = aads.s_layer_trans[:, :, k]
+            s_layer_trans_up = aads.s_layer_trans[:, :, k]
+
+            denom1 = np.linalg.inv(
+                identity_matrix - s_layer_fresnel_refl_up @ s_layer_refl_down
+            )
+            denom2 = np.linalg.inv(
+                identity_matrix - s_layer_refl_down @ s_layer_fresnel_refl_up
+            )
+
+            # light traveling upwards:
+            s_layer_refl_up = (
+                s_layer_refl_up
+                + s_layer_trans_down
+                @ denom1
+                @ s_layer_fresnel_refl_up
+                @ s_layer_trans_up
+            )
+
+            s_layer_trans_up = s_layer_fresnel_trans_up @ denom2 @ s_layer_trans_up
+
+            s_layer_refl_down = (
+                s_layer_fresnel_refl_down
+                + s_layer_fresnel_trans_up
+                @ denom2
+                @ s_layer_refl_down
+                @ s_layer_fresnel_trans_down
+            )
+
+            s_layer_trans_down = (
+                s_layer_trans_down @ denom1 @ s_layer_fresnel_trans_down
+            )
+
+        # if no fresnel layer, the trans/refl properties are symmetric
+        else:
+
+            s_layer_refl_up = aads.s_layer_refl[:, :, k]
+            s_layer_refl_down = aads.s_layer_refl[:, :, k]
+            s_layer_trans_down = aads.s_layer_trans[:, :, k]
+            s_layer_trans_up = aads.s_layer_trans[:, :, k]
+
+        #######################################################################
+        ## ONCE TRANS/REFL MATRICES ARE CALCULATED,
+        # CALC SOURCE TERMS
+        #######################################################################
+
+        # ignore this loop for now as it's for thermal
+        # if aads.mth_azi == 0:
+        #     for i in range(len(aads.cos_angle)):
+        #         aads.thermal_c[i, k] = 0.0
+        #         for j in range(column.model_inputs.nb_streams):
+        #             aads.thermal_c[i, k] += trans[i, j] + refl[i, j]
+        #         if (i == len(aads.cos_angle) - 1) and (
+        #             len(aads.cos_angle) == (column.model_inputs.nb_streams + 1)
+        #         ):
+        #             aads.thermal_c[i, k] += trans[
+        #                 len(aads.cos_angle) - 1, len(aads.cos_angle) - 1
+        #             ]
+        #         aads.s_layer_source_up[i, k] = (
+        #             1.0 - aads.thermal_c[i, k]
+        #         ) * aads.planck_atmosphere[k]
+
+        #         aads.s_layer_source_down[i, k] = aads.s_layer_source_up[i, k]
+
+        # treatment of solar radiation
+        aads.s_layer_source_up[:, k] = 0.0
+        if aads.solar_flag:
+            n2 = 2 * len(aads.cos_angle)
+            n2_1 = -1
+            source_up = np.zeros(len(aads.cos_angle))
+            source_down = np.zeros(len(aads.cos_angle))
+            # solar source
+            sfactor = aads.w[k] * aads.solar_irradiance / np.pi
+            if aads.mth_azi == 0:
+                sfactor /= 2.0
+
+            expfactor = np.exp(-aads.t_od[k] / aads.cos_sun)
+            s_transmittance = np.exp(-aads.total_opt[k] / aads.cos_sun)
+
+            solar = np.zeros(n2)
+            v0 = np.zeros((n2, n2))
+
+            for i in range(len(aads.cos_angle)):
+                solar[i] = -aads.bb[i, len(aads.cos_angle), k] * sfactor  # bb(i, nZ+1)
+                solar[i + len(aads.cos_angle)] = (
+                    -aads.ff[i, len(aads.cos_angle), k] * sfactor
+                )
+
+                for j in range(len(aads.cos_angle)):
+                    v0[i, j] = aads.w[k] * aads.ff[i, j, k] * aads.cos_weight[j]
+                    v0[i + len(aads.cos_angle), j] = (
+                        aads.w[k] * aads.bb[i, j, k] * aads.cos_weight[j]
+                    )
+                    v0[i, j + len(aads.cos_angle)] = v0[i + len(aads.cos_angle), j]
+                    v0[
+                        len(aads.cos_angle) + i,
+                        j + len(aads.cos_angle),
+                    ] = v0[i, j]
+
+                v0[i, i] -= 1.0 + aads.cos_angle[i] / aads.cos_sun
+                v0[i + len(aads.cos_angle), i + len(aads.cos_angle)] -= (
+                    1.0 - aads.cos_angle[i] / aads.cos_sun
+                )
+
+            solar1 = np.linalg.solve(v0[:n2_1, :n2_1], solar[:n2_1])
+            solar1 = np.append(solar1, 0.0)
+            sfac2 = solar[n2 - 1] - np.sum(v0[n2 - 1, :n2_1] * solar1[:n2_1])
+
+            for i in range(len(aads.cos_angle)):
+                source_up[i] = solar1[i]
+                source_down[i] = expfactor * solar1[i + len(aads.cos_angle)]
+
+                for j in range(len(aads.cos_angle)):
+                    # source_up[i] -= (
+                    #     refl[i, j] * solar1[j + len(aads.cos_angle)]
+                    #     + trans[i, j] * expfactor * solar1[j]
+                    # )
+                    # source_down[i] -= (
+                    #     trans[i, j] * solar1[j + len(aads.cos_angle)]
+                    #     + refl[i, j] * expfactor * solar1[j]
+                    # )
+                    source_up[i] -= (
+                        s_layer_refl_down[i, j] * solar1[j + len(aads.cos_angle)]
+                        + s_layer_trans_up[i, j] * expfactor * solar1[j]
+                    )
+                    source_down[i] -= (
+                        s_layer_trans_down[i, j] * solar1[j + len(aads.cos_angle)]
+                        + s_layer_refl_up[i, j] * expfactor * solar1[j]
+                    )
+
+            # Specific treatment for downward source function
+            if abs(v0[n2 - 1, n2 - 1]) > 1e-4:
+                source_down[len(aads.cos_angle) - 1] += (
+                    (
+                        expfactor
+                        - s_layer_trans_down[
+                            len(aads.cos_angle) - 1,
+                            len(aads.cos_angle) - 1,
+                        ]
+                    )
+                    * sfac2
+                    / v0[n2 - 1, n2 - 1]
+                )
+            else:
+                source_down[len(aads.cos_angle) - 1] -= (
+                    expfactor
+                    * sfac2
+                    * aads.t_od[k]
+                    / aads.cos_angle[len(aads.cos_angle) - 1]
+                )
+
+            source_up *= s_transmittance
+            source_down *= s_transmittance
+
+            aads.s_layer_source_up[:, k] += source_up
+            aads.s_layer_source_down[:, k] += source_down
+
+        #######################################################################
+        ## APPLY ADDING METHOD
+        #######################################################################
+
+        # this represents the "infinite" scattering between the two layers
+        # combined (se eq B4 B&L2007)
+
+        infinite_scattering = identity_matrix - np.matmul(
+            aads.s_level_refl_up[:, :, k + 1], s_layer_refl_down
         )
 
-        np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
+        infinite_scattering_inv = np.linalg.inv(infinite_scattering)
 
-        try:
-            aads.inv_gamma_t[:, :, k] = np.linalg.solve(
-                temporal_matrix.T, aads.s_layer_trans[:, :, k].T
-            ).T
-        except np.linalg.LinAlgError as e:
-            print(f"Error solving temporal_matrix system: {e}")
-            raise
+        aads.s_level_refl_up[:, :, k] = s_layer_refl_up + (
+            s_layer_trans_down @ infinite_scattering_inv
+        ) @ (aads.s_level_refl_up[:, :, k + 1] @ s_layer_trans_up)
 
         aads.refl_down[:, k] = np.matmul(
             aads.s_level_refl_up[:, :, k + 1], aads.s_layer_source_down[:, k]
         )
 
         aads.s_level_rad_up[:, k] = aads.s_layer_source_up[:, k] + np.matmul(
-            aads.inv_gamma_t[:, :, k],
+            (s_layer_trans_down @ infinite_scattering_inv),
             aads.refl_down[:, k] + aads.s_level_rad_up[:, k + 1],
         )
-
-        aads.refl_trans[:, :, k] = np.matmul(
-            aads.s_level_refl_up[:, :, k + 1], aads.s_layer_trans[:, :, k]
-        )
-
-        aads.s_level_refl_up[:, :, k] = aads.s_layer_refl[:, :, k] + np.matmul(
-            aads.inv_gamma_t[:, :, k], aads.refl_trans[:, :, k]
-        )
-
-    if aads.mth_azi == 0:
-        for i in range(len(aads.cos_angle)):
-            aads.s_level_rad_up[i, 0] += (
-                np.sum(aads.s_level_refl_up[i, :, 0]) * aads.cosmic_background
-            )
 
     albedo = (
         2
