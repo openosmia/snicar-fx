@@ -371,15 +371,6 @@ class _AdvancedDoublingAddingSolver:
             source_up = solar1[: self.n_angles, :].copy()
             source_down = expfactor[None, :] * solar1[self.n_angles :, :].copy()
 
-            print(
-                source_up.shape,
-                refl_t.shape,
-                np.moveaxis(solar1[self.n_angles :, :], -1, 0).shape,
-                trans_t.shape,
-                expfactor[:, None, None].shape,
-            )
-            # return
-
             source_up -= np.moveaxis(
                 refl_t @ np.moveaxis(solar1[self.n_angles :, :], -1, 0)
                 + trans_t
@@ -390,6 +381,7 @@ class _AdvancedDoublingAddingSolver:
                 0,
                 -1,
             )
+
             source_down -= np.moveaxis(
                 trans_t @ np.moveaxis(solar1[self.n_angles :, :], -1, 0)
                 + refl_t
@@ -405,28 +397,20 @@ class _AdvancedDoublingAddingSolver:
                 -1,
             )
 
-            print(
-                "v", np.nanmean(source_up[:, :, 50]), np.nanmean(source_down[:, :, 50])
-            )
-            return
-
             # Specific treatment for downward source function
-            if abs(v0[n2 - 1, n2 - 1]) > 1e-4:
-                source_down[self.n_angles - 1] += (
-                    (
-                        expfactor
-                        - trans[
-                            self.n_angles - 1,
-                            self.n_angles - 1,
-                        ]
-                    )
-                    * sfac2
-                    / v0[n2 - 1, n2 - 1]
+            if abs(v0[n2 - 1, n2 - 1, :]) > 1e-4:
+                source_down[self.n_angles - 1, :] += (
+                    (expfactor - trans_t[self.n_angles - 1, self.n_angles - 1, :])
+                    * sfac2[None, None, :]
+                    / v0[n2 - 1, n2 - 1, :]
                 )
             else:
                 source_down[self.n_angles - 1] -= (
                     expfactor * sfac2 * self.t_od[k] / self.cos_angle[self.n_angles - 1]
                 )
+
+            print(v0[n2 - 1, n2 - 1, :].shape, sfac2.shape, source_down.shape)
+            return
 
             source_up *= s_transmittance
             source_down *= s_transmittance
@@ -437,7 +421,7 @@ class _AdvancedDoublingAddingSolver:
         return None
 
 
-def solve_advanced_adding_doubling(column, irradiance, wvl):
+def solve_advanced_adding_doubling(column, irradiance):
     """
 
     This subroutine calculates IR/MW radiance at the top of the atmosphere
@@ -451,25 +435,26 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
 
     """
 
-    aads = _AdvancedDoublingAddingSolver(column, irradiance, wvl)
+    aads = _AdvancedDoublingAddingSolver(column, irradiance)
 
     for k in range(1, column.nbr_lyr + 1):
-        aads.total_opt[k] = aads.total_opt[k - 1] + aads.t_od[k - 1]
+        aads.total_opt[k, :] = aads.total_opt[k - 1, :] + aads.t_od[k - 1, :]
 
-    aads.s_level_refl_up[:, :, -1] = aads.reflectivity
+    aads.s_level_refl_up[:, :, -1, :] = aads.reflectivity
 
     if aads.mth_azi == 0:
-        aads.s_level_rad_up[:, -1] = aads.emissivity * aads.planck_surface
+        aads.s_level_rad_up[:, -1, :] = aads.emissivity * aads.planck_surface
 
     # adds a solar reflection term to the upward radiance at the
     # last layer for all viewing angles
     if aads.solar_flag:
-        aads.s_level_rad_up[:, -1] += (
+
+        aads.s_level_rad_up[:, -1, :] += (
             aads.direct_reflectivity
             * aads.cos_sun
-            * aads.solar_irradiance
+            * aads.solar_irradiance[None, :]
             / np.pi
-            * np.exp(-aads.total_opt[-1] / aads.cos_sun)
+            * np.exp(-aads.total_opt[-1, :][None, :] / aads.cos_sun)
         )
 
     for k in range(column.nbr_lyr - 1, -1, -1):
@@ -483,9 +468,12 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
 
         # similar to equation B4 Briegleb and Light 2007
         temporal_matrix = -np.matmul(
-            aads.s_level_refl_up[:, :, k + 1],
-            aads.s_layer_refl[:, :, k],
+            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], -1, 0),
+            aads.s_layer_refl[:, :, :],
         )
+
+        print(np.nanmean(temporal_matrix))
+        return
 
         np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
 

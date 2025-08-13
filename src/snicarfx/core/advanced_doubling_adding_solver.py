@@ -418,6 +418,7 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
                 np.exp(-aads.t_od[k] / aads.cos_sun) * solar1[:n]
             )
 
+            print("n", np.nanmean(source_up), np.nanmean(source_down))
             # calculate the downward emission at the last angle (not incl. in solar1)
             # condition checks to avoid division by 0 and uses a lineralized
             # expression if v0[-1] is too low
