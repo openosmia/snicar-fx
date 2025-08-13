@@ -142,8 +142,8 @@ class _AdvancedDoublingAddingSolver:
                         self.ff[i, j, k] = off
                         self.bb[i, j, k] = obb
 
-                        if j == jn - 1:
-                            print(self.ff[i, j, k], self.bb[i, j, k])
+                        # if j == jn - 1:
+                        #     print(self.ff[i, j, k], self.bb[i, j, k])
 
                         if self.ff[i, j, k] < 0:
                             if self.ff[i, j, k] < -0.1:
@@ -262,8 +262,8 @@ class _AdvancedDoublingAddingSolver:
 
         exp_x = np.exp(-eig_value * self.t_od[k])
 
-        a1 = gp * exp_x[np.newaxis, :]
-        a4 = gm * exp_x[np.newaxis, :]
+        a1 = gp * exp_x[None, :]
+        a4 = gm * exp_x[None, :]
 
         a2 = np.linalg.solve(gm, a1)
         a3 = np.matmul(gp, a2)
@@ -355,6 +355,9 @@ class _AdvancedDoublingAddingSolver:
                         trans[i, j] * solar1[j + len(self.cos_angle)]
                         + refl[i, j] * expfactor * solar1[j]
                     )
+
+            print("nv", np.nanmean(source_up), np.nanmean(source_down))
+            return
 
             # Specific treatment for downward source function
             if abs(v0[n2 - 1, n2 - 1]) > 1e-4:

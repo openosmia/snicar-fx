@@ -14,68 +14,63 @@ import numpy as np
 from scipy.special import legendre
 
 ## GENERAL COMMENTS:
-# loops in k in __init__ should be vectorized
 # maybe we can remove the solar flag? (ie always true)
 # maybe we keep emission for now even if we don't use it (ie set at 0)
 
 
 class _AdvancedDoublingAddingSolver:
 
-    def __init__(self, column, irradiance, wvl):
+    def __init__(self, column, irradiance):
         """
         Initialize all variables required for the ADA solver
         """
 
-        self.wvl = wvl
-
         self.mth_azi = 0
         self.planck_surface = 0
-        self.solar_irradiance = 2
+        self.solar_irradiance = np.ones_like(irradiance.flx_slr) * 2
         self.solar_flag = True
         self.cos_sun = irradiance.cos_sza
         self.delta_scaling = True
         self.DELTA_OPTICAL_DEPTH = 1e-8
         self.max_albedo = 0.999999
         self.planck_atmosphere = np.zeros(column.nbr_lyr + 1)
-        self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
+        self.SCATTERING_ALBEDO_tHRESHOLD = 1e-10
         self.cosmic_background = 0
-        self.total_opt = np.zeros(column.nbr_lyr + 1)
+        self.total_opt = np.zeros((column.nbr_lyr + 1, column.nbr_wvl))
 
         # initialize (not needed once loops vectorized in k)
-        self.t_od = np.array(column.tau[:, self.wvl])
-        self.w = np.array(column.ss_alb[:, self.wvl])
-        self.g = np.array(column.asm_prm[:, self.wvl])
+        self.t_od = np.array(column.tau)
+        self.w = np.array(column.ss_alb)
+        self.g = np.array(column.asm_prm)
 
         m = 8  # cf Wiscombe 1977
         self.n_legendre = 50  # Legendre order of expansion = n+1 terms
         self.n_angles = 8
 
-        self.ff = np.zeros((self.n_angles, self.n_angles + 1, column.nbr_lyr))
-        self.bb = np.zeros((self.n_angles, self.n_angles + 1, column.nbr_lyr))
-        self.direct_reflectivity = np.zeros(self.n_angles)
-        self.emissivity = np.zeros_like(self.direct_reflectivity)
-        self.reflectivity = np.zeros((self.n_angles, self.n_angles))
-
-        ## attributes for adding method
-        self.refl_down = np.zeros((self.n_angles, column.nbr_lyr))
-        self.temporal_matrix = np.zeros_like((self.n_angles, self.n_angles))
-        self.inv_gamma = np.zeros((self.n_angles, self.n_angles, column.nbr_lyr))
-        self.inv_gamma_t = np.zeros_like(self.inv_gamma)
-
-        self.refl_trans = np.zeros_like(self.inv_gamma)
-
-        self.s_layer_trans = np.zeros_like(self.inv_gamma)
-
-        self.s_layer_refl = np.zeros_like(self.inv_gamma)
-
-        self.s_level_refl_up = np.zeros(
-            (self.n_angles, self.n_angles, column.nbr_lyr + 1)
+        self.ff = np.zeros(
+            (self.n_angles, self.n_angles + 1, column.nbr_lyr, column.nbr_wvl)
         )
-        self.s_level_rad_up = np.zeros((self.n_angles, column.nbr_lyr + 1))
-        self.s_layer_source_up = np.zeros((self.n_angles, column.nbr_lyr))
-        self.s_layer_source_down = np.zeros((self.n_angles, column.nbr_lyr))
+        self.bb = np.zeros(
+            (self.n_angles, self.n_angles + 1, column.nbr_lyr, column.nbr_wvl)
+        )
+        self.direct_reflectivity = np.zeros((self.n_angles, column.nbr_wvl))
+        self.emissivity = np.zeros_like(self.direct_reflectivity)
+        self.reflectivity = np.zeros((self.n_angles, self.n_angles, column.nbr_wvl))
+        ## attributes for adding method
+        self.s_level_refl_up = np.zeros(
+            (self.n_angles, self.n_angles, column.nbr_lyr + 1, column.nbr_wvl)
+        )
+        self.s_level_rad_up = np.zeros(
+            (self.n_angles, column.nbr_lyr + 1, column.nbr_wvl)
+        )
 
-        self.thermal_c = np.zeros((self.n_angles, column.nbr_lyr))
+        self.s_layer_source_up = np.zeros(
+            (self.n_angles, column.nbr_lyr, column.nbr_wvl)
+        )
+        self.s_layer_source_down = np.zeros(
+            (self.n_angles, column.nbr_lyr, column.nbr_wvl)
+        )
+        # self.thermal_c = np.zeros((self.n_angles, column.nbr_lyr, column.nbr_wvl))
 
         ######################################################################
         # SET GAUSSIAN QUADRATURE
@@ -91,7 +86,7 @@ class _AdvancedDoublingAddingSolver:
 
         if self.delta_scaling:
             orders = np.arange(0, 2 * m - 1)
-            self.phase_coeffs = np.zeros((2 * m - 1, column.nbr_lyr))
+            phase_coeffs = np.zeros((2 * m - 1, column.nbr_lyr, column.nbr_wvl))
 
             # Delta truncation: get highest Legendre term following
             # Wicombe 1977 Eq. (15)
@@ -100,10 +95,14 @@ class _AdvancedDoublingAddingSolver:
             # Calculate scaled expansion coefficients
             # Wiscombe 1977 Eq. 14
             # Convention is 0.5 * (2l+1) * Bl for the expansion
-            self.phase_coeffs = (
-                (2 * orders[:, None] + 1)
+
+            phase_coeffs = (
+                (2 * orders[:, None, None] + 1)
                 * 0.5
-                * ((self.g[None, :] ** orders[:, None] - f) / (1 - f))
+                * (
+                    (self.g[None, :, :] ** orders[:, None, None] - f[None, :, :])
+                    / (1 - f[None, :, :])
+                )
             )
 
             # Wiscombe 1977 Eq. 20(a, b)
@@ -124,21 +123,19 @@ class _AdvancedDoublingAddingSolver:
             legs = np.arange(self.mth_azi, 2 * m - 1)
             ifac = (-1) ** (legs - self.mth_azi)
 
-            # leg_poly is OK
-
             # Calculate phase matrices
             self.ff = np.sum(
-                self.phase_coeffs[:, None, None, :]
-                * leg_poly[:, :-1, None, None]  # -1 to exclude SZA
-                * leg_poly[:, None, :, None],
+                phase_coeffs[:, None, None, :, :]
+                * leg_poly[:, :-1, None, None, None]  # -1 to exclude SZA
+                * leg_poly[:, None, :, None, None],
                 axis=0,
             )
 
             self.bb = np.sum(
-                self.phase_coeffs[:, None, None, :]
-                * leg_poly[:, :-1, None, None]  # -1 to exclude SZA
-                * leg_poly[:, None, :, None]
-                * ifac[:, None, None, None],
+                phase_coeffs[:, None, None, :, :]
+                * leg_poly[:, :-1, None, None, None]  # -1 to exclude SZA
+                * leg_poly[:, None, :, None, None]
+                * ifac[:, None, None, None, None],
                 axis=0,
             )
 
@@ -222,44 +219,48 @@ class _AdvancedDoublingAddingSolver:
 
         # EQUATION 6A L&W2013 (without the Kronecker delta)
         pp = (
-            self.w[k]
-            * self.ff[:, : self.n_angles, k]
-            * self.cos_weight[None, :]
-            / self.cos_angle[:, None]
+            self.w[k, None, None, :]
+            * self.ff[:, : self.n_angles, k, :]
+            * self.cos_weight[None, :, None]
+            / self.cos_angle[:, None, None]
         )
         # EQUATION 6A + 7 L&W2013 (apply Kronecker delta to get alpha)
-        np.fill_diagonal(pp, pp.diagonal() - 1.0 / self.cos_angle)
+        n = np.arange(self.n_angles)
+        pp[n, n, :] -= 1.0 / self.cos_angle[:, None]
 
         # EQUATION 6B L&W2013
         pm = (
-            self.w[k]
-            * self.bb[:, : self.n_angles, k]
-            * self.cos_weight[None, :]
-            / self.cos_angle[:, None]
+            self.w[k, None, None, :]
+            * self.bb[:, : self.n_angles, k, :]
+            * self.cos_weight[None, :, None]
+            / self.cos_angle[:, None, None]
         )
 
         # EQUATION 10 L&W2013 [matrix H = (alpha - beta) * (alpha + beta)]
-        hh = np.matmul(pp - pm, pp + pm)
+        # moveaxis required as matmul uses the last two axes
+        hh = np.matmul(np.moveaxis(pp - pm, -1, 0), np.moveaxis(pp + pm, -1, 0))
 
         # get eigen values & vectors
+        # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
 
         # why do we take the square roots here?
         eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
 
         # scale eigenvectors by square roots of eigen values
-        eig_veva = eig_vecs @ np.diag(eig_value)
+        eig_value_diag = np.eye(self.n_angles)[None, :, :] * eig_value[:, None, :]
+        eig_veva = np.matmul(eig_vecs, eig_value_diag)
 
-        eig_vef = np.linalg.solve(pp - pm, eig_veva)
+        eig_vef = np.linalg.solve(np.moveaxis(pp - pm, -1, 0), eig_veva)
 
         # Compute layer reflection (Gp) and transmission (Gm) matrices
         gp = (eig_vecs + eig_vef) / 2.0
         gm = (eig_vecs - eig_vef) / 2.0
 
-        exp_x = np.exp(-eig_value * self.t_od[k])
+        exp_x = np.exp(-eig_value * self.t_od[k, :, None])
 
-        a1 = gp * exp_x[np.newaxis, :]
-        a4 = gm * exp_x[np.newaxis, :]
+        a1 = gp * exp_x[:, None, :]
+        a4 = gm * exp_x[:, None, :]
 
         a2 = np.linalg.solve(gm, a1)
         a3 = np.matmul(gp, a2)
@@ -268,99 +269,131 @@ class _AdvancedDoublingAddingSolver:
 
         gm_a5 = gm - a5
 
-        trans = np.linalg.solve(gm_a5.T, (a4 - a3).T).T
+        gm_a5_t = np.moveaxis(gm_a5, -1, 1)
+        a4_m_a3_t = np.moveaxis(a4 - a3, -1, 1)
+        gp_m_a6_t = np.moveaxis(gp - a6, -1, 1)
 
-        refl = np.linalg.solve(gm_a5.T, (gp - a6).T).T
+        trans = np.linalg.solve(gm_a5_t, a4_m_a3_t)
+
+        refl = np.linalg.solve(gm_a5_t, gp_m_a6_t)
+
+        trans_t = np.moveaxis(trans, -1, 1)
+        refl_t = np.moveaxis(refl, -1, 1)
 
         # post processing
-        self.s_layer_trans[:, :, k] = trans
-        self.s_layer_refl[:, :, k] = refl
-        self.s_layer_source_up[:, k] = 0.0
+        self.s_layer_trans = trans_t
+        self.s_layer_refl = refl_t
+        self.s_layer_source_up = 0.0
 
-        if self.mth_azi == 0:
+        # if self.mth_azi == 0:
 
-            self.thermal_c[:, k] = 0.0
-            self.thermal_c[:, k] = trans[:, : column.model_inputs.nb_streams].sum(
-                axis=1
-            ) + refl[:, : column.model_inputs.nb_streams].sum(axis=1)
+        #     self.thermal_c[:, k] = 0.0
+        #     self.thermal_c[:, k] = trans[:, : column.model_inputs.nb_streams].sum(
+        #         axis=1
+        #     ) + refl[:, : column.model_inputs.nb_streams].sum(axis=1)
 
-            if self.n_angles == (column.model_inputs.nb_streams + 1):
-                self.thermal_c[self.n_angles - 1, k] += trans[
-                    self.n_angles - 1, self.n_angles - 1
-                ]
+        #     if self.n_angles == (column.model_inputs.nb_streams + 1):
+        #         self.thermal_c[self.n_angles - 1, k] += trans[
+        #             self.n_angles - 1, self.n_angles - 1
+        #         ]
 
-            self.s_layer_source_up[:, k] = (
-                1.0 - self.thermal_c[:, k]
-            ) * self.planck_atmosphere[k]
+        #     self.s_layer_source_up[:, k] = (
+        #         1.0 - self.thermal_c[:, k]
+        #     ) * self.planck_atmosphere[k]
 
-            self.s_layer_source_down[:, k] = self.s_layer_source_up[:, k]
+        #     self.s_layer_source_down[:, k] = self.s_layer_source_up[:, k]
 
         # treatment of solar radiation is not in L&W2013 paper
         if self.solar_flag:
             n2 = 2 * self.n_angles
             n2_1 = -1
-            source_up = np.zeros(self.n_angles)
-            source_down = np.zeros(self.n_angles)
+            source_up = np.zeros((self.n_angles, column.nbr_wvl))
+            source_down = np.zeros((self.n_angles, column.nbr_wvl))
 
             # solar source
-            sfactor = self.w[k] * self.solar_irradiance / np.pi
+            sfactor = self.w[k, :] * self.solar_irradiance / np.pi
+
             if self.mth_azi == 0:
                 sfactor /= 2.0
 
-            expfactor = np.exp(-self.t_od[k] / self.cos_sun)
-            s_transmittance = np.exp(-self.total_opt[k] / self.cos_sun)
+            expfactor = np.exp(-self.t_od[k, :] / self.cos_sun)
+            s_transmittance = np.exp(-self.total_opt[k, :] / self.cos_sun)
 
-            solar = np.zeros(n2)
-            v0 = np.zeros((n2, n2))
+            solar = np.zeros((n2, column.nbr_wvl))
+            v0 = np.zeros((n2, n2, column.nbr_wvl))
 
-            solar[: self.n_angles] = (
-                -self.bb[:, self.n_angles, k] * sfactor
+            solar[: self.n_angles, :] = (
+                -self.bb[:, self.n_angles, k, :] * sfactor[None, :]
             )  # bb(i, nZ+1)
 
-            solar[self.n_angles :] = (
-                -self.ff[:, self.n_angles, k] * sfactor
+            solar[self.n_angles :, :] = (
+                -self.ff[:, self.n_angles, k, :] * sfactor[None, :]
             )  # ff(i, nZ+1)
 
-            v0[: self.n_angles, : self.n_angles] = (
-                self.w[k]
-                * self.ff[: self.n_angles, : self.n_angles, k]
-                * self.cos_weight
+            v0[: self.n_angles, : self.n_angles, :] = (
+                self.w[None, None, k, :]
+                * self.ff[: self.n_angles, : self.n_angles, k, :]
+                * self.cos_weight[None, :, None]
             )
-            v0[self.n_angles :, : self.n_angles] = (
-                self.w[k]
-                * self.bb[: self.n_angles, : self.n_angles, k]
-                * self.cos_weight
+            v0[self.n_angles :, : self.n_angles, :] = (
+                self.w[None, None, k, :]
+                * self.bb[: self.n_angles, : self.n_angles, k, :]
+                * self.cos_weight[None, :, None]
             )
-            v0[: self.n_angles, self.n_angles :] = v0[self.n_angles :, : self.n_angles]
-            v0[
-                self.n_angles :,
-                self.n_angles :,
-            ] = v0[: self.n_angles, : self.n_angles]
+            v0[: self.n_angles, self.n_angles :, :] = v0[
+                self.n_angles :, : self.n_angles, :
+            ]
+            v0[self.n_angles :, self.n_angles :, :] = v0[
+                : self.n_angles, : self.n_angles, :
+            ]
 
-            np.fill_diagonal(
-                v0[: self.n_angles, : self.n_angles],
-                v0[: self.n_angles, : self.n_angles].diagonal()
-                - (1.0 + self.cos_angle / self.cos_sun),
-            )
-            np.fill_diagonal(
-                v0[self.n_angles :, self.n_angles :],
-                v0[self.n_angles :, self.n_angles :].diagonal()
-                - (1.0 - self.cos_angle / self.cos_sun),
+            n = np.arange(self.n_angles)
+            v0[n, n, :] -= 1.0 + self.cos_angle[:, None] / self.cos_sun
+
+            n = np.arange(self.n_angles, n2)
+            v0[n, n, :] -= 1.0 - self.cos_angle[:, None] / self.cos_sun
+
+            solar1 = np.linalg.solve(
+                np.moveaxis(v0[:n2_1, :n2_1, :], -1, 0),
+                np.moveaxis(solar[:n2_1, None, :], -1, 0),
             )
 
-            solar1 = np.linalg.solve(v0[:n2_1, :n2_1], solar[:n2_1])
-            solar1 = np.append(solar1, 0.0)
-            sfac2 = solar[n2 - 1] - np.sum(v0[n2 - 1, :n2_1] * solar1[:n2_1])
-
-            source_up = solar1[: self.n_angles].copy()
-            source_down = expfactor * solar1[self.n_angles :].copy()
-
-            source_up -= refl @ solar1[self.n_angles :] + trans @ (
-                expfactor * solar1[: self.n_angles]
+            solar1 = np.moveaxis(
+                np.concatenate([solar1, np.zeros((column.nbr_wvl, 1, 1))], axis=1),
+                0,
+                -1,
             )
-            source_down -= trans @ solar1[self.n_angles :] + refl @ (
-                expfactor * solar1[: self.n_angles]
+
+            sfac2 = solar[n2 - 1, :] - np.sum(
+                v0[n2 - 1, :n2_1, :] * solar1[:n2_1, 0, :], axis=0
             )
+
+            source_up = solar1[: self.n_angles, :].copy()
+            source_down = expfactor[None, :] * solar1[self.n_angles :, :].copy()
+
+            print(
+                np.moveaxis(refl_t, 0, -1).shape,
+                np.moveaxis(solar1[self.n_angles :, :], 0, 1).shape,
+                np.moveaxis(trans_t, 0, -1).shape,
+                expfactor[None, None, :].shape,
+                solar1[: self.n_angles, :].shape,
+            )
+
+            source_up -= np.moveaxis(refl_t, 0, -1) @ np.moveaxis(
+                solar1[self.n_angles :, :], 0, 1
+            ) + np.moveaxis(trans_t, 0, -1) @ (
+                expfactor[None, None, :] * np.moveaxis(solar1[self.n_angles :, :], 0, 1)
+            )
+            source_down -= np.moveaxis(trans_t, 0, -1) @ np.moveaxis(
+                solar1[self.n_angles :, :], 0, 1
+            ) + np.moveaxis(refl_t, 0, -1) @ (
+                expfactor[None, None, :] * np.moveaxis(solar1[self.n_angles :, :], 0, 1)
+            )
+
+            print(
+                "v", np.nanmean(source_up[:, :, 50]), np.nanmean(source_down[:, :, 50])
+            )
+            return
 
             # Specific treatment for downward source function
             if abs(v0[n2 - 1, n2 - 1]) > 1e-4:
