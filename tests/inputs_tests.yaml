@@ -1,7 +1,7 @@
 RTM:
   DIRECT: 1
-  WVL_START: 295
-  WVL_END: 2500
+  WVL_START: 205
+  WVL_END: 5000
   RESOLUTION: 10
   APRX_TYP: 2
   DELTA: True
@@ -9,11 +9,11 @@ RTM:
   IRRADIANCE_TYPE: "mls"
 
 ICE:
-  THICKNESS: [1, 10, 10]  # thickness of each vertical layer (unit : m)
-  LAYER_TYPE: [1, 2, 2]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
+  THICKNESS: [1, 1, 1]  # thickness of each vertical layer (unit : m)
+  LAYER_TYPE: [0, 0, 0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
   DENSITY: [650, 650, 650]  # density of each layer (unit : kg m-3)
   RF_TYPE: "Pic16" # "Wrn08", "Pic16", "Coop21"
-  SPECIFIC_SURFACE_AREA: [5, 5, 5] # m2 kg-1. for ice, should be below ??
+  SPECIFIC_SURFACE_AREA: [1, 1, 1] # m2 kg-1. for ice, should be below ??
   LWC: [0, 0, 0] # LWC content in snow/ice 
   SFC: 0.25 # reflectance of lower boundary  
   GRAIN_SHAPE: [0, 0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
