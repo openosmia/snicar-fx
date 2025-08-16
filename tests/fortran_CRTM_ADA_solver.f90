@@ -1,3 +1,4 @@
+! gfortran fortran_CRTM_ADA_solver.f90 -o run_ADA
 MODULE CRTM_Shared
   IMPLICIT NONE
 
@@ -88,16 +89,37 @@ CONTAINS
     REAL(fp) :: norm_ff = 0.
     REAL(fp) :: norm_bb = 0.
 
+    REAL(fp) :: w_val, T_OD_val
+    CHARACTER(LEN=32) :: arg
+    INTEGER :: ios
+    ! ALLOCATE(w(nL));                        w = ZERO
+    ! w(1) = 0.43
+    ! w(2) = 0.43
+    ! w(3) = 0.43
+    ! ALLOCATE(T_OD(nL));                     T_OD = ZERO
+    ! T_OD(1) = 2.15377
+    ! T_OD(2) = 2.15377
+    ! T_OD(3) = 2.15377
 
-    ALLOCATE(w(nL));                        w = ZERO
-    w(1) = 0.43
-    w(2) = 0.43
-    w(3) = 0.43
-    ALLOCATE(T_OD(nL));                     T_OD = ZERO
-    T_OD(1) = 2.15377
-    T_OD(2) = 2.15377
-    T_OD(3) = 2.15377
-    
+     CALL GET_COMMAND_ARGUMENT(1, arg)
+     READ(arg, *, IOSTAT=ios) w_val
+     IF (ios /= 0) THEN
+        w_val = 0.43_fp
+     END IF
+
+     ! Second argument: T_OD
+     CALL GET_COMMAND_ARGUMENT(2, arg)
+     READ(arg, *, IOSTAT=ios) T_OD_val
+     IF (ios /= 0) THEN
+        T_OD_val = 2.15377_fp 
+     END IF
+
+     ! -----------------------
+     ! Allocate arrays and set values
+     ! -----------------------
+     ALLOCATE(w(nL)); w = w_val
+     ALLOCATE(T_OD(nL)); T_OD = T_OD_val
+
     ALLOCATE(emissivity(nA));              emissivity = ZERO
     ALLOCATE(direct_reflectivity(nA));     direct_reflectivity = ZERO
     ALLOCATE(reflectivity(nA, nA));        reflectivity = ZERO
@@ -136,46 +158,8 @@ CONTAINS
     ALLOCATE(s_Layer_Source_DOWN(nA,nL));  s_Layer_Source_DOWN = ZERO
 
     ALLOCATE(Pff(nA,nA+1,nL));             Pff = ZERO
-    ! Pff(1,1,1) = 0.9316589925760314
-    ! Pff(1,2,1) = 0.8669709174543205
-    ! Pff(1,3,1) = 0.8903629442838776
-    ! Pff(2,1,1) = 1.1281231425626386
-    ! Pff(2,2,1) = 1.2493979054514104
-    ! Pff(2,3,1) = 1.2055434160125955
-
-    ! Pff(1,1,2) = Pff(1,1,1)
-    ! Pff(1,2,2) = Pff(1,2,1)
-    ! Pff(1,3,2) = Pff(1,3,1)
-    ! Pff(2,1,2) = Pff(2,1,1)
-    ! Pff(2,2,2) = Pff(2,2,1)
-    ! Pff(2,3,2) = Pff(2,3,1)
-    ! Pff(1,1,3) = Pff(1,1,1)
-    ! Pff(1,2,3) = Pff(1,2,1)
-    ! Pff(1,3,3) = Pff(1,3,1)
-    ! Pff(2,1,3) = Pff(2,1,1)
-    ! Pff(2,2,3) = Pff(2,2,1)
-    ! Pff(2,3,3) = Pff(2,3,1)
-    
+   
     ALLOCATE(Pbb(nA,nA+1,nL));             Pbb = ZERO
-    ! Pbb(1,1,1) = 1.1125905373366631
-    ! Pbb(1,2,1) = 1.533400686947725
-    ! Pbb(1,3,1) = 1.296714615446841
-    ! Pbb(2,1,1) = 0.7889195080649332
-    ! Pbb(2,2,1) = 5.145835193398101e-07
-    ! Pbb(2,3,1) = 0.44373063248141464
-    ! Pbb(1,1,2) = 1.1125905373366631
-    ! Pbb(1,2,2) = 1.533400686947725
-    ! Pbb(1,3,2) = 1.296714615446841
-    ! Pbb(2,1,2) = 0.7889195080649332
-    ! Pbb(2,2,2) = 5.145835193398101e-07
-    ! Pbb(2,3,2) = 0.44373063248141464
-    ! Pbb(1,1,3) = 1.1125905373366631
-    ! Pbb(1,2,3) = 1.533400686947725
-    ! Pbb(1,3,3) = 1.296714615446841
-    ! Pbb(2,1,3) = 0.7889195080649332
-    ! Pbb(2,2,3) = 5.145835193398101e-07
-    ! Pbb(2,3,3) = 0.44373063248141464
-
     
     do k = 1, nL
         do j = 1, nA + 1
@@ -925,7 +909,7 @@ SUBROUTINE CRTM_ADA()
   CHARACTER(*), PARAMETER :: ROUTINE_NAME = 'CRTM_ADA'
   CHARACTER(256) :: Message
 
-  CALL Initialize_CRTM_Shared()
+  ! CALL Initialize_CRTM_Shared()
     
     total_opt(0) = ZERO
     DO k = 1, nL
@@ -1021,7 +1005,7 @@ SUBROUTINE CRTM_ADA()
        ENDDO
     END IF
 
-    print *, "s_Level_Rad_UP(:,0)", s_Level_Rad_UP(1:nA, 0)
+    ! print *, "s_Level_Rad_UP(:,0)", s_Level_Rad_UP(1:nA, 0)
     print *, "s_Level_Refl_UP(1,1,0)", s_Level_Refl_UP(1, 1, 0)
 
 
@@ -1138,7 +1122,7 @@ SUBROUTINE CRTM_ADA()
        EigValue(i,KL) = ZERO
      END IF
    END DO
-   print *, "Eig values", EigVa(1:nA,KL)
+   ! print *, "Eig values", EigVa(1:nA,KL)
    ! print *, "HH21", HH(2, 1, KL)
    ! print *, "HH22", HH(2, 2, KL)
 
@@ -1271,9 +1255,28 @@ SUBROUTINE CRTM_ADA()
 PROGRAM main
   USE CRTM_Shared
   IMPLICIT NONE
-
+  integer :: i,j,k
+  character(len=100) :: filename
+  CALL Initialize_CRTM_Shared()
   CALL CRTM_ADA()
 
+  write(filename,'(A,G0.2,A,G0.2,A)') './test_data/ADA_f90/s_Level_Refl_UP_w', w(1), '_t', t_od(1), '.csv'
+  
+  open(unit=10, file=filename, status='replace')
+
+  do k = 0, nL
+     do i = 1, nA
+        write(10,'(100F12.5)') (s_Level_Refl_UP(i,j,k), j=1,nA)
+     end do
+  end do
+
+  close(10)
+
+  ! then in python:  
+  ! nA = 8
+  ! nL = 3
+  ! data = np.loadtxt('s_Level_Refl_UP.csv')
+  ! array_3d = data.reshape((nL+1, nA, nA))  # shape must match Fortran order
+  ! array_3d = np.transpose(array_3d, (1,2,0))  # if you want (nA,nA,nL+1)
+  
 END PROGRAM main
-
-
