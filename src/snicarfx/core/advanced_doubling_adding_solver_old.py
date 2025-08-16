@@ -41,9 +41,9 @@ class _AdvancedDoublingAddingSolver:
         self.cosmic_background = 0
         self.total_opt = np.zeros(column.nbr_lyr + 1)
 
-        tau_unscaled = column.tau[:, self.wvl]
-        w_unscaled = column.ss_alb[:, self.wvl]
-        g_unscaled = column.asm_prm[:, self.wvl]
+        tau_unscaled = np.array(column.tau[:, self.wvl])
+        w_unscaled = np.array(column.ss_alb[:, self.wvl])
+        g_unscaled = np.array(column.asm_prm[:, self.wvl])
 
         # initialize (not needed once loops vectorized in k)
         self.t_od = tau_unscaled
@@ -356,8 +356,8 @@ class _AdvancedDoublingAddingSolver:
                         + refl[i, j] * expfactor * solar1[j]
                     )
 
-            print(np.nanmean(source_up), np.nanmean(source_down))
-            return
+            
+        
             # Specific treatment for downward source function
             if abs(v0[n2 - 1, n2 - 1]) > 1e-4:
                 source_down[len(self.cos_angle) - 1] += (
@@ -378,12 +378,17 @@ class _AdvancedDoublingAddingSolver:
                     * self.t_od[k]
                     / self.cos_angle[len(self.cos_angle) - 1]
                 )
-
+                
+            
+         
             source_up *= s_transmittance
             source_down *= s_transmittance
+            
+            
 
             self.s_layer_source_up[:, k] += source_up
             self.s_layer_source_down[:, k] += source_down
+        
 
         return None
 
@@ -431,14 +436,19 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
         # then Adding method to add the layer to the present level
         # to compute upward radiances and reflection matrix
         # at new level.
+        
+        
 
         # similar to equation B4 Briegleb and Light 2007
         temporal_matrix = -np.matmul(
             aads.s_level_refl_up[:, :, k + 1],
             aads.s_layer_refl[:, :, k],
         )
-
+        
+        
         np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
+        
+        
 
         try:
             aads.inv_gamma_t[:, :, k] = np.linalg.solve(
@@ -447,10 +457,16 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
         except np.linalg.LinAlgError as e:
             print(f"Error solving temporal_matrix system: {e}")
             raise
+        
+        print(aads.s_level_refl_up[:, :, k + 1].shape)
+        print(aads.s_layer_source_down[:, k].shape)
 
         aads.refl_down[:, k] = np.matmul(
             aads.s_level_refl_up[:, :, k + 1], aads.s_layer_source_down[:, k]
         )
+        
+        print("nv: ", np.nanmean(aads.refl_down))
+        return
 
         aads.s_level_rad_up[:, k] = aads.s_layer_source_up[:, k] + np.matmul(
             aads.inv_gamma_t[:, :, k],

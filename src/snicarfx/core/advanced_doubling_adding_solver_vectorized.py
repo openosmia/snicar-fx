@@ -283,7 +283,7 @@ class _AdvancedDoublingAddingSolver:
         # post processing
         self.s_layer_trans = trans_t
         self.s_layer_refl = refl_t
-        self.s_layer_source_up = 0.0
+        self.s_layer_source_up[:, :, :] = 0.0
 
         # if self.mth_azi == 0:
 
@@ -381,6 +381,8 @@ class _AdvancedDoublingAddingSolver:
                 0,
                 -1,
             )
+            
+            
 
             source_down -= np.moveaxis(
                 trans_t @ np.moveaxis(solar1[self.n_angles :, :], -1, 0)
@@ -396,27 +398,62 @@ class _AdvancedDoublingAddingSolver:
                 0,
                 -1,
             )
+            
 
             # Specific treatment for downward source function
-            if abs(v0[n2 - 1, n2 - 1, :]) > 1e-4:
+            mask = (abs(v0[n2 - 1, n2 - 1, :]) > 1e-4).reshape((1, 500))
+            
+            
+            if np.sum(mask) == column.nbr_wvl:
                 source_down[self.n_angles - 1, :] += (
-                    (expfactor - trans_t[self.n_angles - 1, self.n_angles - 1, :])
-                    * sfac2[None, None, :]
+                    (expfactor - 
+                     np.moveaxis(
+                         trans_t[:, self.n_angles - 1, self.n_angles - 1], 0, -1))
+                    * sfac2
                     / v0[n2 - 1, n2 - 1, :]
                 )
-            else:
-                source_down[self.n_angles - 1] -= (
-                    expfactor * sfac2 * self.t_od[k] / self.cos_angle[self.n_angles - 1]
+            elif np.sum(~mask) == column.nbr_wvl:
+                source_down[self.n_angles - 1, :] += (
+                        expfactor * sfac2 * self.t_od[k] 
+                        / self.cos_angle[self.n_angles - 1]
+                    )
+            else: 
+                source_down[self.n_angles - 1, mask] += (
+                    (expfactor[mask] - 
+                     np.moveaxis(
+                         trans_t[mask, self.n_angles - 1, self.n_angles - 1], 0, -1))
+                    * sfac2[mask]
+                    / v0[n2 - 1, n2 - 1, mask]
                 )
+                source_down[self.n_angles - 1, ~mask] += (
+                        expfactor[~mask] * sfac2[~mask] * self.t_od[k, ~mask] 
+                        / self.cos_angle[self.n_angles - 1]
+                    )
+            
+            # for wl in range(column.nbr_wvl): 
+            #     if abs(v0[n2 - 1, n2 - 1,wl]) > 1e-4:
+            #         source_down[self.n_angles - 1, :,  wl] += (
+            #             (expfactor[wl] 
+            #              - trans_t[wl, self.n_angles - 1, self.n_angles - 1])
+            #             * sfac2[wl]
+            #             / v0[n2 - 1, n2 - 1, wl]
+            #         )
+            #     else:
+            #         source_down[self.n_angles - 1, :,  wl] -= (
+            #             expfactor[wl] 
+            #             * sfac2[wl] 
+            #             * self.t_od[k, wl] 
+            #             / self.cos_angle[self.n_angles - 1]
+            #         )
 
-            print(v0[n2 - 1, n2 - 1, :].shape, sfac2.shape, source_down.shape)
-            return
+            
 
             source_up *= s_transmittance
             source_down *= s_transmittance
 
-            self.s_layer_source_up[:, k] += source_up
-            self.s_layer_source_down[:, k] += source_down
+            self.s_layer_source_up[:, k, :] += source_up[:,0,:]
+            self.s_layer_source_down[:, k, :] += source_down[:,0,:]
+            
 
         return None
 
@@ -465,6 +502,8 @@ def solve_advanced_adding_doubling(column, irradiance):
         # then Adding method to add the layer to the present level
         # to compute upward radiances and reflection matrix
         # at new level.
+        
+        
 
         # similar to equation B4 Briegleb and Light 2007
         temporal_matrix = -np.matmul(
@@ -472,26 +511,35 @@ def solve_advanced_adding_doubling(column, irradiance):
             aads.s_layer_refl[:, :, :],
         )
 
-        print(np.nanmean(temporal_matrix))
-        return
+        # np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
+        n = np.arange(aads.n_angles)
+        temporal_matrix[:, n, n] += 1
+        
 
-        np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
+        # aads.inv_gamma_t[:, :, k] = np.linalg.solve(
+        #     temporal_matrix.T, aads.s_layer_trans[:, :, k].T
+        # ).T
+        
 
-        try:
-            aads.inv_gamma_t[:, :, k] = np.linalg.solve(
-                temporal_matrix.T, aads.s_layer_trans[:, :, k].T
-            ).T
-        except np.linalg.LinAlgError as e:
-            print(f"Error solving temporal_matrix system: {e}")
-            raise
-
-        aads.refl_down[:, k] = np.matmul(
-            aads.s_level_refl_up[:, :, k + 1], aads.s_layer_source_down[:, k]
+        inv_gamma_t = np.linalg.solve(
+            np.moveaxis(temporal_matrix, 1, 2), 
+            np.moveaxis(aads.s_layer_trans, 2, 1)
         )
+    
+        return 
+    
+        ## REFL DOWN NOT WORKING
+        
+        refl_down = np.matmul(
+            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], -1, 0), 
+            np.moveaxis(aads.s_layer_source_down[:, k, :], -1, 0)
+        )
+        
+        
 
         aads.s_level_rad_up[:, k] = aads.s_layer_source_up[:, k] + np.matmul(
-            aads.inv_gamma_t[:, :, k],
-            aads.refl_down[:, k] + aads.s_level_rad_up[:, k + 1],
+            inv_gamma_t[:, :, k],
+            refl_down[:, k] + aads.s_level_rad_up[:, k + 1],
         )
 
         aads.refl_trans[:, :, k] = np.matmul(
