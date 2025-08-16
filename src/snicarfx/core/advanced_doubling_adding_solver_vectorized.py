@@ -515,46 +515,69 @@ def solve_advanced_adding_doubling(column, irradiance):
         n = np.arange(aads.n_angles)
         temporal_matrix[:, n, n] += 1
         
-
-        # aads.inv_gamma_t[:, :, k] = np.linalg.solve(
-        #     temporal_matrix.T, aads.s_layer_trans[:, :, k].T
-        # ).T
         
 
         inv_gamma_t = np.linalg.solve(
             np.moveaxis(temporal_matrix, 1, 2), 
             np.moveaxis(aads.s_layer_trans, 2, 1)
         )
-    
-        return 
-    
-        ## REFL DOWN NOT WORKING
+
         
+    
         refl_down = np.matmul(
             np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], -1, 0), 
-            np.moveaxis(aads.s_layer_source_down[:, k, :], -1, 0)
+            np.moveaxis(aads.s_layer_source_down[:, k, :], -1, 0)[:, :, None]
+        )
+
+                
+        # if k == 2:
+        #     print("v ", np.nanmean(refl_down[20, :]))
+        #     return 
+        
+        aads.s_level_rad_up[:, k, :] = (
+        aads.s_layer_source_up[:, k, :]
+        + np.moveaxis(np.matmul(
+            inv_gamma_t,
+            refl_down + 
+        np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)[:, :, None],
+        ), 0, -1)[:,0,:]
         )
         
+        # if k == 2:
+        #     print("v ", np.nanmean(aads.s_level_rad_up[:, k, 20]))
+        #     return 
         
-
-        aads.s_level_rad_up[:, k] = aads.s_layer_source_up[:, k] + np.matmul(
-            inv_gamma_t[:, :, k],
-            refl_down[:, k] + aads.s_level_rad_up[:, k + 1],
+        
+        refl_trans = np.matmul(
+            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], -1, 0), 
+            aads.s_layer_trans
         )
+        
+        # if k == 2:
+        #     print("v  ", np.nanmean(refl_trans[20, :]))
+        #     return 
 
-        aads.refl_trans[:, :, k] = np.matmul(
-            aads.s_level_refl_up[:, :, k + 1], aads.s_layer_trans[:, :, k]
-        )
 
-        aads.s_level_refl_up[:, :, k] = aads.s_layer_refl[:, :, k] + np.matmul(
-            aads.inv_gamma_t[:, :, k], aads.refl_trans[:, :, k]
-        )
+        aads.s_level_refl_up[:, :, k, :] = np.moveaxis(aads.s_layer_refl + np.matmul(
+            inv_gamma_t, refl_trans
+        ), 0, -1)
+        
+        # if k == 2:
+        #     print("v  ", np.nanmean(aads.s_level_refl_up[:, :, k, 20))
+        #     return 
+        
+                
+        if k == 2:
+            print("v  ", np.nanmean(aads.s_level_refl_up[:, :, k, 20]))
+            return 
+        
 
     if aads.mth_azi == 0:
         for i in range(len(aads.cos_angle)):
-            aads.s_level_rad_up[i, 0] += (
-                np.sum(aads.s_level_refl_up[i, :, 0]) * aads.cosmic_background
+            aads.s_level_rad_up[i, 0, :] += (
+                np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
+        
 
     albedo = (
         2
