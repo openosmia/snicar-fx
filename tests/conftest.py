@@ -86,7 +86,7 @@ def relative_tolerance_column_properties():
     return 1e-9
 
 
-def parameter_grid():
+def twostream_parameter_grid():
     """
     parameter grid to test snicar-fx against Matlab benchmark data
     """
@@ -96,39 +96,65 @@ def parameter_grid():
     radii_grid = [200, 600, 1000]
     sza_grid = [30, 50, 70]
     bc_grid = [0, 100, 1000]
-    thickness_profiles_grid = [
-        [0.01, 0.01, 0.01],
-        [0.01, 0.1, 1],
-        [0.01, 10, 100]
-    ]
-    direct_diffuse_grid  = [1, 0]
+    thickness_profiles_grid = [[0.01, 0.01, 0.01], [0.01, 0.1, 1], [0.01, 10, 100]]
+    direct_diffuse_grid = [1, 0]
 
-    return list(product(layer_type_grid, 
-                        density_grid, 
-                        radii_grid, 
-                        sza_grid, 
-                        bc_grid, 
-                        thickness_profiles_grid,
-                        direct_diffuse_grid))
+    return list(
+        product(
+            layer_type_grid,
+            density_grid,
+            radii_grid,
+            sza_grid,
+            bc_grid,
+            thickness_profiles_grid,
+            direct_diffuse_grid,
+        )
+    )
+
+
+def multistream_parameter_grid():
+    """
+    parameter grid to test snicar-fx against Matlab benchmark data
+    """
+
+    layer_type_grid = [0, 1]
+    density_grid = [300, 600, 900]
+    radii_grid = [200, 600, 1000]
+    sza_grid = [30, 50, 70]
+    bc_grid = [0, 100, 1000]
+    thickness_profiles_grid = [[0.01, 0.01, 0.01], [0.01, 0.1, 1], [0.01, 10, 100]]
+    direct_diffuse_grid = [1, 0]
+
+    return list(
+        product(
+            layer_type_grid,
+            density_grid,
+            radii_grid,
+            sza_grid,
+            bc_grid,
+            thickness_profiles_grid,
+            direct_diffuse_grid,
+        )
+    )
 
 
 @pytest.fixture(scope="module")
 def benchmark_snicaradv4_spectral_data():
     return pd.read_csv(
-        "./tests/test_data/benchmark_SNICARADv4_spectral_albedo.csv", 
-        header=None)
+        "./tests/test_data/benchmark_SNICARADv4_spectral_albedo.csv", header=None
+    )
+
 
 @pytest.fixture(scope="module")
 def benchmark_snicaradv4_bba_data():
-    return pd.read_csv(
-        "./tests/test_data/benchmark_SNICARADv4_BBA.csv", 
-        header=None)
+    return pd.read_csv("./tests/test_data/benchmark_SNICARADv4_BBA.csv", header=None)
+
 
 @pytest.fixture(scope="module")
 def benchmark_snicaradv4_absorbed_flux_data():
     return pd.read_csv(
-        "./tests/test_data/benchmark_SNICARADv4_absorbed_flux.csv", 
-        header=None)
+        "./tests/test_data/benchmark_SNICARADv4_absorbed_flux.csv", header=None
+    )
 
 
 @pytest.fixture(scope="module")
