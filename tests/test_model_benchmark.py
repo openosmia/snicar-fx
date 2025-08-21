@@ -8,6 +8,8 @@ Test snicar-fx against outputs from SNICAR_ADv4 Matlab code
 import numpy as np
 import pytest
 import xarray as xr
+from conftest import parameter_grid
+from utils import match_matlab_config
 
 from snicarfx.core import (
     ColumnProperties,
@@ -15,8 +17,6 @@ from snicarfx.core import (
     SolarIrradiance,
     solve_adding_doubling,
 )
-from conftest import parameter_grid
-from utils import match_matlab_config
 
 
 @pytest.mark.parametrize("idx, params", enumerate(parameter_grid()))
