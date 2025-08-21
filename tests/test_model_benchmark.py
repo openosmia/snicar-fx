@@ -8,6 +8,8 @@ Test snicar-fx against outputs from SNICAR_ADv4 Matlab code
 import numpy as np
 import pytest
 import xarray as xr
+from conftest import parameter_grid
+from utils import match_matlab_config
 
 from snicarfx.core import (
     ColumnProperties,
@@ -15,17 +17,17 @@ from snicarfx.core import (
     SolarIrradiance,
     solve_adding_doubling,
 )
-from tests.conftest import parameter_grid
-from tests.utils import match_matlab_config
 
 
 @pytest.mark.parametrize("idx, params", enumerate(parameter_grid()))
 def test_snicarfx_outputs(
-    idx, params, column, 
-    benchmark_snicaradv4_spectral_data, 
+    idx,
+    params,
+    column,
+    benchmark_snicaradv4_spectral_data,
     benchmark_snicaradv4_bba_data,
     benchmark_snicaradv4_absorbed_flux_data,
-    absolute_tolerance_benchmark
+    absolute_tolerance_benchmark,
 ):
 
     layer_type, density, radius, sza, bc, thickness_profile, direct = params
@@ -82,7 +84,7 @@ def test_snicarfx_outputs(
             column.asm_prm[i, :] = ssps["asm_prm"].values
             column.tau[i, :] = column.layer_mass[i] * column.ext_cff[i, :]
 
-    column.lap_concentrations[:, 0] = bc * 1e-9 
+    column.lap_concentrations[:, 0] = bc * 1e-9
 
     column.update_column_ops_with_laps()
 
@@ -95,18 +97,15 @@ def test_snicarfx_outputs(
         benchmark_snicaradv4_spectral_data[idx][:250],
         atol=absolute_tolerance_benchmark,
     )
-    #BBA
+    # BBA
     assert np.allclose(
         outputs.BBA,
         benchmark_snicaradv4_bba_data[idx],
         atol=absolute_tolerance_benchmark,
     )
-    #Absorbed flux
+    # Absorbed flux
     assert np.allclose(
         outputs.abs_slr_tot,
         benchmark_snicaradv4_absorbed_flux_data[idx],
         atol=absolute_tolerance_benchmark,
     )
-
-    
-    
