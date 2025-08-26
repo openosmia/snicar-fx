@@ -9,11 +9,11 @@ RTM:
   IRRADIANCE_TYPE: "mls" # "mlw", "mls", "saw", "sas", "smm", "hmn", "trp"
 
 ICE:
-  THICKNESS: [100, 100]  # thickness of each vertical layer (unit : m)
-  LAYER_TYPE: [1,1]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
+  THICKNESS: [0.02, 100]  # thickness of each vertical layer (unit : m)
+  LAYER_TYPE: [0,0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
   DENSITY: [650, 650]  # density of each layer (unit : kg m-3)
   RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21"
-  SPECIFIC_SURFACE_AREA: [0.1, 0.1] # m2 kg-1. for ice, should be below 3.5
+  SPECIFIC_SURFACE_AREA: [10,10] # m2 kg-1. for ice, should be below 3.5
   LWC: [0, 0] # LWC content in snow/ice 
   SFC: 0 # reflectance of lower boundary  
   GRAIN_SHAPE: [0,0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
@@ -26,28 +26,6 @@ LIGHT_ABSORBING_PARTICLES:
   #   COATED: False
   #   UNIT: 0
   #   CONC: [100, 0]
-    
-  # BC_COATED:
-  #   FILE: "brC_Kirch_BCsd_slfcot.nc"
-  #   COATED: True
-  #   UNIT: 0
-  #   CONC: [0, 0]
-    
-  # DUST:
-  #   FILE: "brC_Kirch_BCsd_slfcot.nc"
-  #   COATED: True
-  #   UNIT: 0
-  #   CONC: [0, 0]
-  
-  # SA:
-  #   FILE: "snow_algae_empirical_Chevrollier2023.nc"
-  #   COATED: False
-  #   UNIT: 1
-  #   CONC: [100, 0]  
+     
 
-  # GA:
-  #   FILE: "ice_algae_empirical_Chevrollier2023.nc"
-  #   COATED: False
-  #   UNIT: 1
-  #   CONC: [0, 0]
 

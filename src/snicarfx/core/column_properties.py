@@ -172,7 +172,7 @@ class ColumnProperties:
 
         for lyr in range(self.nbr_lyr):
 
-            if self.layer_type[lyr] > 0:  # ice - only air inclusions for now
+            if self.layer_type[lyr] > 0:  # air inclusions in ice
                 vlm_frac_ice = (self.density[lyr] - self.lwc[lyr] * 1000) / 917
                 vlm_frac_air = 1 - self.lwc[lyr] - vlm_frac_ice
                 eq_rds = (
@@ -196,44 +196,55 @@ class ColumnProperties:
 
                 self.ss_alb[lyr, :] = scattering_cff / self.ext_cff[lyr, :]
 
-                # self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.86
                 # Kokhanovsky 2002
                 self.asm_prm[lyr, :] = 0.49274 + 0.44466 / (
                     0.69233 * np.sqrt(np.pi / 2)
                 ) * np.exp(-2 * ((1 / self.ref_idx_re - 1.04882) / 0.69233) ** 2)
+                
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
 
                 self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
 
-            else:  # snow
+            else:  # ice grains in air
+                # under geometric optics assumptions, the extinction 
+                # cross section is the extinction efficiency (=2) multiplied
+                # by the cross section K. To get the mass extinction coeff 
+                # in m2 kg-1, we then divide by the particle volume V and the 
+                # ice density D, i.e. ext = 2 * (K / V) / D.
+                # For convex grains, K = S / 4 with S the surface area of
+                # the ice grain (Eq. 2.47 in Kokhanovsky 2001).
+                # Since the is SSA = S / (V * D), then ext = 2 * SSA.
+                
                 self.ext_cff[lyr, :] = (
-                    self.density[lyr] * self.ssa[lyr] / 2
-                ) / self.density[lyr]
+                    self.ssa[lyr] / 2
+                ) 
                 self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
-                w = 0.0611 + 0.17 * (self.ref_idx_re - 1.3)
+                
                 k_eq = (
                     self.lwc[lyr] * self.ref_idx_im_water
                     + (1 - self.lwc[lyr]) * self.ref_idx_im
                 )
+                
                 c = 24.0 * np.pi * k_eq / (917.0 * self.wavelengths) / self.ssa[lyr]
+                w = 0.0611 + 0.17 * (self.ref_idx_re - 1.3)
 
-                # change specific single scat albedo and g depending on shape
+               
                 if self.grain_shape[lyr] == 0:
-                    b0 = 1.25
-                    g0 = 0.895
-                    b = b0 + 0.4 * (self.ref_idx_re - 1.3)
-                    phi = 2.0 / 3 * b / (1 - w)
-                    self.ss_alb[lyr, :] = 1 - 0.5 * (1 - w) * (1 - np.exp(-c * phi))
+                    # g and B are set from from Kokhanovsky 2001 Eq. 2.38
+                    b = 1.25 + 0.4 * (self.ref_idx_re - 1.3)
                     y = 0.728 + 0.752 * (self.ref_idx_re - 1.3)
                     ginf = 0.9751 - 0.105 * (self.ref_idx_re - 1.3)
-                    g00 = g0 - 0.38 * (self.ref_idx_re - 1.3)
-                    self.asm_prm[lyr, :] = ginf - (ginf - g00) * np.exp(-y * c)
+                    g0 = 0.895 - 0.38 * (self.ref_idx_re - 1.3)
+                    self.asm_prm[lyr, :] = ginf - (ginf - g0) * np.exp(-y * c)
 
                 elif self.grain_shape[lyr] == 1:
+                    # g and B are parametrised from Robledano 2023 measurements
                     self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.815
                     b = self.ref_idx_re**2
-                    phi = 2.0 / 3 * b / (1 - w)
-                    self.ss_alb[lyr, :] = 1 - 0.5 * (1 - w) * (1 - np.exp(-c * phi))
+                
+                # SSA is parametrised from Kokhanovsky 
+                phi = 2.0 / 3 * b / (1 - w)
+                self.ss_alb[lyr, :] = 1 - 0.5 * (1 - w) * (1 - np.exp(-c * phi))
 
     def update_column_ops_with_laps(self):
         """Calculate optical properties of a snow/ice column mixed with light
