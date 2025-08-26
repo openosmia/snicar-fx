@@ -2,9 +2,20 @@
  [![Continuous integration](https://github.com/openosmia/snicar-fx/workflows/CI/badge.svg)](https://github.com/openosmia/snicar-fx/actions)
  [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://pre-commit.com/)
  [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 # SNICAR-fx: A flexible and light-weight version of the SNICAR model
 
-SNICAR-fx started as a fork of the biosnicar-py repository, a python translation of SNICAR (SNow, ICe and Aerosols Radiative model), to then evolve into its own standalone version. SNICAR-fx solves the 1-D unpolarized radiative transfer equation for a column of snow and/or ice, of which single scattering properties are calculated with geometric optics. Each layer can be represented as grains of ice in air of various shapes or bubbles of air in ice, along with a specific water content and concentrations of light absorbing particles. The incoming irradiance can be direct with a prescribed SZA, or diffuse. Fresnel boundary layers can be incorporated to account for the change in refractive index between air and ice by using the two-stream Delta-Eddingon solver developed by Briegleb et al. 2007 and improved by Whicker et al. 2022 to include spectrally-dependent Fresnel reflectance coefficients. A multi-stream delta-M solver employing the advanced matrix operator method from Liu and Weng 2013 is also available for homogeneous interfaces (i.e. no Fresnel layers) and direct irradiance. 
+SNICAR-fx started as a fork of the biosnicar-py repository, a python translation of SNICAR (SNow, ICe and 
+Aerosols Radiative model), to then evolve into its own standalone version. SNICAR-fx solves the 1-D 
+unpolarized radiative transfer equation for a column of snow and/or ice, of which single scattering 
+properties are calculated with geometric optics. Each layer can be represented as grains of ice in air of 
+various shapes or bubbles of air in ice, along with a specific water content and concentrations of light 
+absorbing particles. The incoming irradiance can be direct with a prescribed SZA, or diffuse. Fresnel 
+boundary layers can be incorporated to account for the change in refractive index between air and ice by 
+using the two-stream Delta-Eddingon solver developed by Briegleb et al. 2007 and improved by Whicker et al. 
+2022 to include spectrally-dependent Fresnel reflectance coefficients. A multi-stream delta-M solver 
+employing the advanced matrix operator method from Liu and Weng 2013 is also available for homogeneous 
+interfaces (i.e. no Fresnel layers) and direct irradiance.
 
 What makes it different from SNICAR and BioSNICAR?
 - flexible spectral range: between 200 and 5000nm with resolution >= 1nm
@@ -38,15 +49,16 @@ pip install -e .
 Set your inputs in the yaml file, then run 'outputs snicarfx.run()'
 
 
-# Permissions
+### Citations
 
-This code is provided with no conditions.
+#### Equations and model formulation
 
-# Citations
+Original SNICAR equations (Two-stream Delta-Eddington formulation): 
 
-## Equations and model formulation
-Original SNICAR equations (Two-stream Delta-Eddington formulation):
-Joseph et al. 1976 - https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2
+Joseph, J. H., Wiscombe, W. J., & Weinman, J. A. (1976). The delta-Eddington approximation for radiative 
+flux transfer. Journal of Atmospheric Sciences, 33(12), 2452-2459, 
+[https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2](https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2)
+
 Wiscombe and Warren 1980 - https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2
 Flanner et al. 2021 - https://doi.org/10.5194/gmd-14-7673-2021
 
@@ -67,7 +79,7 @@ Kokhanovsky 2004 - https://link.springer.com/book/9783540211846
 Picard and Libois 2024 (TARTES) - https://doi.org/10.5194/gmd-17-8927-2024
 Robledano et al. 2023 - https://doi.org/10.1038/s41467-023-39671-3
 
-## Data
+#### Data
 
 Ice refractive indices:
 Cooper et al. 2021 - https://doi.org/10.5194/tc-15-1931-2021
