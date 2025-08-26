@@ -20,7 +20,6 @@ What makes SNICAR-fx different from SNICAR?
 - speed: up to 50x faster depending on the model set-up (nb layers in particular)
 - directional capability: multi-stream solver based on the advanced matrix operator method (! no fresnel layers and diffuse irradiance for now)
 - additional features: ice refractive index of Cooper et al. 2021, liquid water content in snow and ice, empirical optical properties of glacial microbes
-- extensive unit tests
 
 Future developments: 
 - proper documentation (code + sphinx)
@@ -55,7 +54,7 @@ pip install -e .
 
 ### Running the code
 
-Example scripts are provided in /scripts, including single runs as well as batch runs for e.g. look-up table generation. 
+Example scripts are provided in /examples, including single runs as well as batch runs for e.g. look-up table generation. 
 
 
 ## References
