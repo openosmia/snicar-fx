@@ -5,16 +5,14 @@
 
 # SNICAR-fx: A flexible and light-weight version of the SNICAR model
 
-SNICAR-fx started as a fork of the biosnicar-py repository, a python translation of SNICAR (SNow, ICe and 
-Aerosols Radiative model), to then evolve into its own standalone version. SNICAR-fx solves the 1-D 
-unpolarized radiative transfer equation for a column of homogeneous layers of snow and/or ice. Each layer 
-can be represented as grains of ice in air or bubbles of air in ice with a given specific surface area, 
-along with a specific water content and concentrations of light absorbing particles. The incoming irradiance 
-can be direct with a prescribed SZA, or diffuse. Fresnel boundary layers can be incorporated to account for 
-the change in refractive index between air and ice by using the two-stream Delta-Eddingon solver developed 
-by Briegleb et al. 2007 and later improved by Whicker et al. 2022. A multi-stream delta-M solver employing 
-the advanced matrix operator method from Liu and Weng 2013 is also available but does not support Fresnel 
-layers and diffuse irradiance for now.
+SNICAR-fx started as a fork of the biosnicar-py repository, a python translation of SNICAR (SNow, ICe and Aerosols Radiative model), 
+to then evolve into its own standalone version. SNICAR-fx solves the 1-D unpolarized radiative transfer equation for a column of 
+homogeneous layers of snow and/or ice. Each layer can be represented as a bulk medium made of grains of ice in air or bubbles of air 
+in ice with a given specific surface area, along with a specific water content and concentrations of light absorbing particles. The 
+incoming irradiance can be direct with a prescribed SZA, or diffuse. Fresnel boundary layers can be incorporated to account for the 
+change in refractive index between air and ice by using a two-stream Delta-Eddingon solver (Briegleb and Light 2007, Whicker et al. 
+2022), and a multi-stream delta-M solver employing the advanced matrix operator method is also available (Liu and Weng 2013), but 
+does not support Fresnel layers and diffuse irradiance for now.
 
 What makes SNICAR-fx different from SNICAR?
 - flexible spectral range: between 200 and 5000nm with resolution >= 1nm
@@ -35,10 +33,19 @@ Future developments:
 
 ### Installation
 
-Install Python first.
-Create an environment.
-Activate environment.
-Install the package:
+Create a conda environment:
+
+```
+conda create --name snicarfx
+```
+
+Activate the environment:
+
+```
+conda activate snicarfx
+```
+
+Then clone the repository and install the package via:
 
 ```
 pip install -e .
@@ -46,12 +53,12 @@ pip install -e .
 
 ### Running the code
 
-Set your inputs in the yaml file, then run 'outputs snicarfx.run()'
+Example scripts are provided in /scripts, including single runs as well as batch runs for e.g. look-up table generation. 
 
 
-### References
+## References
 
-#### Equations and model formulation
+### Equations and model formulation
 
 Original SNICAR equations (Two-stream Delta-Eddington formulation): 
 
@@ -96,7 +103,7 @@ Kokhanovsky, A. A. (2021). Snow optics. Springer.
 Picard, G. and Libois, Q. (2024). Simulation of snow albedo and solar irradiance profile with the Two-streAm 
 Radiative TransfEr in Snow (TARTES) v2.0 model, Geosci. Model Dev., 17, 8927–8953. [https://doi.org/10.5194/gmd-17-8927-2024](https://doi.org/10.5194/gmd-17-8927-2024)
 
-#### Data
+### Data
 
 Ice refractive indices:
 
