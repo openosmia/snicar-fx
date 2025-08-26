@@ -23,7 +23,9 @@ What makes SNICAR-fx different from SNICAR?
 - extensive unit tests
 
 Future developments: 
-- proper documentation
+- proper documentation (code + sphinx)
+- make scripts with example runs (single runs + lut gen)
+- on-run tests of input types/ranges
 - non spherical air bubbles in ice
 - high-resolution (1nm) light absorbing particle properties and irradiance files to avoid interpolation in handling of resolution
 - make solar irradiance input more flexible to handle inputs from other atmospheric models
