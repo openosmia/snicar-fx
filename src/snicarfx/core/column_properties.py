@@ -225,26 +225,43 @@ class ColumnProperties:
                     + (1 - self.lwc[lyr]) * self.ref_idx_im
                 )
                 
-                c = 24.0 * np.pi * k_eq / (917.0 * self.wavelengths) / self.ssa[lyr]
-                w = 0.0611 + 0.17 * (self.ref_idx_re - 1.3)
+                # cf Eq. 7, 8 in Kokhanovsky 2024
+                # z = 4 * pi * k / wl * deff = 4 * pi * k / wl * 3 / 2 * V / K 
+                # with V / K = 4 / (SSA * D)
+                z = (4 * np.pi * k_eq / (self.wavelengths)
+                     * 3 / 2 
+                     * 4
+                     / (self.ssa[lyr] * 917)
+                     )
 
-               
                 if self.grain_shape[lyr] == 0:
-                    # g and B are set from from Kokhanovsky 2001 Eq. 2.38
-                    b = 1.25 + 0.4 * (self.ref_idx_re - 1.3)
-                    y = 0.728 + 0.752 * (self.ref_idx_re - 1.3)
-                    ginf = 0.9751 - 0.105 * (self.ref_idx_re - 1.3)
-                    g0 = 0.895 - 0.38 * (self.ref_idx_re - 1.3)
-                    self.asm_prm[lyr, :] = ginf - (ginf - g0) * np.exp(-y * c)
+                    
+                    # Eq. 2.45 in Kokhanovsky 2001, Eq. 10 in Kokhanovsky 2024
+                    eta = (0.3639 
+                           + 1.676 * (self.ref_idx_re - 1) 
+                           - 1.6284 * (self.ref_idx_re - 1)**2
+                           )
+                    ginf = 1.008 - 0.11 * (self.ref_idx_re - 1)
+                    g0 = 1.006 - 0.3641 * (self.ref_idx_re - 1)
+                    self.asm_prm[lyr, :] = ginf - (ginf - g0) * np.exp(-z * eta)
+                    
+                    # Table 5 from Kokhanovsky and Macke 1997
+                    n_tab = [1.1, 1.2, 1.333, 1.4, 1.5, 1.6, 1.7]
+                    b_tab = [1.11, 1.18, 1.24, 1.26, 1.29, 1.31, 1.33]
+                    b = np.interp(self.ref_idx_re, n_tab, b_tab)
 
                 elif self.grain_shape[lyr] == 1:
-                    # g and B are parametrised from Robledano 2023 measurements
+                    # Robledano 2023 measurements
                     self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.815
                     b = self.ref_idx_re**2
                 
-                # SSA is parametrised from Kokhanovsky 
-                phi = 2.0 / 3 * b / (1 - w)
-                self.ss_alb[lyr, :] = 1 - 0.5 * (1 - w) * (1 - np.exp(-c * phi))
+
+                # Eq. 2.45 in Kokhanovsky 2001
+                rho = 0.0123 + 0.1622 * (self.ref_idx_re - 1)
+                # Eq. 6 in Kokhanovsky and Macke 1997
+                phi = 2.0 / 3 * b / (1 - rho)
+                # Eq. 7 in Kokhanovsky and Macke 1997 (ss_alb = (1-Cabs)/Cext)
+                self.ss_alb[lyr, :] = 1 - 0.5 * (1 - rho) * (1 - np.exp(-z * phi))
 
     def update_column_ops_with_laps(self):
         """Calculate optical properties of a snow/ice column mixed with light
