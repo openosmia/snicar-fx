@@ -1,9 +1,6 @@
 import matplotlib.pyplot as plt
-from snicarfx.core import (
-    ColumnProperties,
-    SolarIrradiance,
-    ModelInputs
-)
+
+from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
 from snicarfx.core.adding_doubling_solver import solve_adding_doubling
 
 model_config = ModelInputs('./src/snicarfx/inputs.yaml')
