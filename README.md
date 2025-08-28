@@ -66,7 +66,6 @@ Original SNICAR equations (Two-stream Delta-Eddington formulation):
 <sub>Joseph, J. H., Wiscombe, W. J., & Weinman, J. A. (1976). The delta-Eddington approximation for radiative flux 
 transfer. Journal of Atmospheric Sciences, 33(12), 2452-2459. 
 [https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2](https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2)<sub>
-
 <sub>Wiscombe, W. J., & Warren, S. G. (1980). A model for the spectral albedo of snow. I: Pure snow. Journal of 
 Atmospheric Sciences, 37(12), 2712-2733.
 [https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2](https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2)<sub>
@@ -96,7 +95,7 @@ Air bubble asymmetry parameter (Eq. 8):
 <sub>Kokhanovsky, A. A. (2002). Optical properties of bubbles. Journal of Optics A: Pure and Applied Optics, 
 5(1), 47. [https://doi.org/10.1088/1464-4258/5/1/307](https://doi.org/10.1088/1464-4258/5/1/307)<sub>
 
-Ice grain single scattering properties (same as in TARTES):
+Ice grain single scattering properties (similar as in [https://github.com/ghislainp/tartes](TARTES)):
 
 <sub>Kokhanovsky, A. A. (2021). Snow optics. Springer. 
 [https://doi.org/10.1007/978-3-031-85979-3](https://doi.org/10.1007/978-3-031-85979-3)<sub>
@@ -136,45 +135,37 @@ v3: A community tool for modeling spectral snow albedo. Geoscientific Model Deve
 
 Light absorbing particles: 
 
-Black carbon: 
-<sub>Flanner, M. G., Liu, X., Zhou, C., Penner, J. E., & Jiao, C. (2012). Enhanced solar energy 
+<sub>**Black carbon**: Flanner, M. G., Liu, X., Zhou, C., Penner, J. E., & Jiao, C. (2012). Enhanced solar energy 
 absorption by internally-mixed black carbon in snow grains. Atmospheric Chemistry and Physics, 12(10), 
 4699-4721. [https://doi.org/10.5194/acp-12-4699-2012](https://doi.org/10.5194/acp-12-4699-2012)<sub>
 
-Ice algae:
-<sub>Chevrollier, L. A., Cook, J. M., Halbach, L., Jakobsen, H., Benning, L. G., Anesio, A. M., & 
+<sub>**Ice algae**: Chevrollier, L. A., Cook, J. M., Halbach, L., Jakobsen, H., Benning, L. G., Anesio, A. M., & 
 Tranter, M. (2023). Light absorption and albedo reduction by pigmented microalgae on snow and ice. Journal 
 of Glaciology, 69(274), 333-341. [https://doi.org/10.1017/jog.2022.64](https://doi.org/10.1017/jog.2022.64)<sub>
 
-Colorado mineral dust:
-<sub>Skiles, S. M., Painter, T., & Okin, G. S. (2017). A method to retrieve the spectral 
+<sub>**Colorado mineral dust**: Skiles, S. M., Painter, T., & Okin, G. S. (2017). A method to retrieve the spectral 
 complex refractive index and single scattering optical properties of dust deposited in mountain snow. 
 Journal of Glaciology, 63(237), 133-147. 
 [https://doi.org/10.1017/jog.2016.126](https://doi.org/10.1017/jog.2016.126)<sub>
 
-Brown carbon:
-<sub>Kirchstetter, T. W., Novakov, T., & Hobbs, P. V. (2004). Evidence that the spectral dependence 
+<sub>**Brown carbon**: Kirchstetter, T. W., Novakov, T., & Hobbs, P. V. (2004). Evidence that the spectral dependence 
 of light absorption by aerosols is affected by organic carbon. Journal of Geophysical Research: Atmospheres, 
 109(D21). [https://doi.org/10.1029/2004JD004999](https://doi.org/10.1029/2004JD004999)<sub>
 
-Snow algae:
-<sub>Chevrollier, L. A., Wehrlé, A., Cook, J. M., Pirk, N., Benning, L. G., Anesio, A. M., & Tranter, 
+<sub>**Snow algae**: Chevrollier, L. A., Wehrlé, A., Cook, J. M., Pirk, N., Benning, L. G., Anesio, A. M., & Tranter, 
 M. (2025). Separating the albedo-reducing effect of different light-absorbing particles on snow using deep 
 learning. The Cryosphere, 19(4), 1527-1538. 
 [https://doi.org/10.5194/tc-19-1527-2025](https://doi.org/10.5194/tc-19-1527-2025)<sub>
 
-Volcanic ashes:
-<sub>Flanner, M. G., Gardner, A. S., Eckhardt, S., Stohl, A., & Perket, J. (2014). Aerosol 
+<sub>**Volcanic ashes**: Flanner, M. G., Gardner, A. S., Eckhardt, S., Stohl, A., & Perket, J. (2014). Aerosol 
 radiative forcing from the 2010 Eyjafjallajökull volcanic eruptions. Journal of Geophysical Research: 
 Atmospheres, 119(15), 9481-9491. 
 [https://doi.org/10.1002/2014JD021977](https://doi.org/10.1002/2014JD021977)<sub>
 
-Greenland dust:
-<sub>Cook, J. M., Tedstone, A. J., Williamson, C., McCutcheon, J., Hodson, A. J., Dayal, A., ... 
+<sub>**Greenland dust**: Cook, J. M., Tedstone, A. J., Williamson, C., McCutcheon, J., Hodson, A. J., Dayal, A., ... 
 & Tranter, M. (2020). Glacier algae accelerate melt rates on the south-western Greenland Ice Sheet. The 
 Cryosphere, 14(1), 309-330. [https://doi.org/10.5194/tc-14-309-2020](https://doi.org/10.5194/tc-14-309-2020)<sub>
 
-Sahara dust:
-<sub>Balkanski, Y., Schulz, M., Claquin, T., & Guibert, S. (2007). Reevaluation of Mineral aerosol 
+<sub>**Sahara dust**: Balkanski, Y., Schulz, M., Claquin, T., & Guibert, S. (2007). Reevaluation of Mineral aerosol 
 radiative forcings suggests a better agreement with satellite and AERONET data. Atmospheric Chemistry and 
 Physics, 7(1), 81-95. [https://doi.org/10.5194/acp-7-81-2007](https://doi.org/10.5194/acp-7-81-2007)<sub>
