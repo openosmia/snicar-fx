@@ -401,7 +401,7 @@ class _AdvancedDoublingAddingSolver:
             
 
             # Specific treatment for downward source function
-            mask = (abs(v0[n2 - 1, n2 - 1, :]) > 1e-4).reshape((1, 500))
+            mask = (abs(v0[n2 - 1, n2 - 1, :]) > 1e-4).reshape((1, v0.shape[-1]))
             
             
             if np.sum(mask) == column.nbr_wvl:
@@ -530,9 +530,9 @@ def solve_advanced_adding_doubling(column, irradiance):
         )
 
                 
-        # if k == 2:
-        #     print("v ", np.nanmean(refl_down[20, :]))
-        #     return 
+        if k == 0:
+            print("v ", np.nanmean(refl_down[20, :]))
+            return 
         
         aads.s_level_rad_up[:, k, :] = (
         aads.s_layer_source_up[:, k, :]
@@ -543,7 +543,7 @@ def solve_advanced_adding_doubling(column, irradiance):
         ), 0, -1)[:,0,:]
         )
         
-        # if k == 2:
+        # if k == 0:
         #     print("v ", np.nanmean(aads.s_level_rad_up[:, k, 20]))
         #     return 
         
@@ -553,7 +553,7 @@ def solve_advanced_adding_doubling(column, irradiance):
             aads.s_layer_trans
         )
         
-        # if k == 2:
+        # if k == 0:
         #     print("v  ", np.nanmean(refl_trans[20, :]))
         #     return 
 
@@ -562,14 +562,12 @@ def solve_advanced_adding_doubling(column, irradiance):
             inv_gamma_t, refl_trans
         ), 0, -1)
         
-        # if k == 2:
-        #     print("v  ", np.nanmean(aads.s_level_refl_up[:, :, k, 20))
-        #     return 
-        
                 
-        if k == 2:
-            print("v  ", np.nanmean(aads.s_level_refl_up[:, :, k, 20]))
-            return 
+        # if k == 0:
+        #     print("v  ", np.nanmean(aads.s_level_refl_up[:, :, k, 20]))
+        #     print("v  ", np.nanmean(inv_gamma_t[20, :, :]))
+
+        #     return 
         
 
     if aads.mth_azi == 0:
@@ -583,11 +581,11 @@ def solve_advanced_adding_doubling(column, irradiance):
         2
         * np.pi
         * np.sum(
-            aads.s_level_rad_up[:, 0]
-            * np.array(aads.cos_angle)
-            * np.array(aads.cos_weight)
+            aads.s_level_rad_up[:, 0, :]
+            * np.array(aads.cos_angle)[:, None]
+            * np.array(aads.cos_weight)[:, None], axis=0
         )
-        / (aads.solar_irradiance * aads.cos_sun)
-    )
+        / (aads.solar_irradiance[None, :] * aads.cos_sun)
+    ).flatten()
 
     return albedo
