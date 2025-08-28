@@ -4,7 +4,6 @@ RTM:
   WVL_END: 2500
   RESOLUTION: 10
   APRX_TYP: 2
-  DELTA: True
   SZA: 50
   IRRADIANCE_TYPE: "mls" # "mlw", "mls", "saw", "sas", "smm", "hmn", "trp"
 
@@ -17,8 +16,6 @@ ICE:
   LWC: [0.091, 0.091] # LWC content in snow/ice 
   SFC: 0 # reflectance of lower boundary  
   GRAIN_SHAPE: [0,0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
-  HEX_SIDE: [10000]
-  HEX_LENGTH: [10000]
 
 LIGHT_ABSORBING_PARTICLES:
    BC:
