@@ -63,9 +63,9 @@ Example scripts are provided in /examples, including single runs as well as batc
 
 Original SNICAR equations (Two-stream Delta-Eddington formulation): 
 
-Joseph, J. H., Wiscombe, W. J., & Weinman, J. A. (1976). The delta-Eddington approximation for radiative 
-flux transfer. Journal of Atmospheric Sciences, 33(12), 2452-2459.
-[https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2](https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2)
+<sub><sup><sub>Joseph, J. H., Wiscombe, W. J., & Weinman, J. A. (1976). The delta-Eddington approximation for radiative flux 
+transfer. Journal of Atmospheric Sciences, 33(12), 2452-2459. 
+[https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2](https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2)<sub><sup><sub>
 
 Wiscombe, W. J., & Warren, S. G. (1980). A model for the spectral albedo of snow. I: Pure snow. Journal of 
 Atmospheric Sciences, 37(12), 2712-2733.
