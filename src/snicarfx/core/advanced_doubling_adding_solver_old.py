@@ -388,7 +388,6 @@ class _AdvancedDoublingAddingSolver:
 
             self.s_layer_source_up[:, k] += source_up
             self.s_layer_source_down[:, k] += source_down
-        
 
         return None
 
@@ -448,7 +447,6 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
         
         np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
         
-        
 
         try:
             aads.inv_gamma_t[:, :, k] = np.linalg.solve(
@@ -464,9 +462,9 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
             aads.s_level_refl_up[:, :, k + 1], aads.s_layer_source_down[:, k]
         )
         
-        if k == 0:
-            print("nv ", np.nanmean(aads.refl_down[:, k]))
-            return 
+        # if k == 0:
+        #     print("nv ", np.nanmean(aads.refl_down[:, k]))
+        #     return 
 
         aads.s_level_rad_up[:, k] = aads.s_layer_source_up[:, k] + np.matmul(
             aads.inv_gamma_t[:, :, k],

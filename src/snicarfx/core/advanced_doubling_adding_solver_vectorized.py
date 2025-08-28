@@ -453,8 +453,9 @@ class _AdvancedDoublingAddingSolver:
 
             self.s_layer_source_up[:, k, :] += source_up[:,0,:]
             self.s_layer_source_down[:, k, :] += source_down[:,0,:]
-            
+    
 
+            
         return None
 
 
@@ -504,12 +505,16 @@ def solve_advanced_adding_doubling(column, irradiance):
         # at new level.
         
         
-
+    
         # similar to equation B4 Briegleb and Light 2007
         temporal_matrix = -np.matmul(
-            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], -1, 0),
-            aads.s_layer_refl[:, :, :],
+            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
+                        source=[0, 1, 2], 
+                        destination=[1, 2, 0]),
+            aads.s_layer_refl,
         )
+
+        
 
         # np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
         n = np.arange(aads.n_angles)
@@ -517,11 +522,10 @@ def solve_advanced_adding_doubling(column, irradiance):
         
         
 
-        inv_gamma_t = np.linalg.solve(
+        inv_gamma_t = np.moveaxis(np.linalg.solve(
             np.moveaxis(temporal_matrix, 1, 2), 
             np.moveaxis(aads.s_layer_trans, 2, 1)
-        )
-
+        ), 1, 2)
         
     
         refl_down = np.matmul(
@@ -530,9 +534,9 @@ def solve_advanced_adding_doubling(column, irradiance):
         )
 
                 
-        if k == 0:
-            print("v ", np.nanmean(refl_down[20, :]))
-            return 
+        # if k == 0:
+        #     print("v ", np.nanmean(refl_down[20, :]))
+        #     return 
         
         aads.s_level_rad_up[:, k, :] = (
         aads.s_layer_source_up[:, k, :]
