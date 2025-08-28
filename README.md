@@ -63,103 +63,110 @@ Example scripts are provided in /examples, including single runs as well as batc
 
 Original SNICAR equations (Two-stream Delta-Eddington formulation): 
 
-Joseph, J. H., Wiscombe, W. J., & Weinman, J. A. (1976). The delta-Eddington approximation for radiative 
-flux transfer. Journal of Atmospheric Sciences, 33(12), 2452-2459.
-[https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2](https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2)
+<sup>Joseph, J. H., Wiscombe, W. J., & Weinman, J. A. (1976). The delta-Eddington approximation for radiative flux 
+transfer. Journal of Atmospheric Sciences, 33(12), 2452-2459. 
+[https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2](https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2)<sup>
 
-Wiscombe, W. J., & Warren, S. G. (1980). A model for the spectral albedo of snow. I: Pure snow. Journal of 
+<sup>Wiscombe, W. J., & Warren, S. G. (1980). A model for the spectral albedo of snow. I: Pure snow. Journal of 
 Atmospheric Sciences, 37(12), 2712-2733.
-[https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2](https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2)
+[https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2](https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2)<sup>
 
-Flanner, M. G., Arnheim, J., Cook, J. M., Dang, C., He, C., Huang, X., ... & Zender, C. S. (2021). SNICAR-AD 
+<sup>Flanner, M. G., Arnheim, J., Cook, J. M., Dang, C., He, C., Huang, X., ... & Zender, C. S. (2021). SNICAR-AD 
 v3: A community tool for modeling spectral snow albedo. Geoscientific Model Development, 2021, 1-49. 
-[https://doi.org/10.5194/gmd-14-7673-2021](https://doi.org/10.5194/gmd-14-7673-2021)
+[https://doi.org/10.5194/gmd-14-7673-2021](https://doi.org/10.5194/gmd-14-7673-2021)<sup>
 
 Adding-doubling solver with Fresnel layers:
 
-Briegleb, P., & Light, B. (2007). A Delta-Eddington mutiple scattering parameterization for solar radiation 
+<sup>Briegleb, P., & Light, B. (2007). A Delta-Eddington mutiple scattering parameterization for solar radiation 
 in the sea ice component of the community climate system model. 
-[https://doi.org/10.5065/D6B27S71](https://doi.org/10.5065/D6B27S71)
+[https://doi.org/10.5065/D6B27S71](https://doi.org/10.5065/D6B27S71)<sup>
 
-Whicker, C. A., Flanner, M. G., Dang, C., Zender, C. S., Cook, J. M., & Gardner, A. S. (2021). SNICAR-ADv4: 
+<sup>Whicker, C. A., Flanner, M. G., Dang, C., Zender, C. S., Cook, J. M., & Gardner, A. S. (2021). SNICAR-ADv4: 
 a physically based radiative transfer model to represent the spectral albedo of glacier ice. The Cryosphere, 
-2021, 1-36. [https://doi.org/10.5194/tc-16-1197-2022](https://doi.org/10.5194/tc-16-1197-2022)
+2021, 1-36. [https://doi.org/10.5194/tc-16-1197-2022](https://doi.org/10.5194/tc-16-1197-2022)<sup>
 
 Multi-stream advanced matrix operator method and adding solver: 
 
-Liu, Q., & Weng, F. (2013). Using advanced matrix operator (AMOM) in community radiative transfer model. 
+<sup>Liu, Q., & Weng, F. (2013). Using advanced matrix operator (AMOM) in community radiative transfer model. 
 IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing, 6(3), 1211-1218. 
-[https://doi.org/10.1109/JSTARS.2013.2247026](https://doi.org/10.1109/JSTARS.2013.2247026)
+[https://doi.org/10.1109/JSTARS.2013.2247026](https://doi.org/10.1109/JSTARS.2013.2247026)<sup>
 
 Air bubble asymmetry parameter (Eq. 8): 
 
-Kokhanovsky, A. A. (2002). Optical properties of bubbles. Journal of Optics A: Pure and Applied Optics, 
-5(1), 47. [https://doi.org/10.1088/1464-4258/5/1/307](https://doi.org/10.1088/1464-4258/5/1/307)
+<sup>Kokhanovsky, A. A. (2002). Optical properties of bubbles. Journal of Optics A: Pure and Applied Optics, 
+5(1), 47. [https://doi.org/10.1088/1464-4258/5/1/307](https://doi.org/10.1088/1464-4258/5/1/307)<sup>
 
-Ice grain single scattering properties (same as in TARTES):
+Ice grain single scattering properties (similar as in [TARTES](https://github.com/ghislainp/tartes)):
 
-Kokhanovsky, A. A. (2021). Snow optics. Springer. 
-[https://doi.org/10.1007/978-3-031-85979-3](https://doi.org/10.1007/978-3-031-85979-3)
+<sup>Kokhanovsky, A. A. (2021). Snow optics. Springer. 
+[https://doi.org/10.1007/978-3-031-85979-3](https://doi.org/10.1007/978-3-031-85979-3)<sup>
 
-Picard, G. and Libois, Q. (2024). Simulation of snow albedo and solar irradiance profile with the Two-streAm 
-Radiative TransfEr in Snow (TARTES) v2.0 model, Geosci. Model Dev., 17, 8927–8953. [https://doi.org/10.5194/gmd-17-8927-2024](https://doi.org/10.5194/gmd-17-8927-2024)
+<sup>Kokhanovsky, A. A., & Macke, A. (1997). Integral light-scattering and absorption characteristics of large, nonspherical particles. 
+Applied optics, 36(33), 8785-8790. [https://doi.org/10.1364/AO.36.008785](https://doi.org/10.1364/AO.36.008785)<sup>
+
+<sup>Kokhanovsky, A., Brell, M., Segl, K., & Chabrillat, S. (2024). SNOWTRAN: a fast radiative transfer model for polar 
+hyperspectral remote sensing applications. Remote Sensing, 16(2), 334. 
+[https://doi.org/10.3390/rs16020334](https://doi.org/10.3390/rs16020334)<sup>
+
+<sup>Picard, G. and Libois, Q. (2024). Simulation of snow albedo and solar irradiance profile with the Two-streAm 
+Radiative TransfEr in Snow (TARTES) v2.0 model, Geosci. Model Dev., 17, 8927–8953. [https://doi.org/10.5194/gmd-17-8927-2024](https://doi.org/10.5194/gmd-17-8927-2024)<sup>
 
 ### Data
 
 Ice refractive indices:
 
-Cooper, M. G., Smith, L. C., Rennermalm, A. K., Tedesco, M., Muthyala, R., Leidman, S. Z., ... & Fayne, J. 
+<sup>Cooper, M. G., Smith, L. C., Rennermalm, A. K., Tedesco, M., Muthyala, R., Leidman, S. Z., ... & Fayne, J. 
 V. (2021). Spectral attenuation coefficients from measurements of light transmission in bare ice on the 
 Greenland Ice Sheet. The Cryosphere, 15(4), 1931-1953. 
-[https://doi.org/10.5194/tc-15-1931-2021](https://doi.org/10.5194/tc-15-1931-2021)
+[https://doi.org/10.5194/tc-15-1931-2021](https://doi.org/10.5194/tc-15-1931-2021)<sup>
 
-Picard, G., Libois, Q., & Arnaud, L. (2016). Refinement of the ice absorption spectrum in the visible using 
+<sup>Picard, G., Libois, Q., & Arnaud, L. (2016). Refinement of the ice absorption spectrum in the visible using 
 radiance profile measurements in Antarctic snow. The Cryosphere, 10(6), 2655-2672. 
-[https://doi.org/10.5194/tc-10-2655-2016](https://doi.org/10.5194/tc-10-2655-2016)
+[https://doi.org/10.5194/tc-10-2655-2016](https://doi.org/10.5194/tc-10-2655-2016)<sup>
 
-Warren, S. G., & Brandt, R. E. (2008). Optical constants of ice from the ultraviolet to the microwave: A 
+<sup>Warren, S. G., & Brandt, R. E. (2008). Optical constants of ice from the ultraviolet to the microwave: A 
 revised compilation. Journal of Geophysical Research: Atmospheres, 113(D14). 
-[https://doi.org/10.1029/2007JD009744](https://doi.org/10.1029/2007JD009744)
+[https://doi.org/10.1029/2007JD009744](https://doi.org/10.1029/2007JD009744)<sup>
 
 Spectral irradiances (SWNB2 model runs):
 
-Flanner, M. G., Arnheim, J., Cook, J. M., Dang, C., He, C., Huang, X., ... & Zender, C. S. (2021). SNICAR-AD
+<sup>Flanner, M. G., Arnheim, J., Cook, J. M., Dang, C., He, C., Huang, X., ... & Zender, C. S. (2021). SNICAR-AD
 v3: A community tool for modeling spectral snow albedo. Geoscientific Model Development, 2021, 1-49.
-[https://doi.org/10.5194/gmd-14-7673-2021](https://doi.org/10.5194/gmd-14-7673-2021)
+[https://doi.org/10.5194/gmd-14-7673-2021](https://doi.org/10.5194/gmd-14-7673-2021)<sup>
 
 Light absorbing particles: 
 
-Black carbon: Flanner, M. G., Liu, X., Zhou, C., Penner, J. E., & Jiao, C. (2012). Enhanced solar energy 
+<sup>**Black carbon**: Flanner, M. G., Liu, X., Zhou, C., Penner, J. E., & Jiao, C. (2012). Enhanced solar energy 
 absorption by internally-mixed black carbon in snow grains. Atmospheric Chemistry and Physics, 12(10), 
-4699-4721. [https://doi.org/10.5194/acp-12-4699-2012](https://doi.org/10.5194/acp-12-4699-2012)
+4699-4721. [https://doi.org/10.5194/acp-12-4699-2012](https://doi.org/10.5194/acp-12-4699-2012)<sup>
 
-Ice algae: Chevrollier, L. A., Cook, J. M., Halbach, L., Jakobsen, H., Benning, L. G., Anesio, A. M., & 
+<sup>**Ice algae**: Chevrollier, L. A., Cook, J. M., Halbach, L., Jakobsen, H., Benning, L. G., Anesio, A. M., & 
 Tranter, M. (2023). Light absorption and albedo reduction by pigmented microalgae on snow and ice. Journal 
-of Glaciology, 69(274), 333-341. [https://doi.org/10.1017/jog.2022.64](https://doi.org/10.1017/jog.2022.64)
+of Glaciology, 69(274), 333-341. [https://doi.org/10.1017/jog.2022.64](https://doi.org/10.1017/jog.2022.64)<sup>
 
-Colorado mineral dust: Skiles, S. M., Painter, T., & Okin, G. S. (2017). A method to retrieve the spectral 
+<sup>**Colorado mineral dust**: Skiles, S. M., Painter, T., & Okin, G. S. (2017). A method to retrieve the spectral 
 complex refractive index and single scattering optical properties of dust deposited in mountain snow. 
 Journal of Glaciology, 63(237), 133-147. 
-[https://doi.org/10.1017/jog.2016.126](https://doi.org/10.1017/jog.2016.126)
+[https://doi.org/10.1017/jog.2016.126](https://doi.org/10.1017/jog.2016.126)<sup>
 
-Brown carbon: Kirchstetter, T. W., Novakov, T., & Hobbs, P. V. (2004). Evidence that the spectral dependence 
+<sup>**Brown carbon**: Kirchstetter, T. W., Novakov, T., & Hobbs, P. V. (2004). Evidence that the spectral dependence 
 of light absorption by aerosols is affected by organic carbon. Journal of Geophysical Research: Atmospheres, 
-109(D21). [https://doi.org/10.1029/2004JD004999](https://doi.org/10.1029/2004JD004999)
+109(D21). [https://doi.org/10.1029/2004JD004999](https://doi.org/10.1029/2004JD004999)<sup>
 
-Snow algae: Chevrollier, L. A., Wehrlé, A., Cook, J. M., Pirk, N., Benning, L. G., Anesio, A. M., & Tranter, 
+<sup>**Snow algae**: Chevrollier, L. A., Wehrlé, A., Cook, J. M., Pirk, N., Benning, L. G., Anesio, A. M., & Tranter, 
 M. (2025). Separating the albedo-reducing effect of different light-absorbing particles on snow using deep 
 learning. The Cryosphere, 19(4), 1527-1538. 
-[https://doi.org/10.5194/tc-19-1527-2025](https://doi.org/10.5194/tc-19-1527-2025)
+[https://doi.org/10.5194/tc-19-1527-2025](https://doi.org/10.5194/tc-19-1527-2025)<sup>
 
-Volcanic ashes: Flanner, M. G., Gardner, A. S., Eckhardt, S., Stohl, A., & Perket, J. (2014). Aerosol 
+<sup>**Volcanic ashes**: Flanner, M. G., Gardner, A. S., Eckhardt, S., Stohl, A., & Perket, J. (2014). Aerosol 
 radiative forcing from the 2010 Eyjafjallajökull volcanic eruptions. Journal of Geophysical Research: 
 Atmospheres, 119(15), 9481-9491. 
-[https://doi.org/10.1002/2014JD021977](https://doi.org/10.1002/2014JD021977)
+[https://doi.org/10.1002/2014JD021977](https://doi.org/10.1002/2014JD021977)<sup>
 
-Greenland dust: Cook, J. M., Tedstone, A. J., Williamson, C., McCutcheon, J., Hodson, A. J., Dayal, A., ... 
+<sup>**Greenland dust**: Cook, J. M., Tedstone, A. J., Williamson, C., McCutcheon, J., Hodson, A. J., Dayal, A., ... 
 & Tranter, M. (2020). Glacier algae accelerate melt rates on the south-western Greenland Ice Sheet. The 
-Cryosphere, 14(1), 309-330. [https://doi.org/10.5194/tc-14-309-2020](https://doi.org/10.5194/tc-14-309-2020)
+Cryosphere, 14(1), 309-330. [https://doi.org/10.5194/tc-14-309-2020](https://doi.org/10.5194/tc-14-309-2020)<sup>
 
-Sahara dust: Balkanski, Y., Schulz, M., Claquin, T., & Guibert, S. (2007). Reevaluation of Mineral aerosol 
+<sup>**Sahara dust**: Balkanski, Y., Schulz, M., Claquin, T., & Guibert, S. (2007). Reevaluation of Mineral aerosol 
 radiative forcings suggests a better agreement with satellite and AERONET data. Atmospheric Chemistry and 
-Physics, 7(1), 81-95. [https://doi.org/10.5194/acp-7-81-2007](https://doi.org/10.5194/acp-7-81-2007)
+Physics, 7(1), 81-95. [https://doi.org/10.5194/acp-7-81-2007](https://doi.org/10.5194/acp-7-81-2007)<sup>

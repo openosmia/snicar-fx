@@ -4,7 +4,6 @@ RTM:
   WVL_END: 5000
   RESOLUTION: 10
   APRX_TYP: 2
-  DELTA: True
   SZA: 50
   IRRADIANCE_TYPE: "mls"
 
