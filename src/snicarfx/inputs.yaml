@@ -3,12 +3,11 @@ RTM:
   WVL_START: 350
   WVL_END: 2500
   RESOLUTION: 10
-  APRX_TYP: 2
-  SZA: 60
+  SZA: 50
   IRRADIANCE_TYPE: "mls" # "mlw", "mls", "saw", "sas", "smm", "hmn", "trp"
 
 ICE:
-  THICKNESS: [0.1, 0.5, 100]  # thickness of each vertical layer (unit : m)
+  THICKNESS: [1, 5, 100]  # thickness of each vertical layer (unit : m)
   LAYER_TYPE: [0, 0, 0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
   DENSITY: [650, 650, 650]  # density of each layer (unit : kg m-3)
   RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21"

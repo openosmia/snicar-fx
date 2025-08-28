@@ -461,43 +461,22 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
         aads.refl_down[:, k] = np.matmul(
             aads.s_level_refl_up[:, :, k + 1], aads.s_layer_source_down[:, k]
         )
-        
-        # if k == 0:
-        #     print("nv ", np.nanmean(aads.refl_down[:, k]))
-        #     return 
 
         aads.s_level_rad_up[:, k] = aads.s_layer_source_up[:, k] + np.matmul(
             aads.inv_gamma_t[:, :, k],
             aads.refl_down[:, k] + aads.s_level_rad_up[:, k + 1],
         )
-        
-        # if k == 0:
-        #     print("nv ", np.nanmean(aads.s_level_rad_up[:, k]))
-        #     return 
-        
-        
+
 
         aads.refl_trans[:, :, k] = np.matmul(
             aads.s_level_refl_up[:, :, k + 1], aads.s_layer_trans[:, :, k]
         )
-        
-                
-        # if k == 0:
-        #     print("nv ", np.nanmean(aads.refl_trans[:, :, k]))
-        #     return 
-        
         
 
         aads.s_level_refl_up[:, :, k] = aads.s_layer_refl[:, :, k] + np.matmul(
             aads.inv_gamma_t[:, :, k], aads.refl_trans[:, :, k]
         )
         
-                        
-        # if k == 0:
-        #     print("nv ", np.nanmean(aads.s_level_refl_up[:, :, k]))
-        #     print("nv ", np.nanmean(aads.inv_gamma_t[:, :, k]))
-
-        #     return 
 
 
     if aads.mth_azi == 0:

@@ -285,7 +285,9 @@ class _AdvancedDoublingAddingSolver:
         self.s_layer_refl = refl_t
         self.s_layer_source_up[:, :, :] = 0.0
 
+        # not accounted for for now since we don't have thermal
         # if self.mth_azi == 0:
+            
 
         #     self.thermal_c[:, k] = 0.0
         #     self.thermal_c[:, k] = trans[:, : column.model_inputs.nb_streams].sum(
@@ -430,23 +432,6 @@ class _AdvancedDoublingAddingSolver:
                         / self.cos_angle[self.n_angles - 1]
                     )
             
-            # for wl in range(column.nbr_wvl): 
-            #     if abs(v0[n2 - 1, n2 - 1,wl]) > 1e-4:
-            #         source_down[self.n_angles - 1, :,  wl] += (
-            #             (expfactor[wl] 
-            #              - trans_t[wl, self.n_angles - 1, self.n_angles - 1])
-            #             * sfac2[wl]
-            #             / v0[n2 - 1, n2 - 1, wl]
-            #         )
-            #     else:
-            #         source_down[self.n_angles - 1, :,  wl] -= (
-            #             expfactor[wl] 
-            #             * sfac2[wl] 
-            #             * self.t_od[k, wl] 
-            #             / self.cos_angle[self.n_angles - 1]
-            #         )
-
-            
 
             source_up *= s_transmittance
             source_down *= s_transmittance
@@ -516,7 +501,6 @@ def solve_advanced_adding_doubling(column, irradiance):
 
         
 
-        # np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
         n = np.arange(aads.n_angles)
         temporal_matrix[:, n, n] += 1
         
@@ -527,51 +511,41 @@ def solve_advanced_adding_doubling(column, irradiance):
             np.moveaxis(aads.s_layer_trans, 2, 1)
         ), 1, 2)
         
-    
-        refl_down = np.matmul(
-            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], -1, 0), 
-            np.moveaxis(aads.s_layer_source_down[:, k, :], -1, 0)[:, :, None]
-        )
 
-                
-        # if k == 0:
-        #     print("v ", np.nanmean(refl_down[20, :]))
-        #     return 
+        refl_down = np.matmul(
+            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
+                        source=[0, 1, 2], 
+                        destination=[1, 2, 0]), 
+            np.moveaxis(aads.s_layer_source_down[:, k, :],
+                        source=[0, 1], 
+                        destination=[1, 0])[:, :, None],
+        )
         
         aads.s_level_rad_up[:, k, :] = (
         aads.s_layer_source_up[:, k, :]
-        + np.moveaxis(np.matmul(
+        + np.moveaxis(
+            np.matmul(
             inv_gamma_t,
             refl_down + 
-        np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)[:, :, None],
-        ), 0, -1)[:,0,:]
+        np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)[:, None, :],
+        ), 
+            source=[0, 1, 2], 
+            destination=[2, 0, 1])[:,0,:]
         )
-        
-        # if k == 0:
-        #     print("v ", np.nanmean(aads.s_level_rad_up[:, k, 20]))
-        #     return 
         
         
         refl_trans = np.matmul(
-            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], -1, 0), 
+            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], 
+                        source=[0, 1, 2], 
+                        destination=[1, 2, 0]), 
             aads.s_layer_trans
         )
         
-        # if k == 0:
-        #     print("v  ", np.nanmean(refl_trans[20, :]))
-        #     return 
-
-
         aads.s_level_refl_up[:, :, k, :] = np.moveaxis(aads.s_layer_refl + np.matmul(
             inv_gamma_t, refl_trans
-        ), 0, -1)
-        
-                
-        # if k == 0:
-        #     print("v  ", np.nanmean(aads.s_level_refl_up[:, :, k, 20]))
-        #     print("v  ", np.nanmean(inv_gamma_t[20, :, :]))
+        ), source=[0, 1, 2], # wl, i, j
+        destination=[2,  0, 1],) # becomes i, j, wl
 
-        #     return 
         
 
     if aads.mth_azi == 0:
