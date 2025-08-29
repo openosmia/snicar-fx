@@ -313,6 +313,7 @@ class _AdvancedDoublingAddingSolver:
             expfactor = np.exp(-self.t_od[k] / self.cos_sun)
             s_transmittance = np.exp(-self.total_opt[k] / self.cos_sun)
 
+
             solar = np.zeros(n2)
             v0 = np.zeros((n2, n2))
 
@@ -341,6 +342,7 @@ class _AdvancedDoublingAddingSolver:
             solar1 = np.linalg.solve(v0[:n2_1, :n2_1], solar[:n2_1])
             solar1 = np.append(solar1, 0.0)
             sfac2 = solar[n2 - 1] - np.sum(v0[n2 - 1, :n2_1] * solar1[:n2_1])
+            
 
             for i in range(len(self.cos_angle)):
                 source_up[i] = solar1[i]
@@ -379,7 +381,6 @@ class _AdvancedDoublingAddingSolver:
                     / self.cos_angle[len(self.cos_angle) - 1]
                 )
                 
-            
          
             source_up *= s_transmittance
             source_down *= s_transmittance
@@ -388,6 +389,8 @@ class _AdvancedDoublingAddingSolver:
 
             self.s_layer_source_up[:, k] += source_up
             self.s_layer_source_down[:, k] += source_down
+            
+        
 
         return None
 
@@ -447,6 +450,7 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
         
         np.fill_diagonal(temporal_matrix, temporal_matrix.diagonal() + 1.0)
         
+        
 
         try:
             aads.inv_gamma_t[:, :, k] = np.linalg.solve(
@@ -461,11 +465,15 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
         aads.refl_down[:, k] = np.matmul(
             aads.s_level_refl_up[:, :, k + 1], aads.s_layer_source_down[:, k]
         )
-
+        
+        
+        
+            
         aads.s_level_rad_up[:, k] = aads.s_layer_source_up[:, k] + np.matmul(
             aads.inv_gamma_t[:, :, k],
             aads.refl_down[:, k] + aads.s_level_rad_up[:, k + 1],
         )
+
 
 
         aads.refl_trans[:, :, k] = np.matmul(
@@ -477,6 +485,8 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
             aads.inv_gamma_t[:, :, k], aads.refl_trans[:, :, k]
         )
         
+        
+        
 
 
     if aads.mth_azi == 0:
@@ -485,6 +495,7 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
                 np.sum(aads.s_level_refl_up[i, :, 0]) * aads.cosmic_background
             )
 
+    # print(aads.s_level_rad_up[:,0])
     albedo = (
         2
         * np.pi

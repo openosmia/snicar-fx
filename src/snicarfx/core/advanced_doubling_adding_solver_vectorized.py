@@ -320,6 +320,8 @@ class _AdvancedDoublingAddingSolver:
 
             expfactor = np.exp(-self.t_od[k, :] / self.cos_sun)
             s_transmittance = np.exp(-self.total_opt[k, :] / self.cos_sun)
+            
+            
 
             solar = np.zeros((n2, column.nbr_wvl))
             v0 = np.zeros((n2, n2, column.nbr_wvl))
@@ -359,12 +361,16 @@ class _AdvancedDoublingAddingSolver:
                 np.moveaxis(v0[:n2_1, :n2_1, :], -1, 0),
                 np.moveaxis(solar[:n2_1, None, :], -1, 0),
             )
+            
+            
 
             solar1 = np.moveaxis(
                 np.concatenate([solar1, np.zeros((column.nbr_wvl, 1, 1))], axis=1),
                 0,
                 -1,
             )
+            
+            
 
             sfac2 = solar[n2 - 1, :] - np.sum(
                 v0[n2 - 1, :n2_1, :] * solar1[:n2_1, 0, :], axis=0
@@ -378,7 +384,7 @@ class _AdvancedDoublingAddingSolver:
                 + trans_t
                 @ (
                     expfactor[:, None, None]
-                    * np.moveaxis(solar1[self.n_angles :, :], -1, 0)
+                    * np.moveaxis(solar1[ : self.n_angles, :], -1, 0)
                 ),
                 0,
                 -1,
@@ -395,11 +401,12 @@ class _AdvancedDoublingAddingSolver:
                         None,
                         None,
                     ]
-                    * np.moveaxis(solar1[self.n_angles :, :], -1, 0)
+                    * np.moveaxis(solar1[ : self.n_angles, :], -1, 0)
                 ),
                 0,
                 -1,
             )
+            
             
 
             # Specific treatment for downward source function
@@ -432,15 +439,15 @@ class _AdvancedDoublingAddingSolver:
                         / self.cos_angle[self.n_angles - 1]
                     )
             
-
+            # if k == 0: 
+            #     print(source_down[:, 0, 0])
             source_up *= s_transmittance
             source_down *= s_transmittance
 
             self.s_layer_source_up[:, k, :] += source_up[:,0,:]
             self.s_layer_source_down[:, k, :] += source_down[:,0,:]
     
-
-            
+                
         return None
 
 
@@ -503,8 +510,7 @@ def solve_advanced_adding_doubling(column, irradiance):
 
         n = np.arange(aads.n_angles)
         temporal_matrix[:, n, n] += 1
-        
-        
+
 
         inv_gamma_t = np.moveaxis(np.linalg.solve(
             np.moveaxis(temporal_matrix, 1, 2), 
@@ -512,6 +518,16 @@ def solve_advanced_adding_doubling(column, irradiance):
         ), 1, 2)
         
 
+        # refl_down = np.matmul(
+        #     np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
+        #                 source=[0, 1, 2], 
+        #                 destination=[1, 2, 0]), 
+        #     np.moveaxis(aads.s_layer_source_down[:, k, :],
+        #                 source=[0, 1], 
+        #                 destination=[1, 0])[:, :, None],
+        # )
+        
+        
         refl_down = np.matmul(
             np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
                         source=[0, 1, 2], 
@@ -519,15 +535,18 @@ def solve_advanced_adding_doubling(column, irradiance):
             np.moveaxis(aads.s_layer_source_down[:, k, :],
                         source=[0, 1], 
                         destination=[1, 0])[:, :, None],
-        )
+        ).reshape(column.nbr_wvl, aads.n_angles)
+        
+
+    
         
         aads.s_level_rad_up[:, k, :] = (
         aads.s_layer_source_up[:, k, :]
         + np.moveaxis(
             np.matmul(
             inv_gamma_t,
-            refl_down + 
-        np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)[:, None, :],
+            (refl_down + 
+        np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0))[:, :, None],
         ), 
             source=[0, 1, 2], 
             destination=[2, 0, 1])[:,0,:]
@@ -544,8 +563,9 @@ def solve_advanced_adding_doubling(column, irradiance):
         aads.s_level_refl_up[:, :, k, :] = np.moveaxis(aads.s_layer_refl + np.matmul(
             inv_gamma_t, refl_trans
         ), source=[0, 1, 2], # wl, i, j
-        destination=[2,  0, 1],) # becomes i, j, wl
+        destination=[2,  0, 1]) # becomes i, j, wl
 
+        
         
 
     if aads.mth_azi == 0:
@@ -553,7 +573,8 @@ def solve_advanced_adding_doubling(column, irradiance):
             aads.s_level_rad_up[i, 0, :] += (
                 np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
-        
+    
+    
 
     albedo = (
         2
