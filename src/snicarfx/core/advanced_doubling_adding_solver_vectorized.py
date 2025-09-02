@@ -1,28 +1,25 @@
 #!/usr/bin/env python3
 """
 
-Implementation of the Advanced Doubling Adding Method for Radiative
-Transfer in Planetary Atmospheres
+Advanced Matrix Operator Method to calculate the transmission and 
+reflection matrices of each layer, then Adding Method to combine them.
 
 
 Quanhua Liu and Fuzhong Weng, 2006
 https://doi.org/10.1175/JAS3808.1
+
+Quanhua Liu and Fuzhong Weng, 2013
 
 """
 
 import numpy as np
 from scipy.special import legendre
 
-## GENERAL COMMENTS:
-# maybe we can remove the solar flag? (ie always true)
-# maybe we keep emission for now even if we don't use it (ie set at 0)
-
-
 class _AdvancedDoublingAddingSolver:
 
     def __init__(self, column, irradiance):
         """
-        Initialize all variables required for the ADA solver
+        Initialize all variables required for the solver
         """
 
         self.mth_azi = 0
@@ -56,6 +53,8 @@ class _AdvancedDoublingAddingSolver:
         self.direct_reflectivity = np.zeros((self.n_angles, column.nbr_wvl))
         self.emissivity = np.zeros_like(self.direct_reflectivity)
         self.reflectivity = np.zeros((self.n_angles, self.n_angles, column.nbr_wvl))
+        
+        
         ## attributes for adding method
         self.s_level_refl_up = np.zeros(
             (self.n_angles, self.n_angles, column.nbr_lyr + 1, column.nbr_wvl)
@@ -70,7 +69,9 @@ class _AdvancedDoublingAddingSolver:
         self.s_layer_source_down = np.zeros(
             (self.n_angles, column.nbr_lyr, column.nbr_wvl)
         )
-        # self.thermal_c = np.zeros((self.n_angles, column.nbr_lyr, column.nbr_wvl))
+        # self.thermal_c = np.zeros((self.n_angles, 
+        #                            column.nbr_lyr, 
+        #                            column.nbr_wvl))
 
         ######################################################################
         # SET GAUSSIAN QUADRATURE
@@ -144,6 +145,9 @@ class _AdvancedDoublingAddingSolver:
 
             self.ff[self.ff < 0] = 0
             self.bb[self.bb < 0] = 0
+            
+            
+
 
         ######################################################################
         # CALCULATE PHASE COEFFS & PHASE MATRICES WITHOUT DELTA SCALING
@@ -199,21 +203,11 @@ class _AdvancedDoublingAddingSolver:
 
         return None
 
-    def crtm_amom_layer(self, column, k):
-        """Compute layer transmission, reflection matrices and source
-        function at the top and bottom of the layer.
-
-        Method and References The transmittance and reflectance
-        matrices is further derived from matrix operator method. The
-        matrix operator method is referred to the paper by
-
-        Weng, F., and Q. Liu, 2003: Satellite Data Assimilation in
-        Numerical Weather Prediction Model: Part 1: Forward Radiative
-        Transfer and Jacobian Modeling in Cloudy Atmospheres,
-        J. Atmos. Sci., 60, 2633-2646.
-
-        see also ADA method.  Translated by the snicar-fx team from
-        the Fortran code of Quanhua Liu Quanhua.Liu@noaa.gov
+    def amom(self, column, k):
+        """
+        Compute layer transmission, reflection matrices and source
+        function at the top and bottom of the layer using the advanced
+        matrix operator method (Liu and Weng 2013)
 
         """
 
@@ -285,27 +279,25 @@ class _AdvancedDoublingAddingSolver:
         self.s_layer_refl = refl_t
         self.s_layer_source_up[:, :, :] = 0.0
 
-        # not accounted for for now since we don't have thermal
+        # not included for now since we don't model thermal
         # if self.mth_azi == 0:
-            
-
-        #     self.thermal_c[:, k] = 0.0
-        #     self.thermal_c[:, k] = trans[:, : column.model_inputs.nb_streams].sum(
+        #     print(trans.shape)
+        #     thermal_c = trans[:, : column.model_inputs.nb_streams].sum(
         #         axis=1
         #     ) + refl[:, : column.model_inputs.nb_streams].sum(axis=1)
 
         #     if self.n_angles == (column.model_inputs.nb_streams + 1):
-        #         self.thermal_c[self.n_angles - 1, k] += trans[
+        #         thermal_c[self.n_angles - 1] += trans[
         #             self.n_angles - 1, self.n_angles - 1
         #         ]
-
-        #     self.s_layer_source_up[:, k] = (
-        #         1.0 - self.thermal_c[:, k]
+        #     print(thermal_c.shape)
+        #     self.s_layer_source_up[:, k, :] = (
+        #         1.0 - thermal_c
         #     ) * self.planck_atmosphere[k]
 
         #     self.s_layer_source_down[:, k] = self.s_layer_source_up[:, k]
 
-        # treatment of solar radiation is not in L&W2013 paper
+        # treatment of solar radiation 
         if self.solar_flag:
             n2 = 2 * self.n_angles
             n2_1 = -1
@@ -439,8 +431,6 @@ class _AdvancedDoublingAddingSolver:
                         / self.cos_angle[self.n_angles - 1]
                     )
             
-            # if k == 0: 
-            #     print(source_down[:, 0, 0])
             source_up *= s_transmittance
             source_down *= s_transmittance
 
@@ -454,15 +444,9 @@ class _AdvancedDoublingAddingSolver:
 def solve_advanced_adding_doubling(column, irradiance):
     """
 
-    This subroutine calculates IR/MW radiance at the top of the atmosphere
-    including atmospheric scattering. The scheme will include solar part.
-    The ADA algorithm computes layer reflectance and transmittance as well
-    as source function by the subroutine CRTM_Doubling_layer, then uses
-    an adding method to integrate the layer and surface components.
-
-    Translated by the snicar-fx team from the Fortran code of
-    Quanhua Liu (Quanhua.Liu@noaa.gov)
-
+    This subroutine calculates hemispherical albedo by combining all snow/ice
+    layers with the adding method
+ 
     """
 
     aads = _AdvancedDoublingAddingSolver(column, irradiance)
@@ -489,43 +473,31 @@ def solve_advanced_adding_doubling(column, irradiance):
 
     for k in range(column.nbr_lyr - 1, -1, -1):
 
-        # call  multiple-stream algorithm for computing layer
+        # call AMOM algorithm to compute layer
         # transmission, reflection, and source functions.
-        aads.crtm_amom_layer(column, k)
-        # then Adding method to add the layer to the present level
+        aads.amom(column, k)
+        
+        
+        # Adding method to add the layer to the present level
         # to compute upward radiances and reflection matrix
-        # at new level.
-        
-        
+        # at the new level.
     
-        # similar to equation B4 Briegleb and Light 2007
-        temporal_matrix = -np.matmul(
+        # infinite scattering
+        infinite_scattering = -np.matmul(
             np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
                         source=[0, 1, 2], 
                         destination=[1, 2, 0]),
             aads.s_layer_refl,
         )
 
-        
-
         n = np.arange(aads.n_angles)
-        temporal_matrix[:, n, n] += 1
+        infinite_scattering[:, n, n] += 1
 
 
         inv_gamma_t = np.moveaxis(np.linalg.solve(
-            np.moveaxis(temporal_matrix, 1, 2), 
+            np.moveaxis(infinite_scattering, 1, 2), 
             np.moveaxis(aads.s_layer_trans, 2, 1)
         ), 1, 2)
-        
-
-        # refl_down = np.matmul(
-        #     np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
-        #                 source=[0, 1, 2], 
-        #                 destination=[1, 2, 0]), 
-        #     np.moveaxis(aads.s_layer_source_down[:, k, :],
-        #                 source=[0, 1], 
-        #                 destination=[1, 0])[:, :, None],
-        # )
         
         
         refl_down = np.matmul(
@@ -566,8 +538,6 @@ def solve_advanced_adding_doubling(column, irradiance):
         destination=[2,  0, 1]) # becomes i, j, wl
 
         
-        
-
     if aads.mth_azi == 0:
         for i in range(len(aads.cos_angle)):
             aads.s_level_rad_up[i, 0, :] += (

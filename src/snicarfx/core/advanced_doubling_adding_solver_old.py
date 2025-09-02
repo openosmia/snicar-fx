@@ -155,7 +155,8 @@ class _AdvancedDoublingAddingSolver:
                                 raise ValueError("Negative phase matrix elements")
                             else:
                                 self.bb[i, j, k] = 0
-
+                                
+            
         ######################################################################
         # CALCULATE PHASE COEFFS & PHASE MATRICES WITHOUT DELTA SCALING
         ######################################################################
@@ -164,6 +165,7 @@ class _AdvancedDoublingAddingSolver:
             self.phase_coeffs = np.zeros((n_legendre + 1, column.nbr_lyr))
             # HG Legendre expansion coefficients
             for k in range(column.nbr_lyr):
+                g = g_unscaled[k]
                 for leg_moment in range(n_legendre + 1):
                     self.phase_coeffs[leg_moment, k] = (
                         0.5 * (2 * leg_moment + 1) * g**leg_moment
@@ -197,7 +199,6 @@ class _AdvancedDoublingAddingSolver:
                         if (self.bb[i, j, k] < 0) or (self.ff[i, j, k] < 0):
                             print(self.bb[i, j, k])
                             raise ValueError("Negative phase matrix elements")
-
         return None
 
     def crtm_anom_layer(self, column, k):
@@ -241,6 +242,7 @@ class _AdvancedDoublingAddingSolver:
 
             # EQUATION 6A + 7 L&W2013 (apply Kronecker delta to get alpha)
             pp[i, i] -= 1.0 / self.cos_angle[i]
+            
 
         # EQUATION 10 L&W2013 [matrix H = (alpha - beta) * (alpha + beta)]
         hh = np.matmul(pp - pm, pp + pm)
@@ -390,6 +392,8 @@ class _AdvancedDoublingAddingSolver:
             self.s_layer_source_up[:, k] += source_up
             self.s_layer_source_down[:, k] += source_down
             
+            
+        
         
 
         return None
@@ -429,7 +433,7 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
             / np.pi
             * np.exp(-aads.total_opt[-1] / aads.cos_sun)
         )
-
+        
     for k in range(column.nbr_lyr - 1, -1, -1):
 
         # call  multiple-stream algorithm for computing layer
@@ -495,7 +499,8 @@ def solve_advanced_adding_doubling(column, irradiance, wvl):
                 np.sum(aads.s_level_refl_up[i, :, 0]) * aads.cosmic_background
             )
 
-    # print(aads.s_level_rad_up[:,0])
+    print(aads.s_level_rad_up[:, 0])
+    
     albedo = (
         2
         * np.pi
