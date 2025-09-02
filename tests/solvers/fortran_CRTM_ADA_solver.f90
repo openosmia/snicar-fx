@@ -85,40 +85,41 @@ CONTAINS
 
   SUBROUTINE Initialize_CRTM_Shared()
     IMPLICIT NONE
-    INTEGER :: i, j, k
+    INTEGER :: i, j, k, idx
     REAL(fp) :: norm_ff = 0.
     REAL(fp) :: norm_bb = 0.
 
     REAL(fp) :: w_val, T_OD_val
     CHARACTER(LEN=32) :: arg
     INTEGER :: ios
-    ! ALLOCATE(w(nL));                        w = ZERO
-    ! w(1) = 0.43
-    ! w(2) = 0.43
-    ! w(3) = 0.43
-    ! ALLOCATE(T_OD(nL));                     T_OD = ZERO
-    ! T_OD(1) = 2.15377
-    ! T_OD(2) = 2.15377
-    ! T_OD(3) = 2.15377
+    ALLOCATE(w(nL));                        w = ZERO
+    w(1) = 0.43_fp
+    w(2) = 0.43_fp
+    w(3) = 0.43_fp
+    ALLOCATE(T_OD(nL));                     T_OD = ZERO
+    T_OD(1) = 2.15377_fp
+    T_OD(2) = 2.15377_fp
+    T_OD(3) = 2.15377_fp
 
-     CALL GET_COMMAND_ARGUMENT(1, arg)
-     READ(arg, *, IOSTAT=ios) w_val
-     IF (ios /= 0) THEN
-        w_val = 0.43_fp
-     END IF
+     ! CALL GET_COMMAND_ARGUMENT(1, arg)
+     ! READ(arg, *, IOSTAT=ios) w_val
+     ! IF (ios /= 0) THEN
+     !    w_val = 0.43_fp
+     ! END IF
 
-     ! Second argument: T_OD
-     CALL GET_COMMAND_ARGUMENT(2, arg)
-     READ(arg, *, IOSTAT=ios) T_OD_val
-     IF (ios /= 0) THEN
-        T_OD_val = 2.15377_fp 
-     END IF
+     ! ! Second argument: T_OD
+     ! CALL GET_COMMAND_ARGUMENT(2, arg)
+     ! READ(arg, *, IOSTAT=ios) T_OD_val
+     ! IF (ios /= 0) THEN
+     !    T_OD_val = 2.15377_fp 
+     ! END IF
 
+     ! print *, w_val
      ! -----------------------
      ! Allocate arrays and set values
      ! -----------------------
-     ALLOCATE(w(nL)); w = w_val
-     ALLOCATE(T_OD(nL)); T_OD = T_OD_val
+     ! ALLOCATE(w(nL)); w = w_val
+     ! ALLOCATE(T_OD(nL)); T_OD = T_OD_val
 
     ALLOCATE(emissivity(nA));              emissivity = ZERO
     ALLOCATE(direct_reflectivity(nA));     direct_reflectivity = ZERO
@@ -127,25 +128,25 @@ CONTAINS
     ALLOCATE(Planck_Atmosphere(0:nL));     Planck_Atmosphere = ZERO
     ALLOCATE(total_opt(0:nL));             total_opt = ZERO
     ALLOCATE(COS_Angle(nA));               COS_Angle = ZERO
-    COS_Angle(1) = 0.09501251
-    COS_Angle(2) = 0.28160355
-    COS_Angle(3) = 0.45801678
-    COS_Angle(4) = 0.61787624
-    COS_Angle(5) = 0.75540441
-    COS_Angle(6) = 0.8656312
-    COS_Angle(7) = 0.94457502
-    COS_Angle(8) = 0.98940093
+    COS_Angle(1) = 0.09501250983763745_fp
+    COS_Angle(2) = 0.2816035507792589_fp
+    COS_Angle(3) = 0.45801677765722737_fp
+    COS_Angle(4) = 0.6178762444026438_fp
+    COS_Angle(5) = 0.755404408355003_fp
+    COS_Angle(6) = 0.8656312023878318_fp
+    COS_Angle(7) = 0.9445750230732326_fp
+    COS_Angle(8) = 0.9894009349916499_fp
 
 
     ALLOCATE(COS_Weight(nA));              COS_Weight = 0
-    COS_Weight(1) = 0.18945061
-    COS_Weight(2) = 0.18260342
-    COS_Weight(3) = 0.16915652
-    COS_Weight(4) = 0.14959599
-    COS_Weight(5) = 0.12462897
-    COS_Weight(6) = 0.09515851
-    COS_Weight(7) = 0.06225352
-    COS_Weight(8) = 0.02715246
+    COS_Weight(1) = 0.18945061045506859_fp
+    COS_Weight(2) = 0.1826034150449236_fp
+    COS_Weight(3) = 0.16915651939500262_fp
+    COS_Weight(4) = 0.14959598881657676_fp
+    COS_Weight(5) = 0.12462897125553403_fp
+    COS_Weight(6) = 0.09515851168249259_fp
+    COS_Weight(7) = 0.062253523938647706_fp
+    COS_Weight(8) = 0.027152459411754037_fp
 
     ALLOCATE(temporal_matrix(nA,nA));      temporal_matrix = ZERO
     ALLOCATE(refl_down(nA,nL));            refl_down = ZERO
@@ -157,51 +158,65 @@ CONTAINS
     ALLOCATE(s_Layer_Source_UP(nA,nL));    s_Layer_Source_UP = ZERO
     ALLOCATE(s_Layer_Source_DOWN(nA,nL));  s_Layer_Source_DOWN = ZERO
 
-    ALLOCATE(Pff(nA,nA+1,nL));             Pff = ZERO
-   
-    ALLOCATE(Pbb(nA,nA+1,nL));             Pbb = ZERO
+
+    ALLOCATE(Pff(nA,nA+1,nL))
+    ALLOCATE(Pbb(nA,nA+1,nL))
+
+    ! --- Fill Pff first dimension tiles ---
+    ! Tile 1 (first row)
+    Pbb(1,1:nA+1,1) = [0.5635281782935613_fp, 0.5309813932241677_fp, 0.48983080117125544_fp, 0.4484286224100112_fp, 0.412293963050083_fp, 0.3840683320914725_fp, 0.36457762109015396_fp, 0.3538381236301168_fp, 0.44186064955688137_fp]
+
+    ! Tile 2
+    Pbb(2,1:nA+1,1) = [0.5309813932241677_fp, 0.481309465903503_fp, 0.43264256547130225_fp, 0.3901806469464983_fp, 0.3561081126993239_fp, 0.3307816419859241_fp, 0.3137841149765358_fp, 0.30455856912561213_fp, 0.3838191292293587_fp]
+
+    ! Tile 3
+    Pbb(3,1:nA+1,1) = [0.48983080117125544_fp, 0.43264256547130225_fp, 0.38316083849934796_fp, 0.34312672515536613_fp, 0.3124254131472557_fp, 0.290204144796698_fp, 0.27551421810543786_fp, 0.26760359365583486_fp, 0.337312242159366_fp]
+
+    ! Tile 4
+    Pbb(4,1:nA+1,1) = [0.4484286224100112_fp, 0.3901806469464983_fp, 0.34312672515536613_fp, 0.30660658998768037_fp, 0.27927759728339896_fp, 0.25977291841144506_fp, 0.24697796933236227_fp, 0.24011477353701674_fp, 0.30139147100146324_fp]
+
+    ! Tile 5
+    Pbb(5,1:nA+1,1) = [0.412293963050083_fp, 0.3561081126993239_fp, 0.3124254131472557_fp, 0.27927759728339896_fp, 0.2547886980021267_fp, 0.23743333721505738_fp, 0.2260900589177046_fp, 0.22001609111622647_fp, 0.2745862674235308_fp]
+
+    ! Tile 6
+    Pbb(6,1:nA+1,1) = [0.3840683320914725_fp, 0.3307816419859241_fp, 0.2902041447966979_fp, 0.25977291841144506_fp, 0.23743333721505733_fp, 0.22165241041548847_fp, 0.2113536804370969_fp, 0.20584256755309185_fp, 0.2554853969861519_fp]
+
+    ! Tile 7
+    Pbb(7,1:nA+1,1) = [0.36457762109015396_fp, 0.3137841149765358_fp, 0.27551421810543786_fp, 0.2469779693323622_fp, 0.22609005891770453_fp, 0.2113536804370969_fp, 0.2017413497593499_fp, 0.1965981308922976_fp, 0.24296581481977325_fp]
+
+    ! Tile 8
+    Pbb(8,1:nA+1,1) = [0.3538381236301168_fp, 0.3045585691256122_fp, 0.26760359365583486_fp, 0.24011477353701668_fp, 0.22001609111622647_fp, 0.20584256755309185_fp, 0.1965981308922976_fp, 0.19165164756666647_fp, 0.23625309584873333_fp]
+
+    ! --- Fill Pbb similarly ---
+    ! Tile 1
+    Pff(1,1:nA+1,1) = [0.5789529616959299_fp, 0.5732842837504045_fp, 0.5497785922723679_fp, 0.5166344266668839_fp, 0.48235349645410525_fp, 0.4528923550100303_fp, 0.43141620734792213_fp, 0.4192392699548376_fp, 0.5107302491089581_fp]
+
+    ! Tile 2
+    Pff(2,1:nA+1,1) = [0.5732842837504045_fp, 0.5991995039811251_fp, 0.6039405519491116_fp, 0.5900939370437481_fp, 0.5656986462376987_fp, 0.5395897258968659_fp, 0.5182892556811232_fp, 0.5054990290002607_fp, 0.5864627775856661_fp]
+
+    ! Tile 3
+    Pff(3,1:nA+1,1) = [0.5497785922723679_fp, 0.6039405519491116_fp, 0.6425868812961821_fp, 0.6599421389257812_fp, 0.6578859438285592_fp, 0.6443872119760935_fp, 0.6286996846981149_fp, 0.617805162855038_fp, 0.660791135638681_fp]
     
-    do k = 1, nL
-        do j = 1, nA + 1
-            do i = 1, nA
-                if (j == nA + 1) then
-                    Pff(i, j, k) = 0.5 + 1.5 * 0.33 * COS_Angle(i) * COS_SUN
-                    Pbb(i, j, k) = 0.5 - 1.5 * 0.33 * COS_Angle(i) * COS_SUN
-                else
-                    Pff(i, j, k) = 0.5 + 1.5 * 0.33 * COS_Angle(i) * COS_Angle(j)
-                    Pbb(i, j, k) = 0.5 - 1.5 * 0.33 * COS_Angle(i) * COS_Angle(j)
-                end if
+    ! Tile 4
+    Pff(4,1:nA+1,1) = [0.5166344266668839_fp, 0.5900939370437481_fp, 0.6599421389257812_fp, 0.7154420479847825_fp, 0.7494814671575751_fp, 0.7629476330377473_fp, 0.7634633781603917_fp, 0.7601419873004777_fp, 0.7227741587460175_fp]
 
-                if (Pbb(i, j, k) < 0.0) then
-                    Pbb(i, j, k) = 1.0e-7
-                end if
-            end do
-            
-        end do
-    end do
+    ! Tile 5
+    Pff(5,1:nA+1,1) = [0.48235349645410525_fp, 0.5656986462376987_fp, 0.6578859438285592_fp, 0.7494814671575751_fp, 0.8281297742441638_fp, 0.8844382368853543_fp, 0.9170607690383024_fp, 0.9315148526990503_fp, 0.7639875469019556_fp]
 
-    ! Normalize 
-    do k = 1, nL
-        do j = 1, nA
-            norm_ff = 0.0
-            norm_bb = 0.0
+    ! Tile 6
+    Pff(6,1:nA+1,1) = [0.4528923550100303_fp, 0.5395897258968659_fp, 0.6443872119760935_fp, 0.7629476330377473_fp, 0.8844382368853544_fp, 0.9930318899462598_fp, 1.0740261635239157_fp, 1.1197358577388217_fp, 0.7836286077979845_fp]
 
-            ! Compute the weighted sum (dot product with cos_weight)
-            do i = 1, nA
-                norm_ff = norm_ff + Pff(i, j, k) * COS_Weight(i)
-                norm_bb = norm_bb + Pbb(i, j, k) * COS_Weight(i)
-            end do
+    ! Tile 7
+    Pff(7,1:nA+1,1) = [0.43141620734792213_fp, 0.518289255681123_fp, 0.6286996846981149_fp, 0.7634633781603918_fp, 0.9170607690383025_fp, 1.0740261635239154_fp, 1.2093215745493846_fp, 1.2956869840520613_fp, 0.7883363531468024_fp]
 
-            ! Normalize
-            do i = 1, nA
-                Pff(i, j, k) = Pff(i, j, k) / norm_ff
-                Pbb(i, j, k) = Pbb(i, j, k) / norm_bb
-            end do
-        end do
-    end do
+    ! Tile 8
+    Pff(8,1:nA+1,1) = [0.4192392699548376_fp, 0.5054990290002607_fp, 0.617805162855038_fp, 0.7601419873004777_fp, 0.9315148526990503_fp, 1.1197358577388217_fp, 1.2956869840520613_fp, 1.4162864990259598_fp, 0.7871679016915832_fp]
 
-    ! print *, Pff(1:nA, 1:nA+1, 1)
-    
+    ! Replicate along third dimension
+    DO i = 2, nL
+       Pbb(:,:,i) = Pbb(:,:,1)
+    END DO
+
     ALLOCATE(Pplus(0:nA,nA));              Pplus = ZERO
     ALLOCATE(Pminus(0:nA,nA));             Pminus = ZERO
     ALLOCATE(Pleg(0:nA,nA+1));             Pleg = ZERO
@@ -927,7 +942,6 @@ SUBROUTINE CRTM_ADA()
            COS_SUN*Solar_irradiance/PI*exp(-total_opt(nL)/COS_SUN)
     END IF
 
-    
     ! UPWARD ADDING LOOP STARTS FROM BOTTOM LAYER TO ATMOSPHERIC TOP LAYER.
     DO 10 k = nL, 1, -1
        
@@ -954,7 +968,7 @@ SUBROUTINE CRTM_ADA()
     DO i = 1, nA 
       temporal_matrix(i,i) = ONE + temporal_matrix(i,i)
     END DO
-
+    
     Inv_Gamma(1:nA,1:nA,k) = matinv(temporal_matrix)
     IF( Error_Status /= SUCCESS  ) THEN
       WRITE( Message,'("Error in matrix inversion matinv(temporal_matrix, Error_Status) ")' ) 
@@ -1004,9 +1018,8 @@ SUBROUTINE CRTM_ADA()
          s_Level_Rad_UP(i,0)=s_Level_Rad_UP(i,0)+sum(s_Level_Refl_UP(i,1:nA,0))*cosmic_background
        ENDDO
     END IF
-
-    ! print *, "s_Level_Rad_UP(:,0)", s_Level_Rad_UP(1:nA, 0)
-    print *, "s_Level_Refl_UP(1,1,0)", s_Level_Refl_UP(1, 1, 0)
+    
+    ! print *, "s_Level_Refl_UP", s_Level_Refl_UP(:, :, 0)
 
 
     RETURN
@@ -1096,7 +1109,6 @@ SUBROUTINE CRTM_ADA()
        PP(i,i,KL) = PP(i,i,KL) - ONE/COS_Angle(i)
        
    ENDDO
-  
 
    PPM(1:nA,1:nA,KL) = PP(1:nA,1:nA,KL) - PM(1:nA,1:nA,KL)
 
@@ -1260,15 +1272,21 @@ PROGRAM main
   CALL Initialize_CRTM_Shared()
   CALL CRTM_ADA()
 
-  write(filename,'(A,G0.2,A,G0.2,A)') './test_data/ADA_f90/s_Level_Refl_UP_w', w(1), '_t', t_od(1), '.csv'
+  ! write(filename,'(A,G0.2,A,G0.2,A)') '../test_data/ADA_f90/s_Level_Rad_UP_w', w(1), '_t', t_od(1), '.csv'
   
-  open(unit=10, file=filename, status='replace')
+  ! open(unit=10, file=filename, status='replace')
 
-  do k = 0, nL
-     do i = 1, nA
-        write(10,'(100F12.5)') (s_Level_Refl_UP(i,j,k), j=1,nA)
-     end do
-  end do
+  ! do k = 0, nL
+  !  write(10,'(100F12.5)') (s_Level_Rad_UP(i,k), i=1,nA)
+  ! end do
+
+
+  
+  ! do k = 0, nL
+  !    do i = 1, nA
+  !       write(10,'(100F12.5)') (s_Level_Rad_UP(i,j,k), j=1,nA)
+  !    end do
+  ! end do
 
   close(10)
 
