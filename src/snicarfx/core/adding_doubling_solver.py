@@ -1,37 +1,7 @@
 #!/usr/bin/python
-"""Radiative transfer solver using the adding-doubling method.
-
-Here the ice/impurity optical properties and irradiance conditions
-are used to calculate energy fluxes between the ice, atmosphere and
-underlying substrate.
-
-Typically this function would be called from snicar_driver() because
-it takes as inputs intermediates that are calculated elsewhere.
-Specifically, the functions setup_snicar(), get_layer_OPs() and
-mix_in_impurities() are called to generate tau, ssa, g and L_snw,
-which are then passed as inputs to adding_doubling_solver().
-
-The adding-doubling routine implemented here originates in Brieglib
-and Light (2007) and was coded up in Matlab by Chloe Whicker and Mark
-Flanner to be published in Whicker (2022: The Cryosphere). Their
-scripts were the jumping off point for this script and their code is still
-used to benchmark this script against.
-
-The adding-doubling solver implemented here has been shown to do an excellent
-job at simulating solid glacier column. This solver can either treat ice as a
-"granular" material with a bulk medium of air with discrete ice grains, or
-as a bulk medium of ice with air inclusions. In the latter case, the upper
-boundary is a Fresnel reflecting surface. Total internal reflection is accounted
-for if the irradiance angles exceed the critical angle.
-
-This is always the appropriate solver to use in any  model configuration where
-solid ice layers and fresnel reflection are included.
-
-"""
 
 from dataclasses import dataclass
 from typing import Any
-
 import numpy as np
 
 
@@ -43,8 +13,6 @@ class Outputs:
 
     Attributes:
         heat_rt: Heating rate in each layer.
-        BBAVIS: Broadband albedo in visible range.
-        BBANIR: Broadband albedo in NIR range.
         BBA: Broadband albedo across solar spectrum.
         abs_slr_btm: Absorbed solar energy at bottom surface.
         abs_vis_btm: Absorbed visible energy at bottom surface.
@@ -58,8 +26,6 @@ class Outputs:
     """
 
     heat_rt: Any | None = None
-    BBAVIS: float | None = None
-    BBANIR: float | None = None
     BBA: float | None = None
     abs_slr_btm: float | None = None
     abs_vis_btm: float | None = None
@@ -75,11 +41,9 @@ class Outputs:
 class _AddingDoublingSolver:
 
     def __init__(self, column, irradiance):
-        """
-
-        """
 
         self.column = column
+        
         self.irradiance = irradiance
 
         # read and transpose tau
@@ -117,13 +81,7 @@ class _AddingDoublingSolver:
             temp1 + (temp2**2 + 4 * column.ref_idx_re**2 * column.ref_idx_im**2) ** 0.5
         ) ** 0.5
 
-        # . Eq. 20: Briegleb and Light 2007: adjusts beam angle
-        # (i.e. this is Snell's Law for refraction at interface between media)
-        # mu0n = -1 represents light travelling vertically upwards and mu0n = +1
-        # represents light travellign vertically downwards
-        # mu0n = np.sqrt(1-((1-mu0**2)/(ref_indx*ref_indx)))  (original,
-        # before update for diffuse Fresnel reflection)
-        # this version accounts for diffuse fresnel reflection:
+        # refraction angle (Snell's law)
         self.mu0n = np.cos(np.arcsin(np.sin(np.arccos(self.mu0)) / self.nr))
 
         # solar beam transm for layer (direct beam only)
@@ -165,30 +123,42 @@ class _AddingDoublingSolver:
         # reflectivity to direct radiation
         self.rupdir = np.zeros_like(self.trnlay)
 
+        # direct flux up
         self.fdirup = np.zeros_like(self.trnlay)
+        
+        # diffuse flux up
         self.fdifup = np.zeros_like(self.trnlay)
+        
+        # direct flux down
         self.fdirdn = np.zeros_like(self.trnlay)
+        
+        # diffuse flux up
         self.fdifdn = np.zeros_like(self.trnlay)
+        
+        # difference between up and down (direct)
         self.dfdir = np.zeros_like(self.trnlay)
+        
+        # difference between up and down (diffuse)
         self.dfdif = np.zeros_like(self.trnlay)
+        
+        # total flux up
         self.F_up = np.zeros_like(self.trnlay)
+        
+        # total flux down
         self.F_dwn = np.zeros_like(self.trnlay)
 
+        # absorbed flux
         self.F_abs = np.zeros(shape=[column.nbr_wvl, column.nbr_lyr])
-        self.F_abs_vis = np.zeros(shape=[column.nbr_lyr])
-        self.F_abs_nir = np.zeros(shape=[column.nbr_lyr])
 
-        # if there are non zeros in layer type, grab the index of the
-        # first fresnel layer and load in the precalculated diffuse fresnel
-        # reflection
-        # (precalculated as large no. of gaussian points required for convergence)
+        # find interface with Fresnel boundary (i.e. layer type > 0)
         if np.sum(np.array(column.layer_type) == 1) > 0:
             self.lyrfrsnl = column.layer_type.index(1)
 
         else:
             self.lyrfrsnl = 9999999
 
-        # gaussian angles (radians)
+        # gaussian angles (in cos(theta)) to integrate for diffuse fluxes
+        # cf. Table A. p. 66 Briegleb and Light 2007
         self.GAUSPT = [
             0.9894009,
             0.9445750,
@@ -199,7 +169,7 @@ class _AddingDoublingSolver:
             0.2816036,
             0.0950125,
         ]
-        # gaussian weights
+        # gaussian weights to integrate for diffuse fluxes
         self.GAUSWT = [
             0.0271525,
             0.0622535,
@@ -224,16 +194,11 @@ class _AddingDoublingSolver:
         layer.
         """
 
-        # calculation over layers with penetrating radiation
-        # includes optical thickness, single scattering albedo,
-        # asymmetry parameter and total flux
         tautot = self.tau0[:, lyr]
         wtot = self.ssa0[:, lyr]
         gtot = self.g0[:, lyr]
         ftot = self.g0[:, lyr] * self.g0[:, lyr]
 
-        # coefficient for delta eddington solution for all layers
-        # Eq. 50: Briegleb and Light 2007
         # layer delta-scaled extinction optical depth
         self.ts = (1 - (wtot * ftot)) * tautot
 
@@ -246,7 +211,7 @@ class _AddingDoublingSolver:
         # lambda
         lm = np.sqrt(3 * (1 - self.ws) * (1 - self.ws * self.gs))
 
-        # u equation, term in diffuse reflectivity and transmissivity
+        # u, term in diffuse reflectivity and transmissivity
         ue = 1.5 * (1 - self.ws * self.gs) / lm
 
         # extinction, MAX function lyr keeps from getting an error
@@ -255,7 +220,7 @@ class _AddingDoublingSolver:
             np.full((self.column.nbr_wvl,), self.exp_min), np.exp(-lm * self.ts)
         )
 
-        # N equation, term in diffuse reflectivity and transmissivity
+        # N, term in diffuse reflectivity and transmissivity
         ne = (ue + 1) ** 2 / extins - (ue - 1) ** 2 * extins
 
         # calculation of rdif, tdif using Delta-Eddington formulas
@@ -278,7 +243,7 @@ class _AddingDoublingSolver:
             * (1 + self.gs * (1 - self.ws))
             / (1 - lm**2 * self.mu0n**2 + self.epsilon)
         )
-        # gam = gamma(ws,mu0n,gs,lm)
+
         gam = (0.5 * self.ws) * (
             (1 + 3 * self.gs * self.mu0n**2 * (1 - self.ws))
             / (1 - lm**2 * self.mu0n**2 + self.epsilon)
@@ -303,7 +268,7 @@ class _AddingDoublingSolver:
         return None
 
     def apply_gaussian_integral(self, lyr):
-        """Applies gaussian integral to integrate over angles.
+        """Applies gaussian quadrature to integrate rdir/tdir angles.
 
         Uses gaussien integration to integrate fluxes hemispherically from
         N of reference angles where N = len(gauspt) (default is 8).
@@ -370,27 +335,21 @@ class _AddingDoublingSolver:
         self.tdif_a[:, lyr] = self.smt / self.swt
 
         # homogeneous layer (all layers are except the fresnel layer, so the
-        # combination of layers including a fresnel layer becomes unhomogeneous, hence
-        # why we need to compute rdif/tdif above and below for all layers)
+        # combination of layers including a fresnel layer becomes unhomogeneous, 
+        # hence why we need to compute rdif/tdif above and below for all layers)
         self.rdif_b[:, lyr] = self.rdif_a[:, lyr]
         self.tdif_b[:, lyr] = self.tdif_a[:, lyr]
 
         return None
 
     def calculate_correction_fresnel_layer(self, lyr):
-        """Update diffuse and direct reflectivity and transmittivity of current
-            layer by integrating effect of Fresnel boundary above, i.e. merging
+        """
+        Update diffuse + direct reflectivity and transmittivity of current
+            layer by integrating effect of Fresnel boundary, i.e. merging
             the reflectivity & transmittivity of current layer + fresnel layer.
-
-        Corrects fluxes for Fresnel reflection in cases where total
-            internal reflection does and does not occur (angle > critical_angle).
-            In the diffuse radiation, coefficients are precalculated because
-            ~256 gaussian points required for convergence.
         """
         
         # Eq. 22  Briegleb & Light 2007
-        # Inputs to equation 21 (i.e. Fresnel formulae for R and T)
-
         # reflection amplitude factor for perpendicular polarization
         r1 = (self.mu0 - self.nr * self.mu0n) / (
             self.mu0 + self.nr * self.mu0n
@@ -402,18 +361,18 @@ class _AddingDoublingSolver:
         
         # transmission amplitude factor for perpendicular polarization
         t1 = 2 * self.mu0/ (self.mu0 + self.nr * self.mu0n)
+        
         # transmission amplitude factor for parallel polarization
         t2 = 2 * self.mu0 / (self.nr * self.mu0 + self.mu0n)
 
 
-        # unpolarized light for direct beam
         # Eq. 21  Brigleb and light 2007
         rf_dir_a = 0.5 * (r1**2 + r2**2)
         tf_dir_a = (
             0.5 * (t1**2 + t2**2) * self.nr * self.mu0n / self.mu0
         )
         
-        # where TIR occurs
+        # mask where total internal reflection occurs
         ref_indx = self.column.ref_idx_re + 1j * self.column.ref_idx_im
         critical_angle = np.arcsin(ref_indx)
         mask = np.arccos(self.irradiance.cos_sza) >= critical_angle
@@ -422,18 +381,12 @@ class _AddingDoublingSolver:
         
         # Eq. 25  Briegleb and light 2007
         # diffuse reflection of flux arriving from above
-
-        # reflection from diffuse unpolarized radiation
         rf_dif_a = self.column.fl_r_dif_a
-        tf_dif_a = 1 - rf_dif_a  # transmission from diffuse unpolarized radiation
-        
+        tf_dif_a = 1 - rf_dif_a  
         # diffuse reflection of flux arriving from below
         rf_dif_b = self.column.fl_r_dif_b
         tif_dif_b = 1 - rf_dif_b
         
-        # the lyr = lyrfrsnl layer properties are updated to combine
-        # the fresnel (refractive) layer, always taken to be above
-        # the present layer lyr (i.e. be the top interface):
 
         # save fluxes of lyr before merging with frsnl layer
         rdif_a_0 = self.rdif_a[:, lyr].copy()
