@@ -90,39 +90,61 @@ CONTAINS
     REAL(fp) :: norm_ff = 0.
     REAL(fp) :: norm_bb = 0.
 
-    REAL(fp) :: w_val, T_OD_val
+    REAL(fp) :: w_val, T_OD_val, g_val, COS_SUN
     CHARACTER(LEN=32) :: arg
     INTEGER :: ios
     integer :: unit_ff, unit_bb
-    ALLOCATE(w(nL));                        w = ZERO
-    w(1) = 0.43_fp
-    w(2) = 0.43_fp
-    w(3) = 0.43_fp
-    ALLOCATE(T_OD(nL));                     T_OD = ZERO
-    T_OD(1) = 2.15377_fp
-    T_OD(2) = 2.15377_fp
-    T_OD(3) = 2.15377_fp
+    character(len=10) :: g_str
+    character(len=200) :: fname
+    
+    ! ALLOCATE(w(nL));                        w = ZERO
+    ! w(1) = 0.43_fp
+    ! w(2) = 0.43_fp
+    ! w(3) = 0.43_fp
+    ! ALLOCATE(T_OD(nL));                     T_OD = ZERO
+    ! T_OD(1) = 2.15377_fp
+    ! T_OD(2) = 2.15377_fp
+    ! T_OD(3) = 2.15377_fp
 
-     ! CALL GET_COMMAND_ARGUMENT(1, arg)
-     ! READ(arg, *, IOSTAT=ios) w_val
-     ! IF (ios /= 0) THEN
-     !    w_val = 0.43_fp
-     ! END IF
+    ! First argument is w
+    CALL GET_COMMAND_ARGUMENT(1, arg)
+    READ(arg, *, IOSTAT=ios) w_val
+    IF (ios /= 0) THEN
+       w_val = 0.43_fp
+    END IF
+    
+    ! Second argument is T_OD
+    CALL GET_COMMAND_ARGUMENT(2, arg)
+    READ(arg, *, IOSTAT=ios) T_OD_val
+    IF (ios /= 0) THEN
+       T_OD_val = 2.15377_fp 
+    END IF
 
-     ! ! Second argument: T_OD
-     ! CALL GET_COMMAND_ARGUMENT(2, arg)
-     ! READ(arg, *, IOSTAT=ios) T_OD_val
-     ! IF (ios /= 0) THEN
-     !    T_OD_val = 2.15377_fp 
-     ! END IF
+    ! Third argument is g
+    CALL GET_COMMAND_ARGUMENT(3, arg)
+    READ(arg, *, IOSTAT=ios) g_val
+    IF (ios /= 0) THEN
+       g_val = 0.32
+    END IF
+    ! g_val with two decimals to match file name
+    write(g_str,'(F4.2)') g_val
 
-     ! print *, w_val
-     ! -----------------------
-     ! Allocate arrays and set values
-     ! -----------------------
-     ! ALLOCATE(w(nL)); w = w_val
-     ! ALLOCATE(T_OD(nL)); T_OD = T_OD_val
+    ! Fourth argument is COS_SUN
+    CALL GET_COMMAND_ARGUMENT(4, arg)
+    READ(arg, *, IOSTAT=ios) COS_SUN
 
+    ! Fifth argument is Solar_irradiance
+    CALL GET_COMMAND_ARGUMENT(5, arg)
+    READ(arg, *, IOSTAT=ios) Solar_irradiance
+
+    
+    ! print *, w_val
+    ! -----------------------
+    ! Allocate arrays and set values
+    ! -----------------------
+    ALLOCATE(w(nL)); w = w_val
+    ALLOCATE(T_OD(nL)); T_OD = T_OD_val
+    
     ALLOCATE(emissivity(nA));              emissivity = ZERO
     ALLOCATE(direct_reflectivity(nA));     direct_reflectivity = ZERO
     ALLOCATE(reflectivity(nA, nA));        reflectivity = ZERO
@@ -222,13 +244,15 @@ CONTAINS
     !    Pbb(:,:,i) = Pbb(:,:,1)
     ! END DO
 
-    open(newunit=unit_ff, file="/home/adrien/research/snicar-fx/tests/test_data/for_ADA90/ff.csv", status="old", action="read")
+    fname = "/home/adrien/research/snicar-fx/tests/test_data/for_ADA90/ff_g" // trim(adjustl(g_str)) // ".csv"
+    open(newunit=unit_ff, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_ff,*,iostat=ios) (Pff2d(i,j), j=1,nA+1)
     end do
     close(unit_ff)
 
-    open(newunit=unit_bb, file="/home/adrien/research/snicar-fx/tests/test_data/for_ADA90/bb.csv", status="old", action="read")
+    fname = "/home/adrien/research/snicar-fx/tests/test_data/for_ADA90/bb_g" // trim(adjustl(g_str)) // ".csv"
+    open(newunit=unit_bb, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_bb,*,iostat=ios) (Pbb2d(i,j), j=1,nA+1)
     end do
@@ -1042,7 +1066,7 @@ SUBROUTINE CRTM_ADA()
        ENDDO
     END IF
     
-    print *, "s_Level_Refl_UP", s_Level_Refl_UP(:, :, 0)
+    ! print *, "s_Level_Refl_UP", s_Level_Refl_UP(:, :, 0)
 
 
     RETURN
