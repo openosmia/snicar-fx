@@ -1,4 +1,5 @@
 ! gfortran fortran_CRTM_ADA_solver.f90 -o run_ADA
+! ./run_ADA w T_OD g COS_SUN Solar_irradiance
 MODULE CRTM_Shared
   IMPLICIT NONE
 
@@ -137,7 +138,6 @@ CONTAINS
     CALL GET_COMMAND_ARGUMENT(5, arg)
     READ(arg, *, IOSTAT=ios) Solar_irradiance
 
-    
     ! print *, w_val
     ! -----------------------
     ! Allocate arrays and set values
@@ -244,14 +244,14 @@ CONTAINS
     !    Pbb(:,:,i) = Pbb(:,:,1)
     ! END DO
 
-    fname = "/home/adrien/research/snicar-fx/tests/test_data/for_ADA90/ff_g" // trim(adjustl(g_str)) // ".csv"
+    fname = "/home/adrien/research/snicar-fx-dev/data/test_data/ff_g" // trim(adjustl(g_str)) // ".csv"
     open(newunit=unit_ff, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_ff,*,iostat=ios) (Pff2d(i,j), j=1,nA+1)
     end do
     close(unit_ff)
 
-    fname = "/home/adrien/research/snicar-fx/tests/test_data/for_ADA90/bb_g" // trim(adjustl(g_str)) // ".csv"
+    fname = "/home/adrien/research/snicar-fx-dev/data/test_data/bb_g" // trim(adjustl(g_str)) // ".csv"
     open(newunit=unit_bb, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_bb,*,iostat=ios) (Pbb2d(i,j), j=1,nA+1)
@@ -1319,15 +1319,11 @@ PROGRAM main
   CALL Initialize_CRTM_Shared()
   CALL CRTM_ADA()
 
-  ! write(filename,'(A,G0.2,A,G0.2,A)') '../test_data/ADA_f90/s_Level_Rad_UP_w', w(1), '_t', t_od(1), '.csv'
+  write(filename,'(A,G0.2,A,G0.2,A)') '/home/adrien/research/snicar-fx-dev/data/test_data/s_Level_Rad_UP_temp.csv'
   
-  ! open(unit=10, file=filename, status='replace')
-
-  ! do k = 0, nL
-  !  write(10,'(100F12.5)') (s_Level_Rad_UP(i,k), i=1,nA)
-  ! end do
-
-
+  open(unit=10, file=filename, status='replace')
+  write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
+  close(10)
   
   ! do k = 0, nL
   !    do i = 1, nA
@@ -1335,7 +1331,6 @@ PROGRAM main
   !    end do
   ! end do
 
-  close(10)
 
   ! then in python:  
   ! nA = 8
