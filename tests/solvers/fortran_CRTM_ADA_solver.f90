@@ -138,7 +138,7 @@ CONTAINS
     CALL GET_COMMAND_ARGUMENT(5, arg)
     READ(arg, *, IOSTAT=ios) Solar_irradiance
 
-    ! print *, w_val
+   
     ! -----------------------
     ! Allocate arrays and set values
     ! -----------------------
@@ -263,6 +263,8 @@ CONTAINS
        Pff(:,:,k) = Pff2d(:,:)
        Pbb(:,:,k) = Pbb2d(:,:)
     end do
+
+    ! print *, Pff(1, :, 1)
     
     ALLOCATE(Pplus(0:nA,nA));              Pplus = ZERO
     ALLOCATE(Pminus(0:nA,nA));             Pminus = ZERO
