@@ -10,6 +10,7 @@ from itertools import product
 
 import pandas as pd
 import pytest
+import xarray as xr
 
 from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
 
@@ -136,6 +137,36 @@ def multistream_parameter_grid():
             direct_diffuse_grid,
         )
     )
+
+
+def multistream_ADA_parameter_grid(ds):
+    """
+    parameter grid to test snicar-fx against ADA Fortran data.
+    Just read the grid from the nc file of the Fortran results.
+    """
+    return list(
+        product(
+            ds.w.values,
+            ds.t_od.values,
+            ds.g.values,
+            ds.wvl_idx.values,
+        )
+    )
+
+
+@pytest.fixture(scope="module")
+def benchmark_ADA_spectral_data():
+    return xr.open_dataset("./tests/test_data/benchmark_ADA_spectral_albedo.nc")
+
+
+def pytest_generate_tests(metafunc):
+    """
+    pytest hook to parametrize tests that use idx_ada and params_ada
+    """
+    if {"idx_ada", "params_ada"} <= set(metafunc.fixturenames):
+        ds = xr.open_dataset("./tests/test_data/benchmark_ADA_spectral_albedo.nc")
+        grid = list(enumerate(multistream_ADA_parameter_grid(ds)))
+        metafunc.parametrize("idx_ada,params_ada", grid)
 
 
 @pytest.fixture(scope="module")
