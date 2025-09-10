@@ -23,6 +23,7 @@ class ModelInputs:
         self.op_path = self.dir_base + '/data/'
         self.lap_path = self.op_path + 'light_absorbing_particles/'
         self.solar_fluxes_path = self.op_path + 'solar_fluxes/'
+        self.nb_streams = 1 # upper hem only
 
 
 
