@@ -6,8 +6,6 @@ two-stream SNICAR_ADv4 Matlab code
 """
 
 import numpy as np
-import pytest
-import xarray as xr
 
 from snicarfx.core import (
     ColumnProperties,
@@ -15,14 +13,12 @@ from snicarfx.core import (
     SolarIrradiance,
     solve_advanced_adding_doubling,
 )
-from tests.conftest import multistream_ADA_parameter_grid
 
 
 def test_multistream_outputs(
-    idx_ada,
     params_ada,
     column,
-    benchmark_ADA_spectral_data,
+    benchmark_ada_spectral_data,
     absolute_tolerance_benchmark,
 ):
 
@@ -45,7 +41,7 @@ def test_multistream_outputs(
     # a given set of parameters (including a given wavelength)
     assert np.allclose(
         albedo[wvl_idx],
-        benchmark_ADA_spectral_data.sel(w=w, t_od=t_od, g=g, wvl_idx=wvl_idx)[
+        benchmark_ada_spectral_data.sel(w=w, t_od=t_od, g=g, wvl_idx=wvl_idx)[
             "albedo"
         ].values,
         atol=absolute_tolerance_benchmark,

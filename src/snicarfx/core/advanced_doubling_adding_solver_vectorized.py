@@ -15,6 +15,7 @@ Quanhua Liu and Fuzhong Weng, 2013
 import numpy as np
 from scipy.special import legendre
 
+
 class _AdvancedDoublingAddingSolver:
 
     def __init__(self, column, irradiance):

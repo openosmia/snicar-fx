@@ -113,9 +113,9 @@ def twostream_parameter_grid():
     )
 
 
-def multistream_ADA_parameter_grid(ds):
+def multistream_ada_parameter_grid(ds):
     """
-    parameter grid to test snicar-fx against ADA Fortran data.
+    parameter grid to test snicar-fx against ada Fortran data.
     Just read the grid from the nc file of the Fortran results.
     """
     return list(
@@ -129,7 +129,7 @@ def multistream_ADA_parameter_grid(ds):
 
 
 @pytest.fixture(scope="module")
-def benchmark_ADA_spectral_data():
+def benchmark_ada_spectral_data():
     return xr.open_dataset("./tests/test_data/benchmark_ADA_spectral_albedo.nc")
 
 
@@ -137,10 +137,10 @@ def pytest_generate_tests(metafunc):
     """
     pytest hook to parametrize tests that use idx_ada and params_ada
     """
-    if {"idx_ada", "params_ada"} <= set(metafunc.fixturenames):
+    if {"params_ada"} <= set(metafunc.fixturenames):
         ds = xr.open_dataset("./tests/test_data/benchmark_ADA_spectral_albedo.nc")
-        grid = list(enumerate(multistream_ADA_parameter_grid(ds)))
-        metafunc.parametrize("idx_ada,params_ada", grid)
+        grid = list(multistream_ada_parameter_grid(ds))
+        metafunc.parametrize("params_ada", grid)
 
 
 @pytest.fixture(scope="module")
