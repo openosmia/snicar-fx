@@ -113,32 +113,6 @@ def twostream_parameter_grid():
     )
 
 
-def multistream_parameter_grid():
-    """
-    parameter grid to test snicar-fx against Matlab benchmark data
-    """
-
-    layer_type_grid = [0, 1]
-    density_grid = [300, 600, 900]
-    radii_grid = [200, 600, 1000]
-    sza_grid = [30, 50, 70]
-    bc_grid = [0, 100, 1000]
-    thickness_profiles_grid = [[0.01, 0.01, 0.01], [0.01, 0.1, 1], [0.01, 10, 100]]
-    direct_diffuse_grid = [1, 0]
-
-    return list(
-        product(
-            layer_type_grid,
-            density_grid,
-            radii_grid,
-            sza_grid,
-            bc_grid,
-            thickness_profiles_grid,
-            direct_diffuse_grid,
-        )
-    )
-
-
 def multistream_ADA_parameter_grid(ds):
     """
     parameter grid to test snicar-fx against ADA Fortran data.
