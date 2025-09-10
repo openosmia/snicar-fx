@@ -17,33 +17,11 @@ ICE:
   GRAIN_SHAPE: [0,0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
 
 LIGHT_ABSORBING_PARTICLES:
-  # BC:
-  #   FILE: "bc_ChCB_rn40_dns1270.nc"
-  #   COATED: False
-  #   UNIT: 0
-  #   CONC: [100, 0]
-    
-  # BC_COATED:
-  #   FILE: "brC_Kirch_BCsd_slfcot.nc"
-  #   COATED: True
-  #   UNIT: 0
-  #   CONC: [0, 0]
-    
-  # DUST:
-  #   FILE: "brC_Kirch_BCsd_slfcot.nc"
-  #   COATED: True
-  #   UNIT: 0
-  #   CONC: [0, 0]
-  
-  # SA:
-  #   FILE: "snow_algae_empirical_Chevrollier2023.nc"
-  #   COATED: False
-  #   UNIT: 1
-  #   CONC: [100, 0]  
+   BC:
+     FILE: "bc_ChCB_rn40_dns1270.nc"
+     COATED: False
+     UNIT: 0
+     CONC: [0, 0]
+     
 
-  # GA:
-  #   FILE: "ice_algae_empirical_Chevrollier2023.nc"
-  #   COATED: False
-  #   UNIT: 1
-  #   CONC: [0, 0]
 
