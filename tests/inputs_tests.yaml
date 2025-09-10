@@ -3,6 +3,7 @@ RTM:
   WVL_START: 205
   WVL_END: 5000
   RESOLUTION: 10
+  APRX_TYP: 2
   SZA: 50
   IRRADIANCE_TYPE: "mls"
 
@@ -11,7 +12,7 @@ ICE:
   LAYER_TYPE: [0, 0, 0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
   DENSITY: [650, 650, 650]  # density of each layer (unit : kg m-3)
   RF_TYPE: "Pic16" # "Wrn08", "Pic16", "Coop21"
-  SPECIFIC_SURFACE_AREA: [1, 1, 1] # m2 kg-1. for ice, should be below ??
+  SPECIFIC_SURFACE_AREA: [1, 1, 1] # m2 kg-1. for ice, should be below 3.5
   LWC: [0, 0, 0] # LWC content in snow/ice 
   SFC: 0.25 # reflectance of lower boundary  
   GRAIN_SHAPE: [0, 0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
@@ -21,4 +22,6 @@ LIGHT_ABSORBING_PARTICLES:
     FILE: "bc_ChCB_rn40_dns1270.nc"
     COATED: False
     UNIT: 0
-    CONC: [0,0,0]
+    CONC: [0, 0, 0]
+
+
