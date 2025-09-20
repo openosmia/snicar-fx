@@ -44,6 +44,6 @@ auto-save-list
 tramp
 .\#*
 
-./data/light_absorbing_particles/mineral_dust_1nm_resolution.nc
-./data/light_absorbing_particles/ice_algae_1nm_resolution.nc
-./data/light_absorbing_particles/dark_cryoconite_1nm_resolution.nc
+data/light_absorbing_particles/mineral_dust_1nm_resolution.nc
+data/light_absorbing_particles/ice_algae_1nm_resolution.nc
+data/light_absorbing_particles/dark_cryoconite_1nm_resolution.nc
