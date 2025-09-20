@@ -9,7 +9,7 @@
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, confloat, conint, conlist
+from pydantic import BaseModel, Field, confloat, conint, conlist, model_validator
 
 
 class Rtm(BaseModel):
@@ -86,14 +86,48 @@ class LightAbsorbingParticles(BaseModel):
 
 
 class Config(BaseModel):
-
-    # Top level structure of the input file
     RTM: Rtm
     ICE: Ice
     LIGHT_ABSORBING_PARTICLES: LightAbsorbingParticles
 
-    # only fields validated here are allowed
     model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def check_lengths(self):
+        """
+        Check that all ICE and LIGHT_ABSORBING_PARTICLES
+        layer-related lists have the same length
+
+        """
+
+        ice_lists = [
+            self.ICE.THICKNESS,
+            self.ICE.LAYER_TYPE,
+            self.ICE.DENSITY,
+            self.ICE.SPECIFIC_SURFACE_AREA,
+            self.ICE.LWC,
+            self.ICE.GRAIN_SHAPE,
+        ]
+        lengths = {len(lst) for lst in ice_lists}
+
+        if len(lengths) > 1:
+            raise ValueError(
+                f"All ICE layer-related lists must have the same length, got lengths: "
+                f"{[len(lst) for lst in ice_lists]}"
+            )
+
+        ice_layers = len(self.ICE.THICKNESS)
+
+        # Check that all particle CONC lists match ICE layers
+        for particle_name in ["BC", "ALG"]:
+            particle = getattr(self.LIGHT_ABSORBING_PARTICLES, particle_name)
+            if particle is not None and len(particle.CONC) != ice_layers:
+                raise ValueError(
+                    f"Particle {particle_name} CONC list length ({len(particle.CONC)}) "
+                    f"does not match number of ice layers ({ice_layers})"
+                )
+
+        return self
 
 
 # read input data
