@@ -15,6 +15,17 @@ import xarray as xr
 from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
+CORE_INPUT_FILE = "./src/snicarfx/inputs.yaml"
+
+
+@pytest.fixture(scope="module")
+def test_input_file():
+    return TEST_INPUT_FILE
+
+
+@pytest.fixture(scope="module")
+def core_input_file():
+    return CORE_INPUT_FILE
 
 
 @pytest.fixture(scope="module")

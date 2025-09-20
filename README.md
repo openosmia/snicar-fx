@@ -2,6 +2,7 @@
  [![Continuous integration](https://github.com/openosmia/snicar-fx/workflows/CI/badge.svg)](https://github.com/openosmia/snicar-fx/actions)
  [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://pre-commit.com/)
  [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Validated with Pydantic](https://img.shields.io/badge/Validated%20with-Pydantic-4FC08D?style=flat&logo=pydantic)](https://docs.pydantic.dev/)
 
 # SNICAR-fx: A flexible and light-weight version of the SNICAR model
 

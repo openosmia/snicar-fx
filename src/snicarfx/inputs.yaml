@@ -21,7 +21,7 @@ LIGHT_ABSORBING_PARTICLES:
      FILE: "bc_ChCB_rn40_dns1270.nc"
      COATED: False
      UNIT: 0
-     CONC: [0, 0]
+     CONC: [0, 0, 0]
      
 
 
