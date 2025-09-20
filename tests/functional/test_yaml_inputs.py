@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 
 @author: snicar-fx team
@@ -7,7 +6,7 @@
 """
 
 import yaml
-import pytest
+
 from snicarfx.core.config_validator import Config
 
 
@@ -21,4 +20,4 @@ def test_test_yaml_input_file(test_input_file):
         inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
     # validate configuration
-    config = Config.model_validate(inputs)
+    Config.model_validate(inputs)
