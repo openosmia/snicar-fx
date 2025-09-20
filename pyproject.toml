@@ -15,6 +15,7 @@ netCDF4 = "^1.7"
 scipy = "^1.11"
 xarray = "^2024.0.0"
 pyyaml = "^6.0"
+pydantic = ">=2.10"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.4"
