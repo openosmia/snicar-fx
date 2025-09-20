@@ -134,4 +134,5 @@ class Config(BaseModel):
 with open("/home/adrien/research/snicar-fx/src/snicarfx/inputs.yaml") as ymlfile:
     input_data = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
+# validate input file
 config = Config.model_validate(input_data)

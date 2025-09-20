@@ -18,6 +18,11 @@ TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
 
 
 @pytest.fixture(scope="module")
+def test_input_file():
+    return TEST_INPUT_FILE
+
+
+@pytest.fixture(scope="module")
 def model_inputs():
     """Provides a shared instance of ModelInputs."""
     return ModelInputs(TEST_INPUT_FILE)
