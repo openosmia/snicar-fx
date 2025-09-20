@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 
 @author: snicar-fx team
 
 """
 
-import pathlib
 
-from pydantic import BaseModel, PositiveInt, Field, conlist, conint, confloat
-from typing import Literal, Optional
+from typing import Literal
+
 import yaml
+from pydantic import BaseModel, Field, confloat, conint, conlist
 
 
-class RTM(BaseModel):
+class Rtm(BaseModel):
 
     # radiation (0 is direct 1 is diffuse)
     DIRECT: Literal[0, 1]
@@ -37,7 +36,7 @@ class RTM(BaseModel):
     model_config = {"extra": "forbid"}
 
 
-class ICE(BaseModel):
+class Ice(BaseModel):
 
     # thickness of each vertical layer (unit : m)
     THICKNESS: conlist(conint(ge=1, le=100), min_length=1, max_length=5)
@@ -77,10 +76,10 @@ class Particle(BaseModel):
     model_config = {"extra": "forbid"}
 
 
-class LIGHT_ABSORBING_PARTICLES(BaseModel):
+class LightAbsorbingParticles(BaseModel):
     # Optional: Black carbon and algae
-    BC: Optional[Particle] = None
-    ALG: Optional[Particle] = None
+    BC: Particle | None = None
+    ALG: Particle | None = None
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
@@ -89,9 +88,9 @@ class LIGHT_ABSORBING_PARTICLES(BaseModel):
 class Config(BaseModel):
 
     # Top level structure of the input file
-    RTM: RTM
-    ICE: ICE
-    LIGHT_ABSORBING_PARTICLES: LIGHT_ABSORBING_PARTICLES
+    RTM: Rtm
+    ICE: Ice
+    LIGHT_ABSORBING_PARTICLES: LightAbsorbingParticles
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
