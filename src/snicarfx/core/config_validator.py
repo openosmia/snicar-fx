@@ -137,11 +137,3 @@ class Config(BaseModel):
         with open(yaml_file) as f:
             input_data = yaml.load(f, Loader=yaml.FullLoader)
         return cls.model_validate(input_data)
-
-
-# # read input data
-# with open("/home/adrien/research/snicar-fx/src/snicarfx/inputs.yaml") as ymlfile:
-#     input_data = yaml.load(ymlfile, Loader=yaml.FullLoader)
-
-# # validate input file
-# config = Config.model_validate(input_data)
