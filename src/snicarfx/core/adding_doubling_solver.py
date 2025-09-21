@@ -9,53 +9,107 @@ import numpy as np
 @dataclass
 class Outputs:
     """
+    Stores output data from radiative transfer calculations.
 
-    Output data from radiative transfer calculations.
+    This class holds computed radiative properties of the snow or ice column,
+    such as albedo, broadband heating rates, and energy absorption. 
 
-    Attributes:
-        heat_rt: Heating rate in each layer.
-        BBA: Broadband albedo across solar spectrum.
-        abs_slr_btm: Absorbed solar energy at bottom surface.
-        abs_vis_btm: Absorbed visible energy at bottom surface.
-        abs_nir_btm: Absorbed NIR energy at bottom surface.
-        albedo: Albedo of ice column.
-        total_insolation: Energy arriving from atmosphere.
-        abs_slr_tot: Total absorbed energy across solar spectrum.
-        abs_vis_tot: Total absorbed energy across visible spectrum.
-        abs_nir_tot: Total absorbed energy across NIR spectrum.
-        absorbed_flux_per_layer: Total absorbed flux per layer.
+    Attributes
+    ----------
+    albedo : array
+        Spectrally resolved surface albedo [unitless].
+    BBA : float
+        Broadband albedo (spectrally-integrated albedo) [unitless].
+    absorbed_flux_per_layer : array
+        Layer-wise spectrally-resolved absorbed solar flux [W/m² per layer].
+    abs_slr_btm : array
+        Spectrally-resolved absorbed solar energy at the bottom layer [W/m²].
+    abs_slr_tot : array
+        Spectrally-integrated absorbed solar energy across the column [W/m²].
+    heat_rt : array
+        Heating rate in each layer [K/s per layer].
+    total_insolation : array
+        Spectrally-integrated incoming solar energy at the top layer [W/m²].
+    
     """
 
-    heat_rt: Any | None = None
-    BBA: float | None = None
-    abs_slr_btm: float | None = None
-    abs_vis_btm: float | None = None
-    abs_nir_btm: float | None = None
     albedo: float | None = None
-    total_insolation: float | None = None
-    abs_slr_tot: float | None = None
-    abs_vis_tot: float | None = None
-    abs_nir_tot: float | None = None
+    BBA: float | None = None
     absorbed_flux_per_layer: Any | None = None
-
+    abs_slr_btm: float | None = None
+    abs_slr_tot: float | None = None
+    heat_rt: Any | None = None
+    total_insolation: float | None = None
 
 class _AddingDoublingSolver:
+    """
+    Load and initialize model parameters required for the radiative transfer
+    solver from a YAML input file.
+
+    Attributes
+    ----------
+    column : ColumnProperties
+        An instance of the ColumnProperties class.
+    irradiance : SolarIrradiance
+        An instance of the SolarIrradiance class.
+    epsilon : float
+        Small number to prevent numerical singularities.
+    exp_min : float
+        Minimum exponent value to prevent underflow.
+    mu0 : array
+        Cosine of solar zenith angle.
+    nr : array
+        Modified refractive index adjusted for the imaginary component.
+    mu0n : ndarray
+        Cosine of the refraction angle after applying Snell's law.
+    lyrfrsnl : int
+        Index of first layer with refractive boundary (layer_type == 1).
+    rdif_a, rdif_b, tdif_a, tdif_b : array
+        Layer reflectivities and transmittivities to diffuse radiation.
+    rdir, tdir : ndarray
+        Layer reflectivity and transmittivity to direct radiation.
+    trnlay: array
+        Attenuation of direct solar beam (exponential term).
+    rupdif, rupdir : array
+        Upward reflection of diffuse and direct radiation.
+    trntdr, trndif, trndir : array
+        Spectral transmission (total, diffuse, direct).
+    fdirup, fdirdn : ndarray
+        Upward/downward direct solar fluxes.
+    fdifup, fdifdn : ndarray
+        Upward/downward diffuse fluxes.
+    dfdir, dfdif : ndarray
+        Differences between up/down for direct and diffuse fluxes.
+    F_up, F_dwn, F_abs : ndarray
+        Total upward, downward, and absorbed fluxes.
+    GAUSPT : list of float
+        Gaussian quadrature points (cosine of angle).
+    GAUSWT : list of float
+        Corresponding Gaussian quadrature weights.
+    """
 
     def __init__(self, column, irradiance):
+        
+        """
+        Initialize the Adding-Doubling radiative transfer solver.
+        
+        Sets up the internal state and pre-allocates arrays based on the 
+        provided snow/ice column and incoming solar irradiance parameters.
+        
+        Parameters
+        ----------
+        column : ColumnProperties
+            An instance of the ColumnProperties class containing the
+            properties of the snow/ice column.
+        irradiance : SolarIrradiance
+            An instance of the SolarIrradiance class providing the incoming 
+            solar flux and the cosine of the solar zenith angle.
+        """
 
         self.column = column
         
         self.irradiance = irradiance
-
-        # read and transpose tau
-        self.tau0 = column.tau.T
-
-        # read and transpose g
-        self.g0 = column.asm_prm.T
-
-        # read and transpose ssa
-        self.ssa0 = column.ss_alb.T
-
+        
         # to deal with singularity
         self.epsilon = 1e-5
 
@@ -85,7 +139,7 @@ class _AddingDoublingSolver:
         # refraction angle (Snell's law)
         self.mu0n = np.cos(np.arcsin(np.sin(np.arccos(self.mu0)) / self.nr))
 
-        # solar beam transm for layer (direct beam only)
+        # solar beam transmission for layer (direct beam only)
         self.trnlay = np.zeros(shape=[column.nbr_wvl, column.nbr_lyr + 1])
 
         # layer reflectivity to diffuse radiation from above
@@ -185,20 +239,23 @@ class _AddingDoublingSolver:
         return None
 
     def calculate_reflectivity_transmittivity_delta_eddington(self, lyr):
-        """Calculates multiple scattering within a given layer to yield
-        reflectivity and transmissivity of the layer to
-        direct and diffuse radiation, using the Delta-Eddington solution.
-        Eq. A24, A26, A30, A31 Briegleb and Light 2007
-
-        Sets up new variables, applies delta transformation and makes
-        initial calculations of direct reflectivity and transmissivity in each
-        layer.
         """
+        Compute multiple scattering in each layer via the Delta Eddington 
+        approximation to yield reflectivity and transmissivity of the layer to
+        direct and diffuse radiation. Use equations A24, A26, A30, A31 from 
+        Briegleb and Light 2007.
+        
+        Parameters
+        ----------
+        lyr : int
+            Index of the layer for which the optical properties are calculated.
 
-        tautot = self.tau0[:, lyr]
-        wtot = self.ssa0[:, lyr]
-        gtot = self.g0[:, lyr]
-        ftot = self.g0[:, lyr] * self.g0[:, lyr]
+        """
+        
+        tautot = self.column.tau.T[:, lyr]
+        wtot = self.column.ss_alb.T[:, lyr]
+        gtot = self.column.asm_prm.T[:, lyr]
+        ftot = self.column.asm_prm.T[:, lyr] * self.column.asm_prm.T[:, lyr]
 
         # layer delta-scaled extinction optical depth
         self.ts = (1 - (wtot * ftot)) * tautot
@@ -269,10 +326,17 @@ class _AddingDoublingSolver:
         return None
 
     def apply_gaussian_integral(self, lyr):
-        """Applies gaussian quadrature to integrate rdir/tdir angles.
-
-        Uses gaussien integration to integrate fluxes hemispherically from
-        N of reference angles where N = len(gauspt) (default is 8).
+        """
+        Integrate reflectivity and transmissivity to direct radiation using  
+        Gaussian quadrature to get diffuse reflectivity and transmittivity.
+        
+        This method performs angular integration with a fixed number 
+        of discrete zenith angles and corresponding weights (default N=8). 
+        
+        Parameters
+        ----------
+        lyr : int
+            Index of the layer for which the integration is applied.
         """
 
         self.swt = 0
@@ -329,8 +393,13 @@ class _AddingDoublingSolver:
 
     def calculate_diff_transmittivity_reflectivity(self, lyr):
         """
-        Calculate transmissivity and reflectivity to DIFFUSE radiation
+        Calculate transmissivity and reflectivity to diffuse radiation
         after gaussian integration, eq. A33 Briegleb and Light 2007.
+        
+        Parameters
+        ----------
+        lyr : int
+            Index of the layer for which the integration is applied.
         """
         self.rdif_a[:, lyr] = self.smr / self.swt
         self.tdif_a[:, lyr] = self.smt / self.swt
@@ -348,6 +417,11 @@ class _AddingDoublingSolver:
         Update diffuse + direct reflectivity and transmittivity of current
             layer by integrating effect of Fresnel boundary, i.e. merging
             the reflectivity & transmittivity of current layer + fresnel layer.
+            
+        Parameters
+        ----------
+        lyr : int
+            Index of the layer for which the integration is applied.
         """
         
         # Eq. 22  Briegleb & Light 2007
@@ -434,11 +508,17 @@ class _AddingDoublingSolver:
         return None
 
     def combine_layers_downward(self, lyr):
-        """Calculate energy going downward in the ice column:
+        """
+        Calculate energy going downward in the ice column:
         solar beam transmission, total transmission, diffuse transmission,
         and reflectivity to diffuse radiation arriving from below.
         The loop starts at the upper layer, working downwards.
         Equations are B2 & B5 from Briegleb & Light 2007.
+        
+        Parameters
+        ----------
+        lyr : int
+            Index of the layer for which the integration is applied.
         """
 
         # term below represents 1 / multiple scattering between layers
@@ -478,11 +558,17 @@ class _AddingDoublingSolver:
         return None
 
     def combine_layers_upward(self, lyr):
-        """Combine energy going upward in the ice column:
+        """
+        Combine energy going upward in the ice column:
         Compute reflectivity to direct (rupdir) and diffuse (rupdif) radiation
         arriving from above, for layers below current layer.
         The loop starts from the second to last interface, working upwards.
         Equations are B2-B4 from Briegleb & Light 2007.
+        
+        Parameters
+        ----------
+        lyr : int
+            Index of the layer for which the integration is applied.
         """
 
         # starts at the bottom and works its way up to the top layer
@@ -514,6 +600,11 @@ class _AddingDoublingSolver:
         """
         Calculates up and down fluxes at layer interfaces.
         Equation B6 from Briegleb & Light 2007.
+        
+        Parameters
+        ----------
+        lyr : int
+            Index of the layer for which the integration is applied.
         """
 
         puny = 1e-10  # not sure how should we define this
@@ -572,9 +663,7 @@ class _AddingDoublingSolver:
         return None
 
     def calculate_bulk_fluxes(self):
-        """
-        Calculates total fluxes in each layer and for entire column.
-        """
+        """Calculate total fluxes in each layer and for entire column."""
 
         for n in np.arange(0, self.column.nbr_lyr + 1, 1):
             self.F_up[:, n] = (
@@ -606,9 +695,18 @@ class _AddingDoublingSolver:
 
     def conservation_of_energy_check(self):
         """
-        Checks there is no conservation of energy violation.
-        Raises:
-            ValueError is conservation of energy error is detected
+        Perform conservation of energy validation.
+
+        This method verifies that the total incident solar energy (direct + diffuse)
+        is equal to the sum of absorbed, transmitted, and reflected energy across 
+        the entire snow/ice column. If an imbalance is detected beyond a small 
+        tolerance (1e-10), an error is raised.
+    
+        Raises
+        ------
+        ValueError
+            If the energy balance check fails (i.e., energy conservation is violated).
+    
 
         """
         # Incident direct+diffuse radiation equals (absorbed+transmitted+bulk_reflected)
@@ -629,10 +727,12 @@ class _AddingDoublingSolver:
 
     def get_outputs(self):
         """
-        Assimilates useful data into instance of Outputs class.
-
-        Returns:
-            outputs: instance of Outputs class
+        Compile and return radiative transfer results into an Outputs object.
+       
+        Returns
+        -------
+        Outputs
+            An instance of the `Outputs` class.
 
         """
 
@@ -640,6 +740,7 @@ class _AddingDoublingSolver:
 
         # Radiative heating rate:
         f_abs_slr = np.sum(self.F_abs, axis=0)
+        
         # [K/s] 2117 = specific heat column (J kg-1 K-1)
         heat_rt = f_abs_slr / (np.array(self.column.layer_mass) * 2117)
         outputs.heat_rt = heat_rt * 3600  # [K/hr]
@@ -652,7 +753,7 @@ class _AddingDoublingSolver:
             self.irradiance.flx_slr
         )
 
-        # Total incident insolation( Wm - 2)
+        # Total incident insolation (Wm - 2)
         outputs.total_insolation = np.sum(
             (self.irradiance.cos_sza * np.pi * self.irradiance.fs) + self.irradiance.fd
         )
@@ -670,20 +771,35 @@ class _AddingDoublingSolver:
 
 
 def solve_adding_doubling(column, irradiance):
-    """control function for the adding-doubling solver.
+    """
+    Solve radiative transfer through a layered snow/ice column using the 
+    two-stream Delta-Eddington adding doubling solver from Briegleb and Light 
+    2007, with updates from Whicker et al. 2022.
 
+    Computes upward and downward fluxes in a layered snow or ice column based 
+    on the column optical properties and incoming solar irradiance.
     Makes function calls in sequence to generate, then return, an instance of
-    Outputs class.
+    Outputs class storing the results generated by the solver.
+    
+    
+    Parameters
+    ----------
+    column : ColumnProperties
+        An instance of the `ColumnProperties` class containing the optical and 
+        physical properties of the snow/ice column.
+        
+    irradiance : SolarIrradiance
+        An instance of the `SolarIrradiance` class providing spectral solar fluxes 
+        (direct and diffuse) and the cosine of the solar zenith angle.
 
-    Args:
-        column: instance of ColumnProperties class
-        irradiance: instance of SolarIrradiance class
 
-    Returns:
-        outputs: Instance of Outputs class
+    Returns
+    -------
+        outputs: Instance of Outputs class.
 
-    Raises:
-        ValueError if violation of conservation of energy detected
+    Raises
+    ------
+        ValueError if violation of conservation of energy detected.
 
     """
 

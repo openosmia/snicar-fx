@@ -27,7 +27,7 @@ class ColumnProperties:
     grain_shape : list
         Identifier for grain shape model for each layer.
     lwc : list
-        Liquid water content fraction for each layer [0–1].
+        Liquid water content fraction for each layer [0-1].
     ssa : list
         Specific surface area of snow or ice in each layer [m2/kg].
     sfc : float
@@ -139,7 +139,7 @@ class ColumnProperties:
     
         This method sets the properties of each LAP defined in the input 
         configuration, converting their concentrations to consistent units, 
-        and interpolating their properties to the model’s spectral grid.
+        and interpolating their properties to the model's spectral grid.
         """
 
         # set spectral resolution
