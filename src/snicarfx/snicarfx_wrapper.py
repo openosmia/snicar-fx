@@ -5,16 +5,33 @@ from snicarfx.core.adding_doubling_solver import solve_adding_doubling
 from snicarfx.core.config_validator import Config
 
 
-def run(input_file):
-    """Calculate column optical properties to feed the RT solver.
-
-    Args:
-        None
-
-    Returns:
-        column: instance of ColumnProperties class
-        irradiance: instance of SolarIrradiance class
-
+def run_two_stream(input_file):
+    """
+    Run the SNICAR-fx using inputs from the YAML configuration file using the 
+    two-stream solver.
+    
+    This function performs the following steps:
+    
+    - Validates the YAML input file.
+    - Initializes model inputs.
+    - Computes optical properties of the snow/ice column.
+    - Computes solar irradiance at the surface.
+    - Solves the radiative transfer equations using the two-stream solver.
+    
+    Parameters
+    ----------
+    input_file : str 
+        Path to the YAML input configuration file.
+    
+    Returns
+    -------
+    outputs : object
+        outputs of the radiative transfer solver. 
+    
+    Raises
+    ------
+    ValueError
+        If the input file is invalid or fails schema validation.
     """
 
     # make sure the input file is valid

@@ -18,6 +18,8 @@ class Outputs:
     ----------
     albedo : array
         Spectrally resolved surface albedo [unitless].
+    wavelengths : array
+        Wavelength grid [m].
     BBA : float
         Broadband albedo (spectrally-integrated albedo) [unitless].
     absorbed_flux_per_layer : array
@@ -34,6 +36,7 @@ class Outputs:
     """
 
     albedo: float | None = None
+    wavelengths: float | None = None
     BBA: float | None = None
     absorbed_flux_per_layer: Any | None = None
     abs_slr_btm: float | None = None
@@ -766,6 +769,9 @@ class _AddingDoublingSolver:
 
         # Spectrally-integrated absorption by each layer
         outputs.absorbed_flux_per_layer = f_abs_slr
+        
+        # Wavelength grid
+        outputs.wavelengths = self.column.wavelengths
 
         return outputs
 
