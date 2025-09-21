@@ -3,21 +3,70 @@ import xarray as xr
 
 
 class ColumnProperties:
-    """Snow or ice column physical & optical properties, including light
-    absorbing particles.
+    """
+    Physical and optical properties of a snow or ice column.
+
+    This class computes and stores the properties of a snow/ice column for each
+    layer based on the YAML input file. 
+
+    Attributes
+    ----------
+    model_inputs : ModelInputs
+        An instance of the ModelInputs class containing model input data parsed
+        from the YAML configuration file.
+    layer_type : list 
+        Type of layer (0 for snow grains in air, 1 for air bubbles in ice).
+    nbr_lyr : int
+        Number of layers in the column.
+    thickness_profile : list 
+        Thicknesses [m] of each layer of the snow or ice column.
+    density : list 
+        Density of snow/ice for each layer [kg/m3].
+    rf_type : str
+        Source of refractive index data.
+    grain_shape : list
+        Identifier for grain shape model for each layer.
+    lwc : list
+        Liquid water content fraction for each layer [0–1].
+    ssa : list
+        Specific surface area of snow or ice in each layer [m2/kg].
+    sfc : float
+        Reflectance of underlying surface (wavelength independent).
+    wavelengths : list
+        Spectral grid used for all optical property calculations [m].
+    nbr_wvl : int
+        Number of wavelengths in the spectral grid.
+    lap_ss_alb : ndarray
+        Wavelength-dependent single scattering albedo of each LAP [unitless].
+    lap_asm_prm : ndarray
+        Wavelength-dependent asymmetry parameter of each LAP [unitless].
+    lap_ext_cff : ndarray
+        Wavelength-dependent mass extinction coefficient of each LAP [m2/kg].
+    lap_concentrations : ndarray
+        Mass concentrations of LAPs per layer [kg/kg].
+    ext_cff : ndarray
+        Wavelength-dependent mass extinction coefficient of each layer [m2/kg].
+    ss_alb : ndarray
+        Wavelength-dependent single scattering albedo of each layer [unitless].
+    asm_prm : ndarray
+        Wavelength-dependent asymmetry parameter of each layer [unitless].
+    tau : ndarray
+        Wavelength-dependent optical thickness of each layer [unitless].
+    layer_mass : ndarray
+        Mass per unit area of each layer [kg/m2].
 
     """
 
     def __init__(self, model_inputs):
         self.model_inputs = model_inputs
-        self.thickness_profile = np.array(model_inputs.inputs["ICE"]["THICKNESS"])
         self.layer_type = model_inputs.inputs["ICE"]["LAYER_TYPE"]
-        self.density = np.array(model_inputs.inputs["ICE"]["DENSITY"])
+        self.nbr_lyr = len(self.layer_type)
+        self.thickness_profile = model_inputs.inputs["ICE"]["THICKNESS"]
+        self.density = model_inputs.inputs["ICE"]["DENSITY"]
         self.rf_type = model_inputs.inputs["ICE"]["RF_TYPE"]
         self.grain_shape = model_inputs.inputs["ICE"]["GRAIN_SHAPE"]
-        self.lwc = np.array(model_inputs.inputs["ICE"]["LWC"])
-        self.ssa = np.array(model_inputs.inputs["ICE"]["SPECIFIC_SURFACE_AREA"])
-        self.nbr_lyr = len(self.density)
+        self.lwc = model_inputs.inputs["ICE"]["LWC"]
+        self.ssa = model_inputs.inputs["ICE"]["SPECIFIC_SURFACE_AREA"]
 
         self.wavelengths = (
             np.arange(
@@ -46,12 +95,12 @@ class ColumnProperties:
             self.update_column_ops_with_laps()
 
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
-        """Calculates ice refractive index and pre-calculated diffuse
-        fresnel coefficients at user-defined resolution.
-
-        Args:
-            self
-
+        """
+        Load and set refractive indices and diffuse Fresnel coefficients.
+    
+        This method loads high-resolution ice/water refractive index data as 
+        well as diffuse Fresnel reflection coefficients, and interpolates them
+        to the model's spectral resolution.
         """
 
         # set spectral resolution
@@ -64,10 +113,10 @@ class ColumnProperties:
         idx2 = np.where(wvl_high_res == wvl_end)[0][0]
 
         refidx_file = xr.open_dataset(
-            self.model_inputs.op_path + "refractive_indices.nc"
+            self.model_inputs.data_path + "refractive_indices.nc"
         )
         fresnel_diffuse_file = xr.open_dataset(
-            self.model_inputs.op_path + "fresnel_diffuse_coefficients.nc"
+            self.model_inputs.data_path + "fresnel_diffuse_coefficients.nc"
         )
 
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values[
@@ -85,10 +134,12 @@ class ColumnProperties:
         ].values[idx1:idx2:resolution]
 
     def set_lap_properties(self):
-        """Updates attributes related to the light absorbing particle properties 
-        at user-defined resolution.
-
-
+        """
+        Load and set optical properties of light-absorbing particles (LAPs).
+    
+        This method sets the properties of each LAP defined in the input 
+        configuration, converting their concentrations to consistent units, 
+        and interpolating their properties to the model’s spectral grid.
         """
 
         # set spectral resolution
@@ -166,9 +217,19 @@ class ColumnProperties:
             self.lap_ext_cff[i, :] = ext_cff
             
     def set_column_ops_without_laps(self):
-        """Sets optical properties of a clean snow/ice column"""
-
-        self.layer_mass = self.density * self.thickness_profile
+        """
+        Compute optical properties of a clean snow/ice column (no LAPs).
+    
+        This method calculates wavelength-dependent extinction coefficients, 
+        single scattering albedo, asymmetry parameters, and optical thickness 
+        for each layer based on the input physical parameters and refractive 
+        indices. Different models are used depending on whether layers are made
+        of snow grains in air or ice with air inclusions, but all use geometric
+        optics approximation (grain/bubble larger than the wavelength).
+        """
+        self.layer_mass = (np.array(self.density) 
+                           * np.array(self.thickness_profile)
+                           )
 
         for lyr in range(self.nbr_lyr):
 
@@ -264,10 +325,14 @@ class ColumnProperties:
                 self.ss_alb[lyr, :] = 1 - 0.5 * (1 - rho) * (1 - np.exp(-z * phi))
 
     def update_column_ops_with_laps(self):
-        """Calculate optical properties of a snow/ice column mixed with light
-        absorbing particles.
-
-
+        """
+        Update the optical properties of the snow/ice column to account for 
+        the effct of light-absorbing particles.
+        
+        This method computes the combined optical properties of the snow/ice
+        matrix and the embedded LAPs, following two-stream approximation mixing
+        formulas. It adjusts optical thickness, single scattering albedo, and
+        asymmetry parameters.
         """
 
         asm_prm_lap = np.zeros([self.nbr_lyr, self.nbr_wvl])
