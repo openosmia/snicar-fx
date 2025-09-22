@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Test snicar-fx two-stream and multi-stream outputs against outputs of the
-two-stream SNICAR_ADv4 Matlab code
-
-"""
-
 import numpy as np
 
 from snicarfx.core import (
@@ -21,7 +14,26 @@ def test_multistream_outputs(
     benchmark_ada_spectral_data,
     absolute_tolerance_benchmark,
 ):
-
+    """
+    Assert that snicar-fx reproduces the spectral albedo modelled using the 
+    ADA module of the Community Radiative Transfer Model (CRTM) within a tolerance
+    of 1e-5 when the exact same input data is used. Input data is defined via
+    the input test file and the `params_ada` parameter.
+     
+    
+    Parameters
+    ----------
+    params_ada : array
+        Sets of parameters used as input for the model.
+    column : ColumnProperties
+        Instance of the ColumnProperties class
+    benchmark_ada_spectral_data : array
+        Spectral albedo data generated using the Fortran-based ADA module of 
+        CRTM for the parameter grid `params`.
+    absolute_tolerance_benchmark: float
+        Tolerance value for the error.
+    
+    """
     w, t_od, g, wvl_idx = params_ada
 
     # Setup inputs

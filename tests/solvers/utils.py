@@ -1,26 +1,21 @@
-#!/usr/bin/env python3
-""" """
-
 import xarray as xr
 
 
 def match_matlab_config(column):
-    """Ensures model config is equal to the Matlab version used to
-    generate benchmark data.
+    """
+    Ensures the refractive index and fresnel coefficients used to generate 
+    snicar-fx benchmark data to test snicar-fx against SNICAR-ADv4 correspond 
+    to the values used in SNICAR-ADv4.
 
-    This function resets values in instances of Ice, Illumination and
-    ModelConfig to ensure equivalence between BioSNICAR and the Matlab
-    code used to generate the benchmark data.  Also ensures all vars
-    have correct length, and re-executes the class functions in Ice
-    and Illumination that update refractive indices and at-surface
-    irradiance.
-
-    Args:
-        column: instance of Ice class
-        irradiance: instance of SolarIrradiance class
-        model_config: instance of ModelConfig class
-
-    Returns:
+    Parameters
+    ----------
+    column : ColumnProperties
+        Instance of the ColumnProperties class
+        
+    Returns
+    ----------
+    column : ColumnProperties
+        Updated instance of the ColumnProperties class
 
     """
 

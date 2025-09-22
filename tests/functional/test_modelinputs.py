@@ -1,19 +1,15 @@
-#!/usr/bin/env python3
-"""
-
-Test the ModelInputs class.
-
-No need to test further for now since pretty much all of the attributes
-of ModelInputs come from the YAML parser which is itself tested.
-
-"""
-
 from snicarfx.core import ModelInputs
 
 
 def test_modelinputs_loading(model_inputs):
     """
-    Check general ModelConfig initialization
+    Verify that an instance of ModelInputs has the correct type and that 
+    required attributes exist.
+    
+    Parameters
+    ----------
+    model_inputs : ModelInputs
+        Instance of the ModelInputs class
     """
 
     # Check the instance type is correct
@@ -27,7 +23,13 @@ def test_modelinputs_loading(model_inputs):
 
 def test_model_inputs_top_level_keys(model_inputs):
     """
-    Check top level dictionnary keys
+    Verify that the keys of the `inputs` attributes of an instance of ModelInputs
+    are correct. 
+    
+    Parameters
+    ----------
+    model_inputs : ModelInputs
+        Instance of the ModelInputs class
     """
     assert "RTM" in model_inputs.inputs
     assert "ICE" in model_inputs.inputs
