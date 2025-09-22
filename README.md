@@ -22,15 +22,6 @@ What makes SNICAR-fx different from SNICAR?
 - directional capability: multi-stream solver based on the advanced matrix operator method (! no fresnel layers and diffuse irradiance for now)
 - additional features: ice refractive index of Cooper et al. 2021, liquid water content in snow and ice, empirical optical properties of glacial microbes
 
-Future developments: 
-- proper documentation (code + sphinx)
-- make scripts with example runs (single runs + lut gen)
-- on-run tests of input types/ranges
-- non spherical air bubbles in ice
-- high-resolution (1nm) light absorbing particle properties and irradiance files to avoid interpolation in handling of resolution
-- make solar irradiance input more flexible to handle inputs from other atmospheric models
-- include diffuse irradiance and Fresnel layers into the multi-stream solver
-
 ## How to use
 
 ### Installation
