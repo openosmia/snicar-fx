@@ -18,7 +18,7 @@ from snicarfx.core import (
     ColumnProperties,
     ModelInputs,
     SolarIrradiance,
-    solve_adding_doubling,
+    solve_two_stream_rt,
 )
 from tests.conftest import twostream_parameter_grid
 from tests.solvers.utils import match_matlab_config
@@ -124,7 +124,7 @@ def test_twostreams_outputs(
     column.update_column_ops_with_laps()
 
     # solve RTE
-    outputs = solve_adding_doubling(column, irradiance)
+    outputs = solve_two_stream_rt(column, irradiance)
 
     # spectral albedo only until 2705nm for now, as the asymmetry parameter is 
     # clipped to 0.99 in SNICAR-ADv4 but not in snicar-fx, producing larger

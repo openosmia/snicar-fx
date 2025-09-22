@@ -14,7 +14,7 @@ import numpy as np
 from scipy.special import legendre
 
 
-class _AdvancedDoublingAddingSolver:
+class _MultiStreamSolver:
     
     """
 
@@ -229,8 +229,8 @@ class _AdvancedDoublingAddingSolver:
         """
         Compute layer transmission, reflection matrices and source
         function at the top and bottom of the layer using the advanced
-        matrix operator method (Liu and Weng 2013) set the attributes of the 
-        class accordingly.
+        matrix operator method (AMOM; Liu and Weng 2013) set the attributes of 
+        the class accordingly.
         
         Parameters
         ----------
@@ -472,7 +472,7 @@ class _AdvancedDoublingAddingSolver:
         return None
 
 
-def solve_advanced_adding_doubling(column, irradiance):
+def solve_multi_stream_rt(column, irradiance):
     """
 
     This subroutine calculates hemispherical albedo by calling AMOM for each
@@ -498,7 +498,7 @@ def solve_advanced_adding_doubling(column, irradiance):
  
     """
 
-    aads = _AdvancedDoublingAddingSolver(column, irradiance)
+    aads = _MultiStreamSolver(column, irradiance)
 
     for k in range(1, column.nbr_lyr + 1):
         aads.total_opt[k, :] = aads.total_opt[k - 1, :] + aads.t_od[k - 1, :]

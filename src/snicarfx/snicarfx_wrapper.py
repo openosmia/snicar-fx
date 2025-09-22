@@ -11,8 +11,8 @@ snicar-fx development team
 """
 
 from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
-from snicarfx.core.adding_doubling_solver import solve_adding_doubling
 from snicarfx.core.config_validator import Config
+from snicarfx.core.two_stream_solver import solve_two_stream_rt
 
 
 def run_two_stream(input_file):
@@ -53,7 +53,7 @@ def run_two_stream(input_file):
     irradiance = SolarIrradiance(model_inputs)
 
     # solve radiative transfer equations
-    outputs = solve_adding_doubling(column, irradiance)
+    outputs = solve_two_stream_rt(column, irradiance)
 
     return outputs
 

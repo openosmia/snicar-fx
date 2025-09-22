@@ -54,7 +54,7 @@ class Outputs:
     heat_rt: Any | None = None
     total_insolation: float | None = None
 
-class _AddingDoublingSolver:
+class _TwoStreamSolver:
     """
     Load and initialize model parameters required for the radiative transfer
     solver from a YAML input file.
@@ -104,7 +104,7 @@ class _AddingDoublingSolver:
     def __init__(self, column, irradiance):
         
         """
-        Initialize the Adding-Doubling radiative transfer solver.
+        Initialize the radiative transfer solver.
         
         Sets up the internal state and pre-allocates arrays based on the 
         provided snow/ice column and incoming solar irradiance parameters.
@@ -786,7 +786,7 @@ class _AddingDoublingSolver:
         return outputs
 
 
-def solve_adding_doubling(column, irradiance):
+def solve_two_stream_rt(column, irradiance):
     """
     Solve radiative transfer through a layered snow/ice column using the 
     two-stream Delta-Eddington adding doubling solver from Briegleb and Light 
@@ -819,7 +819,7 @@ def solve_adding_doubling(column, irradiance):
 
     """
 
-    ads = _AddingDoublingSolver(column, irradiance)
+    ads = _TwoStreamSolver(column, irradiance)
 
     # initialize reflection and transmission at top interface
     ads.trntdr[:, 0] = 1

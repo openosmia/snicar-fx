@@ -16,7 +16,7 @@ from snicarfx.core import (
     ColumnProperties,
     ModelInputs,
     SolarIrradiance,
-    solve_advanced_adding_doubling,
+    solve_multi_stream_rt,
 )
 
 
@@ -60,7 +60,7 @@ def test_multistream_outputs(
     column.update_column_ops_with_laps()
 
     # solve RTE
-    albedo = solve_advanced_adding_doubling(column, irradiance)
+    albedo = solve_multi_stream_rt(column, irradiance)
 
     # a given set of parameters (including a given wavelength)
     assert np.allclose(
