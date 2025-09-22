@@ -4,23 +4,42 @@
  [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Validated with Pydantic](https://img.shields.io/badge/Validated%20with-Pydantic-4FC08D?style=flat&logo=pydantic)](https://docs.pydantic.dev/)
 
-# SNICAR-fx: A flexible and light-weight version of the SNICAR model
+# SNICAR-fx
 
-SNICAR-fx started as a fork of the biosnicar-py repository, a python translation of SNICAR (SNow, ICe and Aerosols Radiative model), 
-to then evolve into its own standalone version. SNICAR-fx solves the 1-D unpolarized radiative transfer equation for a column of 
-homogeneous layers of snow and/or ice. Each layer can be represented as a bulk medium made of grains of ice in air or bubbles of air 
-in ice with a given specific surface area, along with a specific water content and concentrations of light absorbing particles. The 
-incoming irradiance can be direct with a prescribed SZA, or diffuse. Fresnel boundary layers can be incorporated to account for the 
-change in refractive index between air and ice by using a two-stream Delta-Eddingon solver (Briegleb and Light 2007, Whicker et al. 
-2022), and a multi-stream delta-M solver employing the advanced matrix operator method is also available (Liu and Weng 2013), but 
-does not support Fresnel layers and diffuse irradiance for now.
+*A flexible, light-weight, fast and feature-enhanced version of the
+SNICAR model*
 
-What makes SNICAR-fx different from SNICAR?
-- flexible spectral range: between 200 and 5000nm with resolution >= 1nm
-- light weight: no dependence on large optical properties databases
-- speed: up to 50x faster depending on the model set-up (nb layers in particular)
-- directional capability: multi-stream solver based on the advanced matrix operator method (! no fresnel layers and diffuse irradiance for now)
-- additional features: ice refractive index of Cooper et al. 2021, liquid water content in snow and ice, empirical optical properties of glacial microbes
+SNICAR-fx started as a fork of the
+[biosnicar-py](https://github.com/jmcook1186/biosnicar-py) repository,
+a python translation of
+[SNICAR-ADv4](https://github.com/chloewhicker/SNICAR-ADv4) (SNow, ICe
+and Aerosols Radiative model), to then evolve into its own standalone
+version.
+
+## What makes SNICAR-fx different from SNICAR?
+
+- **flexible spectral range**: between 200 and 5000nm with resolution >= 1nm
+- **light weight**: no dependence on large optical properties databases
+- **fast**: up to 50x faster (single-threaded) depending on the model
+  set-up (nb layers in particular)
+- **directional capability**: multi-stream solver based on the advanced matrix operator method (! no fresnel layers and diffuse irradiance for now)
+- **specialized snow and ice features**: liquid water content and empirical optical properties of glacial microbes
+
+
+SNICAR-fx solves the 1-D unpolarized radiative transfer equation for a
+column of homogeneous layers of snow and/or ice. Each layer can be
+represented as a bulk medium made of large grains of ice in air or
+bubbles of air in ice with a given specific surface area, along with a
+specific water content and concentrations of light absorbing
+particles. The incoming irradiance can be direct with a prescribed
+SZA, or diffuse. Fresnel boundary layers can be incorporated to
+account for the change in refractive index between air and ice by
+using a two-stream Delta-Eddingon solver (Briegleb and Light 2007,
+Whicker et al.  2022), and a multi-stream delta-M solver employing the
+advanced matrix operator method is also available (Liu and Weng 2013),
+but does not support Fresnel layers and diffuse irradiance for
+now. The software is currently built for glacier ice (ice refractive
+index Cooper 2021,...).
 
 ## How to use
 
