@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 from dataclasses import dataclass
 from typing import Any
 

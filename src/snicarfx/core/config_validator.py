@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-"""
-
-@author: snicar-fx team
-
-"""
-
-
 from typing import Literal
 
 import yaml
