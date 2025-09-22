@@ -1,5 +1,12 @@
 """
-This script defines the shared fixtures that are then used in the test files.
+This file is part of the snicar-fx software package. 
+
+https://github.com/openosmia/snicar-fx 
+
+
+Author(s)
+---------
+snicar-fx development team
 
 """
 

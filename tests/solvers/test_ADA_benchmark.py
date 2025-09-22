@@ -1,3 +1,15 @@
+"""
+This file is part of the snicar-fx software package. 
+
+https://github.com/openosmia/snicar-fx 
+
+
+Author(s)
+---------
+snicar-fx development team
+
+"""
+
 import numpy as np
 
 from snicarfx.core import (

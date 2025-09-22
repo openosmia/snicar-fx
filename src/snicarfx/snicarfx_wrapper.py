@@ -1,3 +1,15 @@
+"""
+This file is part of the snicar-fx software package. 
+
+https://github.com/openosmia/snicar-fx 
+
+
+Author(s)
+---------
+snicar-fx development team
+
+"""
+
 from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
 from snicarfx.core.adding_doubling_solver import solve_adding_doubling
 from snicarfx.core.config_validator import Config
