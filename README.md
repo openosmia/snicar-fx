@@ -1,4 +1,4 @@
- [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+ [![License: ACSL](https://img.shields.io/badge/License-ACSL-red.svg)](https://anticapitalist.software/)
  [![Continuous integration](https://github.com/openosmia/snicar-fx/workflows/CI/badge.svg)](https://github.com/openosmia/snicar-fx/actions)
  [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://pre-commit.com/)
  [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
