@@ -35,27 +35,32 @@ Future developments:
 
 ### Installation
 
-Create a conda environment:
+It is recommended to install `snicar-fx` via Github, with `conda` and `pip`.
 
-```
-conda create --name snicarfx
+Clone the repository and move into the `snicar-fx` directory
+```bash
+git clone https://github.com/openosmia/snicar-fx
+cd snicar-fx
 ```
 
-Activate the environment:
-
+Create the `conda` environment with all required dependencies
+```bash
+conda env create -f environment.yml
 ```
+
+Activate the new `conda` environment named `snicarfx`
+```bash
 conda activate snicarfx
 ```
 
-Then clone the repository and install the package via:
-
-```
+Install the `snicarfx` software. Using `pip` together with `conda` is usually a bad idea, but here conda installs all the dependencies and pip only sets up the associated paths, that's all!👍
+```bash
 pip install -e .
 ```
 
 ### Running the code
 
-Example scripts are provided in /examples, including single runs as well as batch runs for e.g. look-up table generation. 
+Example scripts are provided in `/examples`, including single runs as well as batch runs for e.g. look-up table generation. 
 
 
 ## References
