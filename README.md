@@ -6,8 +6,7 @@
 
 # SNICAR-fx
 
-*A flexible, light-weight, fast and feature-enhanced version of the
-SNICAR model*
+<span style="font-size:20px;">*A flexible, light-weight, fast and feature-enhanced version of the SNICAR model*</span>
 
 SNICAR-fx started as a fork of the
 [biosnicar-py](https://github.com/jmcook1186/biosnicar-py) repository,
