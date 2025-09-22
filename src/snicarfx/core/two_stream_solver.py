@@ -15,49 +15,17 @@ from typing import Any
 
 import numpy as np
 
-
-@dataclass
-class Outputs:
-    """
-    Stores output data from radiative transfer calculations.
-
-    This class holds computed radiative properties of the snow or ice column,
-    such as albedo, broadband heating rates, and energy absorption. 
-
-    Attributes
-    ----------
-    albedo : array
-        Spectrally resolved surface albedo [unitless].
-    wavelengths : array
-        Wavelength grid [m].
-    BBA : float
-        Broadband albedo (spectrally-integrated albedo) [unitless].
-    absorbed_flux_per_layer : array
-        Layer-wise spectrally-resolved absorbed solar flux [W/m² per layer].
-    abs_slr_btm : array
-        Spectrally-resolved absorbed solar energy at the bottom layer [W/m²].
-    abs_slr_tot : array
-        Spectrally-integrated absorbed solar energy across the column [W/m²].
-    heat_rt : array
-        Heating rate in each layer [K/s per layer].
-    total_insolation : array
-        Spectrally-integrated incoming solar energy at the top layer [W/m²].
-    
-    """
-
-    albedo: float | None = None
-    wavelengths: float | None = None
-    BBA: float | None = None
-    absorbed_flux_per_layer: Any | None = None
-    abs_slr_btm: float | None = None
-    abs_slr_tot: float | None = None
-    heat_rt: Any | None = None
-    total_insolation: float | None = None
-
 class _TwoStreamSolver:
     """
-    Load and initialize model parameters required for the radiative transfer
-    solver from a YAML input file.
+
+    This class loads and initialize the variables necessary to solve the radiative
+    transfer equation using the Delta-Eddington two-stream solver from Briegleb
+    and Light 2007, later modified by Whicker et al. 2022. The solver is identical
+    to that of SNICAR-ADv4 (https://github.com/chloewhicker/SNICAR-ADv4).
+
+    References: 
+    Briegleb and Light 2007: https://doi.org/10.5065/D6B27S71
+    Whicker et al. 2022: https://doi.org/10.5194/tc-16-1197-2022
 
     Attributes
     ----------
@@ -785,6 +753,43 @@ class _TwoStreamSolver:
 
         return outputs
 
+@dataclass
+class Outputs:
+    """
+    Stores output data from radiative transfer calculations.
+
+    This class holds computed radiative properties of the snow or ice column,
+    such as albedo, broadband heating rates, and energy absorption. 
+
+    Attributes
+    ----------
+    albedo : array
+        Spectrally resolved surface albedo [unitless].
+    wavelengths : array
+        Wavelength grid [m].
+    BBA : float
+        Broadband albedo (spectrally-integrated albedo) [unitless].
+    absorbed_flux_per_layer : array
+        Layer-wise spectrally-resolved absorbed solar flux [W/m² per layer].
+    abs_slr_btm : array
+        Spectrally-resolved absorbed solar energy at the bottom layer [W/m²].
+    abs_slr_tot : array
+        Spectrally-integrated absorbed solar energy across the column [W/m²].
+    heat_rt : array
+        Heating rate in each layer [K/s per layer].
+    total_insolation : array
+        Spectrally-integrated incoming solar energy at the top layer [W/m²].
+    
+    """
+
+    albedo: float | None = None
+    wavelengths: float | None = None
+    BBA: float | None = None
+    absorbed_flux_per_layer: Any | None = None
+    abs_slr_btm: float | None = None
+    abs_slr_tot: float | None = None
+    heat_rt: Any | None = None
+    total_insolation: float | None = None
 
 def solve_two_stream_rt(column, irradiance):
     """

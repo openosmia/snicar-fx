@@ -17,12 +17,11 @@ from scipy.special import legendre
 class _MultiStreamSolver:
     
     """
-
-    This class implements the Advanced Matrix Operator Method (AMOM) to calculate 
-    the transmission and reflection matrices of each layer of the ice/snow column
-    as well as the source term, and then uses the adding method to combine the layers. 
-    The solver is identical to that of the Community Radiative Transfer Model (CRTM),
-    and was translated from the original code of Quanhua Liu (QSS at JCSDA; 
+    This class initializes and calculates the variables necessary to solve the 
+    radiative transfer equation with a multi-stream solver. The solver itself is
+    a combination of the the Advanced Matrix Operator Method (AMOM) and the 
+    adding method. It is a translation of the Fortran-based solver from CRTM,
+    originally written by Quanhua Liu (QSS at JCSDA; 
     quanhua.liu@noaa.gov), Yong Han (NOAA/NESDIS, yong.han@noaa.gov) and 
     Paul van Delst (CIMMS/SSEC, paul.vandelst@noaa.gov).
 
