@@ -1,18 +1,26 @@
+#!/usr/bin/env python3
+"""
+This file is part of the snicar-fx software package. 
+
+https://github.com/openosmia/snicar-fx 
+
+
+Author(s)
+---------
+snicar-fx development team
+
+"""
+
 import matplotlib.pyplot as plt
 
-from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
-from snicarfx.core.adding_doubling_solver import solve_adding_doubling
+from snicarfx import snicarfx_wrapper
 
-model_config = ModelInputs('./src/snicarfx/inputs.yaml')
-column = ColumnProperties(model_config)
-irradiance = SolarIrradiance(model_config) 
+input_file = './src/snicarfx/inputs.yaml'
 
-outputs_snicar = solve_adding_doubling(
-      column, irradiance
-)
+outputs = snicarfx_wrapper.run_two_stream(input_file)
 
 plt.figure(figsize=(6, 4))
-plt.plot(column.wavelengths, outputs_snicar.albedo)
+plt.plot(outputs.wavelengths, outputs.albedo)
 plt.xlabel('Wavelengths (meters)')
 plt.ylabel('Albedo')
 plt.ylim(0,1)

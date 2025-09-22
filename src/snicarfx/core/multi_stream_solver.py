@@ -1,14 +1,12 @@
-#!/usr/bin/env python3
 """
+This file is part of the snicar-fx software package. 
 
-Advanced Matrix Operator Method to calculate the transmission and 
-reflection matrices of each layer, then Adding Method to combine them.
+https://github.com/openosmia/snicar-fx 
 
 
-Quanhua Liu and Fuzhong Weng, 2006
-https://doi.org/10.1175/JAS3808.1
-
-Quanhua Liu and Fuzhong Weng, 2013
+Author(s)
+---------
+snicar-fx development team
 
 """
 
@@ -16,11 +14,36 @@ import numpy as np
 from scipy.special import legendre
 
 
-class _AdvancedDoublingAddingSolver:
+class _MultiStreamSolver:
+    
+    """
+    This class initializes and calculates the variables necessary to solve the 
+    radiative transfer equation with a multi-stream solver. The solver itself is
+    a combination of the the Advanced Matrix Operator Method (AMOM) and the 
+    adding method. It is a translation of the Fortran-based solver from CRTM,
+    originally written by Quanhua Liu (QSS at JCSDA; 
+    quanhua.liu@noaa.gov), Yong Han (NOAA/NESDIS, yong.han@noaa.gov) and 
+    Paul van Delst (CIMMS/SSEC, paul.vandelst@noaa.gov).
+
+    References: 
+    Liu and Weng, 2013: 10.1109/JSTARS.2013.2247026
+    Liu and Weng, 2006: https://doi.org/10.1175/JAS3808.1
+
+    """
 
     def __init__(self, column, irradiance):
         """
-        Initialize all variables required for the solver
+        Initialize all variables required for the solver and applies delta
+        scaling to the single scattering properties of the ice/snow column.
+        
+        Parameters
+        ----------
+        column : ColumnProperties
+            Instance of the ColumnProperties class, storing the physical 
+            and optical properties of the ice/snow column.
+        irradiance : SolarIrradiance
+            Instance of the SolarIrradiance class, storing the properties of the 
+            incoming solar irradiance.
         """
 
         self.mth_azi = 0
@@ -70,9 +93,6 @@ class _AdvancedDoublingAddingSolver:
         self.s_layer_source_down = np.zeros(
             (self.n_angles, column.nbr_lyr, column.nbr_wvl)
         )
-        # self.thermal_c = np.zeros((self.n_angles, 
-        #                            column.nbr_lyr, 
-        #                            column.nbr_wvl))
 
         ######################################################################
         # SET GAUSSIAN QUADRATURE
@@ -208,22 +228,31 @@ class _AdvancedDoublingAddingSolver:
         """
         Compute layer transmission, reflection matrices and source
         function at the top and bottom of the layer using the advanced
-        matrix operator method (Liu and Weng 2013)
+        matrix operator method (AMOM; Liu and Weng 2013) set the attributes of 
+        the class accordingly.
+        
+        Parameters
+        ----------
+        column : ColumnProperties
+            Instance of the ColumnProperties class, storing the physical 
+            and optical properties of the ice/snow column.
+        lyr : int
+            Index of the layer for which the optical properties are calculated.
 
         """
 
-        # EQUATION 6A L&W2013 (without the Kronecker delta)
+        # equatino 6A L&W2013 (without the Kronecker delta)
         pp = (
             self.w[k, None, None, :]
             * self.ff[:, : self.n_angles, k, :]
             * self.cos_weight[None, :, None]
             / self.cos_angle[:, None, None]
         )
-        # EQUATION 6A + 7 L&W2013 (apply Kronecker delta to get alpha)
+        # equation 6A + 7 L&W2013 (apply Kronecker delta to get alpha)
         n = np.arange(self.n_angles)
         pp[n, n, :] -= 1.0 / self.cos_angle[:, None]
 
-        # EQUATION 6B L&W2013
+        # equation 6B L&W2013
         pm = (
             self.w[k, None, None, :]
             * self.bb[:, : self.n_angles, k, :]
@@ -231,7 +260,7 @@ class _AdvancedDoublingAddingSolver:
             / self.cos_angle[:, None, None]
         )
 
-        # EQUATION 10 L&W2013 [matrix H = (alpha - beta) * (alpha + beta)]
+        # equation 10 L&W2013 [matrix H = (alpha - beta) * (alpha + beta)]
         # moveaxis required as matmul uses the last two axes
         hh = np.matmul(np.moveaxis(pp - pm, -1, 0), np.moveaxis(pp + pm, -1, 0))
 
@@ -239,7 +268,7 @@ class _AdvancedDoublingAddingSolver:
         # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
 
-        # why do we take the square roots here?
+        # take the square roots 
         eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
 
         # scale eigenvectors by square roots of eigen values
@@ -283,11 +312,11 @@ class _AdvancedDoublingAddingSolver:
         # not included for now since we don't model thermal
         # if self.mth_azi == 0:
         #     print(trans.shape)
-        #     thermal_c = trans[:, : column.model_inputs.nb_streams].sum(
+        #     thermal_c = trans[:, : self.nb_streams].sum(
         #         axis=1
-        #     ) + refl[:, : column.model_inputs.nb_streams].sum(axis=1)
+        #     ) + refl[:, : self.nb_streams].sum(axis=1)
 
-        #     if self.n_angles == (column.model_inputs.nb_streams + 1):
+        #     if self.n_angles == (self.nb_streams + 1):
         #         thermal_c[self.n_angles - 1] += trans[
         #             self.n_angles - 1, self.n_angles - 1
         #         ]
@@ -442,15 +471,33 @@ class _AdvancedDoublingAddingSolver:
         return None
 
 
-def solve_advanced_adding_doubling(column, irradiance):
+def solve_multi_stream_rt(column, irradiance):
     """
 
-    This subroutine calculates hemispherical albedo by combining all snow/ice
-    layers with the adding method
+    This subroutine calculates hemispherical albedo by calling AMOM for each
+    layer and combining them with the adding method in an upward pass from the
+    bottom layer to the top layer.
+    
+    ! the downward pass is not yet implemented, so that net fluxes at each
+    interface are not available.
+    
+    Parameters
+    ----------
+    column : ColumnProperties
+        Instance of the ColumnProperties class, storing the physical 
+        and optical properties of the ice/snow column.
+    irradiance : SolarIrradiance
+        Instance of the SolarIrradiance class, storing the properties of the 
+        incoming solar irradiance.
+        
+    Returns
+    -------
+    albedo : array
+        Hemispherical albedo integrated with gaussian quadrature over 16 angles.
  
     """
 
-    aads = _AdvancedDoublingAddingSolver(column, irradiance)
+    aads = _MultiStreamSolver(column, irradiance)
 
     for k in range(1, column.nbr_lyr + 1):
         aads.total_opt[k, :] = aads.total_opt[k - 1, :] + aads.t_od[k - 1, :]
@@ -483,7 +530,6 @@ def solve_advanced_adding_doubling(column, irradiance):
         # to compute upward radiances and reflection matrix
         # at the new level.
     
-        # infinite scattering
         infinite_scattering = -np.matmul(
             np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
                         source=[0, 1, 2], 
@@ -544,7 +590,6 @@ def solve_advanced_adding_doubling(column, irradiance):
             aads.s_level_rad_up[i, 0, :] += (
                 np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
-    
     
 
     albedo = (

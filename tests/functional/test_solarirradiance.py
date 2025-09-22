@@ -1,10 +1,12 @@
-#!/usr/bin/env python3
 """
+This file is part of the snicar-fx software package. 
 
-Test the SolarIrradiance class.
+https://github.com/openosmia/snicar-fx 
 
-This basically just checks variable shapes and expected outputs, and
-would catch changes in snicar-fx data files and code using them.
+
+Author(s)
+---------
+snicar-fx development team
 
 """
 
@@ -16,9 +18,29 @@ def test_solarirradiance_values(
     expected_mean_fs,
     expected_mean_flx_slr,
     expected_fd,
-    relative_tolerance_column_properties,
+    absolute_tolerance_internal_variables,
 ):
-    """ """
+    """
+    Assert that average values of attributes defined in the test input file
+    match expected values within a tolerance threshold.
+    
+    Parameters
+    ----------
+    irradiance : SolarIrradiance
+        Instance of the SolarIrradiance class
+    expected_mean_fs : float
+        Expected mean value of the direct collimated beam as sourced in 
+        the test input file.
+    expected_mean_flx_slr : float
+        Expected mean value of the total solar flux as sourced 
+        in the test input file.
+    expected_fd : float
+        Expected mean value of the diffuse solar beam for light as sourced 
+        in the test input file.
+    absolute_tolerance_internal_variables: float
+        Tolerance value for the error.
+    
+    """
 
     assert np.all(~np.isnan(irradiance.fs))
     assert np.all(~np.isnan(irradiance.flx_slr))
@@ -27,15 +49,15 @@ def test_solarirradiance_values(
     assert np.isclose(
         np.nanmean(irradiance.fs),
         expected_mean_fs,
-        rtol=relative_tolerance_column_properties,
+        atol=absolute_tolerance_internal_variables,
     )
 
     assert np.isclose(
         np.nanmean(irradiance.flx_slr),
         expected_mean_flx_slr,
-        rtol=relative_tolerance_column_properties,
+        atol=absolute_tolerance_internal_variables,
     )
 
     assert np.allclose(
-        irradiance.fd, expected_fd, rtol=relative_tolerance_column_properties
+        irradiance.fd, expected_fd, atol=absolute_tolerance_internal_variables
     )
