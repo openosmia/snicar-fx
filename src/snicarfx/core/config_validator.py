@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -17,7 +12,15 @@ from pydantic import BaseModel, Field, confloat, conlist, model_validator
 
 
 class Rtm(BaseModel):
+    """
+    Define the valid ranges and types of the radiative transfer model (RTM)
+    configuration.
 
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
+        
     # radiation (0 is direct 1 is diffuse)
     DIRECT: Literal[0, 1]
 
@@ -41,6 +44,13 @@ class Rtm(BaseModel):
 
 
 class Ice(BaseModel):
+    """
+    Define the valid ranges and types of the ice/snow properties.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
 
     # thickness of each vertical layer (unit : m)
     THICKNESS: conlist(confloat(ge=1e-10, le=1000), min_length=1, max_length=1000)
@@ -55,8 +65,9 @@ class Ice(BaseModel):
     RF_TYPE: Literal["Pic16", "Wrn08", "Coop21"]
 
     # m2 kg-1
-    SPECIFIC_SURFACE_AREA: conlist(confloat(ge=1e-10, le=100), min_length=1, 
-                                   max_length=1000)
+    SPECIFIC_SURFACE_AREA: conlist(
+        confloat(ge=1e-10, le=100), min_length=1, max_length=1000
+    )
 
     # LWC content in snow/ice
     LWC: conlist(confloat(ge=0.0, le=1.0), min_length=1, max_length=1000)
@@ -72,6 +83,15 @@ class Ice(BaseModel):
 
 
 class Particle(BaseModel):
+    """
+    Define the valid ranges and types for the properties of a light absorbing
+    particle.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
+    
     FILE: str
     COATED: bool
     UNIT: Literal[0, 1]
@@ -82,6 +102,14 @@ class Particle(BaseModel):
 
 
 class LightAbsorbingParticles(BaseModel):
+    """
+    Define an object for the configuration of all light absorbing particles.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
+    
     # Optional: Black carbon and algae
     BC: Particle | None = None
     ALG: Particle | None = None
@@ -91,6 +119,14 @@ class LightAbsorbingParticles(BaseModel):
 
 
 class Config(BaseModel):
+    """
+    Combine the different objects inheriting from BaseModel.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
+    
     RTM: Rtm
     ICE: Ice
     LIGHT_ABSORBING_PARTICLES: LightAbsorbingParticles
@@ -102,7 +138,7 @@ class Config(BaseModel):
         """
         Check that all ICE and LIGHT_ABSORBING_PARTICLES
         layer-related lists have the same length
-        
+
         """
 
         ice_lists = [
@@ -117,14 +153,14 @@ class Config(BaseModel):
 
         if len(lengths) > 1:
             raise ValueError(
-                f"All ICE layer-related lists must have the same length, got lengths: "
-                f"{[len(lst) for lst in ice_lists]}"
+                f"All ICE layer-related lists must have the same length, but now"
+                f"are: {[len(lst) for lst in ice_lists]}"
             )
 
         ice_layers = len(self.ICE.THICKNESS)
 
         # Check that all particle CONC lists match ICE layers
-        if self.LIGHT_ABSORBING_PARTICLES is not None: 
+        if self.LIGHT_ABSORBING_PARTICLES is not None:
             for particle_name in self.LIGHT_ABSORBING_PARTICLES.model_fields:
                 particle = getattr(self.LIGHT_ABSORBING_PARTICLES, particle_name)
                 if particle is not None and len(particle.CONC) != ice_layers:

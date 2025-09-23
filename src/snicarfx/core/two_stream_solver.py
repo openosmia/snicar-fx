@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -24,7 +19,7 @@ class _TwoStreamSolver:
     and Light 2007, later modified by Whicker et al. 2022. The solver is identical
     to that of SNICAR-ADv4 (https://github.com/chloewhicker/SNICAR-ADv4).
 
-    References: 
+    References:
     Briegleb and Light 2007: https://doi.org/10.5065/D6B27S71
     Whicker et al. 2022: https://doi.org/10.5194/tc-16-1197-2022
 
@@ -71,27 +66,26 @@ class _TwoStreamSolver:
     """
 
     def __init__(self, column, irradiance):
-        
         """
         Initialize the radiative transfer solver.
-        
-        Sets up the internal state and pre-allocates arrays based on the 
+
+        Sets up the internal state and pre-allocates arrays based on the
         provided snow/ice column and incoming solar irradiance parameters.
-        
+
         Parameters
         ----------
         column : ColumnProperties
             An instance of the ColumnProperties class containing the
             properties of the snow/ice column.
         irradiance : SolarIrradiance
-            An instance of the SolarIrradiance class providing the incoming 
+            An instance of the SolarIrradiance class providing the incoming
             solar flux and the cosine of the solar zenith angle.
         """
 
         self.column = column
-        
+
         self.irradiance = irradiance
-        
+
         # to deal with singularity
         self.epsilon = 1e-5
 
@@ -162,25 +156,25 @@ class _TwoStreamSolver:
 
         # direct flux up
         self.fdirup = np.zeros_like(self.trnlay)
-        
+
         # diffuse flux up
         self.fdifup = np.zeros_like(self.trnlay)
-        
+
         # direct flux down
         self.fdirdn = np.zeros_like(self.trnlay)
-        
+
         # diffuse flux up
         self.fdifdn = np.zeros_like(self.trnlay)
-        
+
         # difference between up and down (direct)
         self.dfdir = np.zeros_like(self.trnlay)
-        
+
         # difference between up and down (diffuse)
         self.dfdif = np.zeros_like(self.trnlay)
-        
+
         # total flux up
         self.F_up = np.zeros_like(self.trnlay)
-        
+
         # total flux down
         self.F_dwn = np.zeros_like(self.trnlay)
 
@@ -222,18 +216,18 @@ class _TwoStreamSolver:
 
     def calculate_reflectivity_transmittivity_delta_eddington(self, lyr):
         """
-        Compute multiple scattering in each layer via the Delta Eddington 
+        Compute multiple scattering in each layer via the Delta Eddington
         approximation to yield reflectivity and transmissivity of the layer to
-        direct and diffuse radiation. Use equations A24, A26, A30, A31 from 
+        direct and diffuse radiation. Use equations A24, A26, A30, A31 from
         Briegleb and Light 2007.
-        
+
         Parameters
         ----------
         lyr : int
             Index of the layer for which the optical properties are calculated.
 
         """
-        
+
         tautot = self.column.tau.T[:, lyr]
         wtot = self.column.ss_alb.T[:, lyr]
         gtot = self.column.asm_prm.T[:, lyr]
@@ -309,12 +303,12 @@ class _TwoStreamSolver:
 
     def apply_gaussian_integral(self, lyr):
         """
-        Integrate reflectivity and transmissivity to direct radiation using  
+        Integrate reflectivity and transmissivity to direct radiation using
         Gaussian quadrature to get diffuse reflectivity and transmittivity.
-        
-        This method performs angular integration with a fixed number 
-        of discrete zenith angles and corresponding weights (default N=8). 
-        
+
+        This method performs angular integration with a fixed number
+        of discrete zenith angles and corresponding weights (default N=8).
+
         Parameters
         ----------
         lyr : int
@@ -377,7 +371,7 @@ class _TwoStreamSolver:
         """
         Calculate transmissivity and reflectivity to diffuse radiation
         after gaussian integration, eq. A33 Briegleb and Light 2007.
-        
+
         Parameters
         ----------
         lyr : int
@@ -387,7 +381,7 @@ class _TwoStreamSolver:
         self.tdif_a[:, lyr] = self.smt / self.swt
 
         # homogeneous layer (all layers are except the fresnel layer, so the
-        # combination of layers including a fresnel layer becomes unhomogeneous, 
+        # combination of layers including a fresnel layer becomes unhomogeneous,
         # hence why we need to compute rdif/tdif above and below for all layers)
         self.rdif_b[:, lyr] = self.rdif_a[:, lyr]
         self.tdif_b[:, lyr] = self.tdif_a[:, lyr]
@@ -399,51 +393,43 @@ class _TwoStreamSolver:
         Update diffuse + direct reflectivity and transmittivity of current
             layer by integrating effect of Fresnel boundary, i.e. merging
             the reflectivity & transmittivity of current layer + fresnel layer.
-            
+
         Parameters
         ----------
         lyr : int
             Index of the layer for which the integration is applied.
         """
-        
+
         # Eq. 22  Briegleb & Light 2007
         # reflection amplitude factor for perpendicular polarization
-        r1 = (self.mu0 - self.nr * self.mu0n) / (
-            self.mu0 + self.nr * self.mu0n
-        )
+        r1 = (self.mu0 - self.nr * self.mu0n) / (self.mu0 + self.nr * self.mu0n)
         # reflection amplitude factor for parallel polarization
-        r2 = (self.nr * self.mu0 - self.mu0n) / (
-            self.nr * self.mu0 + self.mu0n
-        )
-        
+        r2 = (self.nr * self.mu0 - self.mu0n) / (self.nr * self.mu0 + self.mu0n)
+
         # transmission amplitude factor for perpendicular polarization
-        t1 = 2 * self.mu0/ (self.mu0 + self.nr * self.mu0n)
-        
+        t1 = 2 * self.mu0 / (self.mu0 + self.nr * self.mu0n)
+
         # transmission amplitude factor for parallel polarization
         t2 = 2 * self.mu0 / (self.nr * self.mu0 + self.mu0n)
 
-
         # Eq. 21  Brigleb and light 2007
         rf_dir_a = 0.5 * (r1**2 + r2**2)
-        tf_dir_a = (
-            0.5 * (t1**2 + t2**2) * self.nr * self.mu0n / self.mu0
-        )
-        
+        tf_dir_a = 0.5 * (t1**2 + t2**2) * self.nr * self.mu0n / self.mu0
+
         # mask where total internal reflection occurs
         ref_indx = self.column.ref_idx_re + 1j * self.column.ref_idx_im
         critical_angle = np.arcsin(ref_indx)
         mask = np.arccos(self.irradiance.cos_sza) >= critical_angle
-        rf_dir_a[mask] = 1 
-        tf_dir_a[mask] = 0 
-        
+        rf_dir_a[mask] = 1
+        tf_dir_a[mask] = 0
+
         # Eq. 25  Briegleb and light 2007
         # diffuse reflection of flux arriving from above
         rf_dif_a = self.column.fl_r_dif_a
-        tf_dif_a = 1 - rf_dif_a  
+        tf_dif_a = 1 - rf_dif_a
         # diffuse reflection of flux arriving from below
         rf_dif_b = self.column.fl_r_dif_b
         tif_dif_b = 1 - rf_dif_b
-        
 
         # save fluxes of lyr before merging with frsnl layer
         rdif_a_0 = self.rdif_a[:, lyr].copy()
@@ -496,7 +482,7 @@ class _TwoStreamSolver:
         and reflectivity to diffuse radiation arriving from below.
         The loop starts at the upper layer, working downwards.
         Equations are B2 & B5 from Briegleb & Light 2007.
-        
+
         Parameters
         ----------
         lyr : int
@@ -546,7 +532,7 @@ class _TwoStreamSolver:
         arriving from above, for layers below current layer.
         The loop starts from the second to last interface, working upwards.
         Equations are B2-B4 from Briegleb & Light 2007.
-        
+
         Parameters
         ----------
         lyr : int
@@ -582,7 +568,7 @@ class _TwoStreamSolver:
         """
         Calculates up and down fluxes at layer interfaces.
         Equation B6 from Briegleb & Light 2007.
-        
+
         Parameters
         ----------
         lyr : int
@@ -680,15 +666,15 @@ class _TwoStreamSolver:
         Perform conservation of energy validation.
 
         This method verifies that the total incident solar energy (direct + diffuse)
-        is equal to the sum of absorbed, transmitted, and reflected energy across 
-        the entire snow/ice column. If an imbalance is detected beyond a small 
+        is equal to the sum of absorbed, transmitted, and reflected energy across
+        the entire snow/ice column. If an imbalance is detected beyond a small
         tolerance (1e-10), an error is raised.
-    
+
         Raises
         ------
         ValueError
             If the energy balance check fails (i.e., energy conservation is violated).
-    
+
 
         """
         # Incident direct+diffuse radiation equals (absorbed+transmitted+bulk_reflected)
@@ -710,7 +696,7 @@ class _TwoStreamSolver:
     def get_outputs(self):
         """
         Compile and return radiative transfer results into an Outputs object.
-       
+
         Returns
         -------
         Outputs
@@ -722,7 +708,7 @@ class _TwoStreamSolver:
 
         # Radiative heating rate:
         f_abs_slr = np.sum(self.F_abs, axis=0)
-        
+
         # [K/s] 2117 = specific heat column (J kg-1 K-1)
         heat_rt = f_abs_slr / (np.array(self.column.layer_mass) * 2117)
         outputs.heat_rt = heat_rt * 3600  # [K/hr]
@@ -748,11 +734,12 @@ class _TwoStreamSolver:
 
         # Spectrally-integrated absorption by each layer
         outputs.absorbed_flux_per_layer = f_abs_slr
-        
+
         # Wavelength grid
         outputs.wavelengths = self.column.wavelengths
 
         return outputs
+
 
 @dataclass
 class Outputs:
@@ -760,7 +747,7 @@ class Outputs:
     Stores output data from radiative transfer calculations.
 
     This class holds computed radiative properties of the snow or ice column,
-    such as albedo, broadband heating rates, and energy absorption. 
+    such as albedo, broadband heating rates, and energy absorption.
 
     Attributes
     ----------
@@ -780,7 +767,7 @@ class Outputs:
         Heating rate in each layer [K/s per layer].
     total_insolation : array
         Spectrally-integrated incoming solar energy at the top layer [W/m²].
-    
+
     """
 
     albedo: float | None = None
@@ -792,26 +779,27 @@ class Outputs:
     heat_rt: Any | None = None
     total_insolation: float | None = None
 
+
 def solve_two_stream_rt(column, irradiance):
     """
-    Solve radiative transfer through a layered snow/ice column using the 
-    two-stream Delta-Eddington adding doubling solver from Briegleb and Light 
+    Solve radiative transfer through a layered snow/ice column using the
+    two-stream Delta-Eddington adding doubling solver from Briegleb and Light
     2007, with updates from Whicker et al. 2022.
 
-    Computes upward and downward fluxes in a layered snow or ice column based 
+    Computes upward and downward fluxes in a layered snow or ice column based
     on the column optical properties and incoming solar irradiance.
     Makes function calls in sequence to generate, then return, an instance of
     Outputs class storing the results generated by the solver.
-    
-    
+
+
     Parameters
     ----------
     column : ColumnProperties
-        An instance of the `ColumnProperties` class containing the optical and 
+        An instance of the `ColumnProperties` class containing the optical and
         physical properties of the snow/ice column.
-        
+
     irradiance : SolarIrradiance
-        An instance of the `SolarIrradiance` class providing spectral solar fluxes 
+        An instance of the `SolarIrradiance` class providing spectral solar fluxes
         (direct and diffuse) and the cosine of the solar zenith angle.
 
 

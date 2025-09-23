@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -15,9 +10,9 @@ from snicarfx.core import ModelInputs
 
 def test_modelinputs_loading(model_inputs):
     """
-    Verify that an instance of ModelInputs has the correct type and that 
+    Verify that an instance of ModelInputs has the correct type and that
     required attributes exist.
-    
+
     Parameters
     ----------
     model_inputs : ModelInputs
@@ -36,8 +31,8 @@ def test_modelinputs_loading(model_inputs):
 def test_model_inputs_top_level_keys(model_inputs):
     """
     Verify that the keys of the `inputs` attributes of an instance of ModelInputs
-    are correct. 
-    
+    are correct.
+
     Parameters
     ----------
     model_inputs : ModelInputs

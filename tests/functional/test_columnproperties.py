@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -17,7 +12,7 @@ def test_columnproperties_shapes(column, expected_shapes):
     """
     Verify shapes of attributes of a ColumnProperties instance match expected
     values in the layer and wavelength dimensions.
-    
+
     Parameters
     ----------
     column : ColumnProperties
@@ -44,26 +39,26 @@ def test_columnproperties_values(
     """
     Assert that average values of attributes defined in the test input file
     match expected values within a tolerance threshold.
-    
+
     Parameters
     ----------
     column : ColumnProperties
         Instance of the ColumnProperties class
     expected_mean_ref_idx_re : float
-        Expected mean value of the real refractive index of ice as sourced in 
+        Expected mean value of the real refractive index of ice as sourced in
         the test input file.
     expected_mean_ref_idx_im_water : float
-        Expected mean value of the imaginary refractive index of water as sourced 
+        Expected mean value of the imaginary refractive index of water as sourced
         in the test input file.
     expected_mean_fl_r_dif_a : float
-        Expected mean value of the diffuse fresnel coefficient for light from 
+        Expected mean value of the diffuse fresnel coefficient for light from
         above.
     expected_tau : float
         Expected mean optical thickness for the parameters defined in the test
         input file.
     absolute_tolerance_internal_variables: float
         Tolerance value for the error.
-    
+
     """
 
     assert np.all(~np.isnan(column.ref_idx_re))

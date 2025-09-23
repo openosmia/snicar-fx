@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -15,15 +10,15 @@ import xarray as xr
 
 def match_matlab_config(column):
     """
-    Ensures the refractive index and fresnel coefficients used to generate 
-    snicar-fx benchmark data to test snicar-fx against SNICAR-ADv4 correspond 
+    Ensures the refractive index and fresnel coefficients used to generate
+    snicar-fx benchmark data to test snicar-fx against SNICAR-ADv4 correspond
     to the values used in SNICAR-ADv4.
 
     Parameters
     ----------
     column : ColumnProperties
         Instance of the ColumnProperties class
-        
+
     Returns
     ----------
     column : ColumnProperties

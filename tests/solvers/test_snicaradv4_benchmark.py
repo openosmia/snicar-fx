@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -34,15 +29,14 @@ def test_twostreams_outputs(
     benchmark_snicaradv4_absorbed_flux_data,
     absolute_tolerance_benchmark,
 ):
-    
     """
-    Assert that snicar-fx reproduces the spectral albedo, BBA and absorbed 
-    solar fluxes modelled by SNICAR-ADv4 within a tolerance of 1e-5 when the 
+    Assert that snicar-fx reproduces the spectral albedo, BBA and absorbed
+    solar fluxes modelled by SNICAR-ADv4 within a tolerance of 1e-5 when the
     exact same model configuration is used. Model configuration is defined via
     the input test file, the `params` parameter as well as the match_matlab_config
     function.
-     
-    
+
+
     Parameters
     ----------
     idx : array
@@ -62,7 +56,7 @@ def test_twostreams_outputs(
         `params`.
     absolute_tolerance_benchmark: float
         Tolerance value for the error.
-    
+
     """
 
     layer_type, density, radius, sza, bc, thickness_profile, direct = params
@@ -126,10 +120,10 @@ def test_twostreams_outputs(
     # solve RTE
     outputs = solve_two_stream_rt(column, irradiance)
 
-    # spectral albedo only until 2705nm for now, as the asymmetry parameter is 
+    # spectral albedo only until 2705nm for now, as the asymmetry parameter is
     # clipped to 0.99 in SNICAR-ADv4 but not in snicar-fx, producing larger
     # discrepancies than the tolerance of 1e-5.
-    
+
     assert np.allclose(
         outputs.albedo[:250],
         benchmark_snicaradv4_spectral_data[idx][:250],

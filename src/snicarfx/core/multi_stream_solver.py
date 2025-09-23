@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -15,17 +10,16 @@ from scipy.special import legendre
 
 
 class _MultiStreamSolver:
-    
     """
-    This class initializes and calculates the variables necessary to solve the 
+    This class initializes and calculates the variables necessary to solve the
     radiative transfer equation with a multi-stream solver. The solver itself is
-    a combination of the the Advanced Matrix Operator Method (AMOM) and the 
+    a combination of the the Advanced Matrix Operator Method (AMOM) and the
     adding method. It is a translation of the Fortran-based solver from CRTM,
-    originally written by Quanhua Liu (QSS at JCSDA; 
-    quanhua.liu@noaa.gov), Yong Han (NOAA/NESDIS, yong.han@noaa.gov) and 
+    originally written by Quanhua Liu (QSS at JCSDA;
+    quanhua.liu@noaa.gov), Yong Han (NOAA/NESDIS, yong.han@noaa.gov) and
     Paul van Delst (CIMMS/SSEC, paul.vandelst@noaa.gov).
 
-    References: 
+    References:
     Liu and Weng, 2013: 10.1109/JSTARS.2013.2247026
     Liu and Weng, 2006: https://doi.org/10.1175/JAS3808.1
 
@@ -35,14 +29,14 @@ class _MultiStreamSolver:
         """
         Initialize all variables required for the solver and applies delta
         scaling to the single scattering properties of the ice/snow column.
-        
+
         Parameters
         ----------
         column : ColumnProperties
-            Instance of the ColumnProperties class, storing the physical 
+            Instance of the ColumnProperties class, storing the physical
             and optical properties of the ice/snow column.
         irradiance : SolarIrradiance
-            Instance of the SolarIrradiance class, storing the properties of the 
+            Instance of the SolarIrradiance class, storing the properties of the
             incoming solar irradiance.
         """
 
@@ -77,8 +71,7 @@ class _MultiStreamSolver:
         self.direct_reflectivity = np.zeros((self.n_angles, column.nbr_wvl))
         self.emissivity = np.zeros_like(self.direct_reflectivity)
         self.reflectivity = np.zeros((self.n_angles, self.n_angles, column.nbr_wvl))
-        
-        
+
         ## attributes for adding method
         self.s_level_refl_up = np.zeros(
             (self.n_angles, self.n_angles, column.nbr_lyr + 1, column.nbr_wvl)
@@ -166,9 +159,6 @@ class _MultiStreamSolver:
 
             self.ff[self.ff < 0] = 0
             self.bb[self.bb < 0] = 0
-            
-            
-
 
         ######################################################################
         # CALCULATE PHASE COEFFS & PHASE MATRICES WITHOUT DELTA SCALING
@@ -228,13 +218,13 @@ class _MultiStreamSolver:
         """
         Compute layer transmission, reflection matrices and source
         function at the top and bottom of the layer using the advanced
-        matrix operator method (AMOM; Liu and Weng 2013) set the attributes of 
+        matrix operator method (AMOM; Liu and Weng 2013) set the attributes of
         the class accordingly.
-        
+
         Parameters
         ----------
         column : ColumnProperties
-            Instance of the ColumnProperties class, storing the physical 
+            Instance of the ColumnProperties class, storing the physical
             and optical properties of the ice/snow column.
         lyr : int
             Index of the layer for which the optical properties are calculated.
@@ -268,7 +258,7 @@ class _MultiStreamSolver:
         # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
 
-        # take the square roots 
+        # take the square roots
         eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
 
         # scale eigenvectors by square roots of eigen values
@@ -327,7 +317,7 @@ class _MultiStreamSolver:
 
         #     self.s_layer_source_down[:, k] = self.s_layer_source_up[:, k]
 
-        # treatment of solar radiation 
+        # treatment of solar radiation
         if self.solar_flag:
             n2 = 2 * self.n_angles
             n2_1 = -1
@@ -342,8 +332,6 @@ class _MultiStreamSolver:
 
             expfactor = np.exp(-self.t_od[k, :] / self.cos_sun)
             s_transmittance = np.exp(-self.total_opt[k, :] / self.cos_sun)
-            
-            
 
             solar = np.zeros((n2, column.nbr_wvl))
             v0 = np.zeros((n2, n2, column.nbr_wvl))
@@ -383,16 +371,12 @@ class _MultiStreamSolver:
                 np.moveaxis(v0[:n2_1, :n2_1, :], -1, 0),
                 np.moveaxis(solar[:n2_1, None, :], -1, 0),
             )
-            
-            
 
             solar1 = np.moveaxis(
                 np.concatenate([solar1, np.zeros((column.nbr_wvl, 1, 1))], axis=1),
                 0,
                 -1,
             )
-            
-            
 
             sfac2 = solar[n2 - 1, :] - np.sum(
                 v0[n2 - 1, :n2_1, :] * solar1[:n2_1, 0, :], axis=0
@@ -406,13 +390,11 @@ class _MultiStreamSolver:
                 + trans_t
                 @ (
                     expfactor[:, None, None]
-                    * np.moveaxis(solar1[ : self.n_angles, :], -1, 0)
+                    * np.moveaxis(solar1[: self.n_angles, :], -1, 0)
                 ),
                 0,
                 -1,
             )
-            
-            
 
             source_down -= np.moveaxis(
                 trans_t @ np.moveaxis(solar1[self.n_angles :, :], -1, 0)
@@ -423,51 +405,54 @@ class _MultiStreamSolver:
                         None,
                         None,
                     ]
-                    * np.moveaxis(solar1[ : self.n_angles, :], -1, 0)
+                    * np.moveaxis(solar1[: self.n_angles, :], -1, 0)
                 ),
                 0,
                 -1,
             )
-            
-            
 
             # Specific treatment for downward source function
             mask = (abs(v0[n2 - 1, n2 - 1, :]) > 1e-4).reshape((1, v0.shape[-1]))
-            
-            
+
             if np.sum(mask) == column.nbr_wvl:
                 source_down[self.n_angles - 1, :] += (
-                    (expfactor - 
-                     np.moveaxis(
-                         trans_t[:, self.n_angles - 1, self.n_angles - 1], 0, -1))
+                    (
+                        expfactor
+                        - np.moveaxis(
+                            trans_t[:, self.n_angles - 1, self.n_angles - 1], 0, -1
+                        )
+                    )
                     * sfac2
                     / v0[n2 - 1, n2 - 1, :]
                 )
             elif np.sum(~mask) == column.nbr_wvl:
                 source_down[self.n_angles - 1, :] += (
-                        expfactor * sfac2 * self.t_od[k] 
-                        / self.cos_angle[self.n_angles - 1]
-                    )
-            else: 
+                    expfactor * sfac2 * self.t_od[k] / self.cos_angle[self.n_angles - 1]
+                )
+            else:
                 source_down[self.n_angles - 1, mask] += (
-                    (expfactor[mask] - 
-                     np.moveaxis(
-                         trans_t[mask, self.n_angles - 1, self.n_angles - 1], 0, -1))
+                    (
+                        expfactor[mask]
+                        - np.moveaxis(
+                            trans_t[mask, self.n_angles - 1, self.n_angles - 1], 0, -1
+                        )
+                    )
                     * sfac2[mask]
                     / v0[n2 - 1, n2 - 1, mask]
                 )
                 source_down[self.n_angles - 1, ~mask] += (
-                        expfactor[~mask] * sfac2[~mask] * self.t_od[k, ~mask] 
-                        / self.cos_angle[self.n_angles - 1]
-                    )
-            
+                    expfactor[~mask]
+                    * sfac2[~mask]
+                    * self.t_od[k, ~mask]
+                    / self.cos_angle[self.n_angles - 1]
+                )
+
             source_up *= s_transmittance
             source_down *= s_transmittance
 
-            self.s_layer_source_up[:, k, :] += source_up[:,0,:]
-            self.s_layer_source_down[:, k, :] += source_down[:,0,:]
-    
-                
+            self.s_layer_source_up[:, k, :] += source_up[:, 0, :]
+            self.s_layer_source_down[:, k, :] += source_down[:, 0, :]
+
         return None
 
 
@@ -477,24 +462,24 @@ def solve_multi_stream_rt(column, irradiance):
     This subroutine calculates hemispherical albedo by calling AMOM for each
     layer and combining them with the adding method in an upward pass from the
     bottom layer to the top layer.
-    
+
     ! the downward pass is not yet implemented, so that net fluxes at each
     interface are not available.
-    
+
     Parameters
     ----------
     column : ColumnProperties
-        Instance of the ColumnProperties class, storing the physical 
+        Instance of the ColumnProperties class, storing the physical
         and optical properties of the ice/snow column.
     irradiance : SolarIrradiance
-        Instance of the SolarIrradiance class, storing the properties of the 
+        Instance of the SolarIrradiance class, storing the properties of the
         incoming solar irradiance.
-        
+
     Returns
     -------
     albedo : array
         Hemispherical albedo integrated with gaussian quadrature over 16 angles.
- 
+
     """
 
     aads = _MultiStreamSolver(column, irradiance)
@@ -524,73 +509,77 @@ def solve_multi_stream_rt(column, irradiance):
         # call AMOM algorithm to compute layer
         # transmission, reflection, and source functions.
         aads.amom(column, k)
-        
-        
+
         # Adding method to add the layer to the present level
         # to compute upward radiances and reflection matrix
         # at the new level.
-    
+
         infinite_scattering = -np.matmul(
-            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
-                        source=[0, 1, 2], 
-                        destination=[1, 2, 0]),
+            np.moveaxis(
+                aads.s_level_refl_up[:, :, k + 1, :],
+                source=[0, 1, 2],
+                destination=[1, 2, 0],
+            ),
             aads.s_layer_refl,
         )
 
         n = np.arange(aads.n_angles)
         infinite_scattering[:, n, n] += 1
 
+        inv_gamma_t = np.moveaxis(
+            np.linalg.solve(
+                np.moveaxis(infinite_scattering, 1, 2),
+                np.moveaxis(aads.s_layer_trans, 2, 1),
+            ),
+            1,
+            2,
+        )
 
-        inv_gamma_t = np.moveaxis(np.linalg.solve(
-            np.moveaxis(infinite_scattering, 1, 2), 
-            np.moveaxis(aads.s_layer_trans, 2, 1)
-        ), 1, 2)
-        
-        
         refl_down = np.matmul(
-            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :],
-                        source=[0, 1, 2], 
-                        destination=[1, 2, 0]), 
-            np.moveaxis(aads.s_layer_source_down[:, k, :],
-                        source=[0, 1], 
-                        destination=[1, 0])[:, :, None],
+            np.moveaxis(
+                aads.s_level_refl_up[:, :, k + 1, :],
+                source=[0, 1, 2],
+                destination=[1, 2, 0],
+            ),
+            np.moveaxis(
+                aads.s_layer_source_down[:, k, :], source=[0, 1], destination=[1, 0]
+            )[:, :, None],
         ).reshape(column.nbr_wvl, aads.n_angles)
-        
 
-    
-        
         aads.s_level_rad_up[:, k, :] = (
-        aads.s_layer_source_up[:, k, :]
-        + np.moveaxis(
-            np.matmul(
-            inv_gamma_t,
-            (refl_down + 
-        np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0))[:, :, None],
-        ), 
-            source=[0, 1, 2], 
-            destination=[2, 0, 1])[:,0,:]
+            aads.s_layer_source_up[:, k, :]
+            + np.moveaxis(
+                np.matmul(
+                    inv_gamma_t,
+                    (refl_down + np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0))[
+                        :, :, None
+                    ],
+                ),
+                source=[0, 1, 2],
+                destination=[2, 0, 1],
+            )[:, 0, :]
         )
-        
-        
-        refl_trans = np.matmul(
-            np.moveaxis(aads.s_level_refl_up[:, :, k + 1, :], 
-                        source=[0, 1, 2], 
-                        destination=[1, 2, 0]), 
-            aads.s_layer_trans
-        )
-        
-        aads.s_level_refl_up[:, :, k, :] = np.moveaxis(aads.s_layer_refl + np.matmul(
-            inv_gamma_t, refl_trans
-        ), source=[0, 1, 2], # wl, i, j
-        destination=[2,  0, 1]) # becomes i, j, wl
 
-        
+        refl_trans = np.matmul(
+            np.moveaxis(
+                aads.s_level_refl_up[:, :, k + 1, :],
+                source=[0, 1, 2],
+                destination=[1, 2, 0],
+            ),
+            aads.s_layer_trans,
+        )
+
+        aads.s_level_refl_up[:, :, k, :] = np.moveaxis(
+            aads.s_layer_refl + np.matmul(inv_gamma_t, refl_trans),
+            source=[0, 1, 2],  # wl, i, j
+            destination=[2, 0, 1],
+        )  # becomes i, j, wl
+
     if aads.mth_azi == 0:
         for i in range(len(aads.cos_angle)):
             aads.s_level_rad_up[i, 0, :] += (
                 np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
-    
 
     albedo = (
         2
@@ -598,7 +587,8 @@ def solve_multi_stream_rt(column, irradiance):
         * np.sum(
             aads.s_level_rad_up[:, 0, :]
             * np.array(aads.cos_angle)[:, None]
-            * np.array(aads.cos_weight)[:, None], axis=0
+            * np.array(aads.cos_weight)[:, None],
+            axis=0,
         )
         / (aads.solar_irradiance[None, :] * aads.cos_sun)
     ).flatten()
