@@ -51,8 +51,6 @@ def test_multistream_outputs(
     column.ss_alb[:, wvl_idx] = w
     column.tau[:, wvl_idx] = t_od
     column.asm_prm[:, wvl_idx] = g
-    column.update_column_ops_with_laps()
-    column.update_column_ops_with_laps()
 
     # solve RTE
     albedo = solve_multi_stream_rt(column, irradiance)

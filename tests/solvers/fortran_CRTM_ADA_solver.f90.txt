@@ -244,14 +244,14 @@ CONTAINS
     !    Pbb(:,:,i) = Pbb(:,:,1)
     ! END DO
 
-    fname = "/home/adrien/research/snicar-fx-dev/data/test_data/ff_g" // trim(adjustl(g_str)) // ".csv"
+    fname = "./snicar-fx-dev/data/test_data/ff_g" // trim(adjustl(g_str)) // ".csv"
     open(newunit=unit_ff, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_ff,*,iostat=ios) (Pff2d(i,j), j=1,nA+1)
     end do
     close(unit_ff)
 
-    fname = "/home/adrien/research/snicar-fx-dev/data/test_data/bb_g" // trim(adjustl(g_str)) // ".csv"
+    fname = "./snicar-fx-dev/data/test_data/bb_g" // trim(adjustl(g_str)) // ".csv"
     open(newunit=unit_bb, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_bb,*,iostat=ios) (Pbb2d(i,j), j=1,nA+1)
