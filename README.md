@@ -6,39 +6,57 @@
 
 # SNICAR-fx
 
-### *A flexible, light-weight, fast and feature-enhanced version of the SNICAR model*
+### *A flexible, light-weight, fast and feature-enhanced adaptation of the SNICAR model*
 
-SNICAR-fx started as a fork of the
-[biosnicar-py](https://github.com/jmcook1186/biosnicar-py) repository,
+SNICAR-fx started with the idea of upgrading the
+[biosnicar-py](https://github.com/jmcook1186/biosnicar-py) software,
 a python translation of
 [SNICAR-ADv4](https://github.com/chloewhicker/SNICAR-ADv4) (SNow, ICe
-and Aerosols Radiative model), to then evolve into its own standalone
-version.
+and Aerosols Radiative model), to a version that would be more portable
+and enable a flexible spectral range and resolution. Since then, it 
+evolved into a distinct model with expanded functionality and its own
+strengths and assumptions.
 
-## What makes SNICAR-fx different from SNICAR?
 
-- **flexible spectral range**: between 200 and 5000nm with resolution >= 1nm
+## What makes SNICAR-fx different from SNICAR-ADv4?
+
+- **flexible spectral grid**: between 200 and 5000nm with resolution >= 1nm
 - **light weight**: no dependence on large optical properties databases
 - **fast**: up to 50x faster (single-threaded) depending on the model
   set-up (nb layers in particular)
-- **directional capability**: multi-stream solver based on the advanced matrix operator method (! no fresnel layers and diffuse irradiance for now)
+- **directional capability**: two-stream and multi-stream solver (! no fresnel layers and diffuse irradiance for now)
 - **specialized snow and ice features**: liquid water content and empirical optical properties of glacial microbes
 
+## Brief description
 
 SNICAR-fx solves the 1-D unpolarized radiative transfer equation for a
 column of homogeneous layers of snow and/or ice. Each layer can be
-represented as a bulk medium made of large grains of ice in air or
-bubbles of air in ice with a given specific surface area, along with a
-specific water content and concentrations of light absorbing
-particles. The incoming irradiance can be direct with a prescribed
-SZA, or diffuse. Fresnel boundary layers can be incorporated to
-account for the change in refractive index between air and ice by
-using a two-stream Delta-Eddingon solver (Briegleb and Light 2007,
-Whicker et al.  2022), and a multi-stream delta-M solver employing the
-advanced matrix operator method is also available (Liu and Weng 2013),
+represented as a bulk medium made of ice grains or
+air bubbles, of which size should be larger than the wavelength 
+because SNICAR-fx employs geometric optics assumptions to model  
+single scattering properties, in contrast to SNICAR-ADv4 which uses
+Mie theory. Each layer has a specific surface area, water content 
+and concentrations of various light absorbing particles, and the
+incoming irradiance can be direct with a prescribed
+SZA, or diffuse. Fresnel boundary layers can be incorporated between
+layers to account for the change in refractive index between air and ice 
+when using the two-stream Delta-Eddingon solver (
+[Briegleb and Light 2007](https://doi.org/10.5065/D6B27S71),
+[Whicker et al. 2022](https://doi.org/10.5194/tc-16-1197-2022)). 
+A multi-stream delta-M solver employing the
+advanced matrix operator method is also available 
+([Liu and Weng 2006](https://doi.org/10.1175/JAS3808.1), 
+[Liu and Weng 2013](https://doi.org/10.1109/JSTARS.2013.2247026)),
 but does not support Fresnel layers and diffuse irradiance for
-now. The software is currently built for glacier ice (ice refractive
-index Cooper 2021,...).
+now. 
+
+SNICAR-fx is currently developed with a focus on melting environments
+and the radiative forcing of light absorbing particles. More specifically,  
+the development currently targets melting weathering crust environments and
+the software recently incorporated an empirical ice refractive index 
+([Cooper et al. 2021](https://doi.org/10.5194/tc-15-1931-2021)) as well 
+as empirical optical properties of various glacial microbes and the option 
+to include liquid water within the column.
 
 ## How to use
 
@@ -62,33 +80,34 @@ Activate the new `conda` environment named `snicarfx`
 conda activate snicarfx
 ```
 
-Install the `snicarfx` software. Using `pip` together with `conda` is usually a bad idea, but here conda installs all the dependencies and pip only sets up the associated paths, that's all!👍
+Install the `snicarfx` software. Using `pip` together with `conda` is usually a bad idea, but here conda installs all the dependencies and pip only sets up the associated paths, that's all!
 ```bash
 pip install -e .
 ```
 
 ### Running the code
 
-Example scripts are provided in `/examples`, including single runs as well as batch runs for e.g. look-up table generation. 
+Example scripts are provided in `/examples`. So far only single runs using the two-stream solver are provided, but code for batch runs is coming!
 
 
 ## References
 
 ### Equations and model formulation
+<details>
+<summary>Original SNICAR equations (Two-stream Delta-Eddington formulation)</summary>
 
-Original SNICAR equations (Two-stream Delta-Eddington formulation): 
-
-<sup>Joseph, J. H., Wiscombe, W. J., & Weinman, J. A. (1976). The delta-Eddington approximation for radiative flux 
+<ul><li>Joseph, J. H., Wiscombe, W. J., & Weinman, J. A. (1976). The delta-Eddington approximation for radiative flux 
 transfer. Journal of Atmospheric Sciences, 33(12), 2452-2459. 
-[https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2](https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2)<sup>
+[https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2](https://doi.org/10.1175/1520-0469(1976)033<2452:TDEAFR>2.0.CO;2)</li>
 
-<sup>Wiscombe, W. J., & Warren, S. G. (1980). A model for the spectral albedo of snow. I: Pure snow. Journal of 
+<li>Wiscombe, W. J., & Warren, S. G. (1980). A model for the spectral albedo of snow. I: Pure snow. Journal of 
 Atmospheric Sciences, 37(12), 2712-2733.
-[https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2](https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2)<sup>
+[https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2](https://doi.org/10.1175/1520-0469(1980)037<2712:AMFTSA>2.0.CO;2)</li>
 
-<sup>Flanner, M. G., Arnheim, J., Cook, J. M., Dang, C., He, C., Huang, X., ... & Zender, C. S. (2021). SNICAR-AD 
+<li>Flanner, M. G., Arnheim, J., Cook, J. M., Dang, C., He, C., Huang, X., ... & Zender, C. S. (2021). SNICAR-AD 
 v3: A community tool for modeling spectral snow albedo. Geoscientific Model Development, 2021, 1-49. 
-[https://doi.org/10.5194/gmd-14-7673-2021](https://doi.org/10.5194/gmd-14-7673-2021)<sup>
+[https://doi.org/10.5194/gmd-14-7673-2021](https://doi.org/10.5194/gmd-14-7673-2021)</li></ul>
+</details>
 
 Adding-doubling solver with Fresnel layers:
 
