@@ -12,7 +12,15 @@ from pydantic import BaseModel, Field, confloat, conlist, model_validator
 
 
 class Rtm(BaseModel):
+    """
+    Define the valid ranges and types of the radiative transfer model (RTM)
+    configuration.
 
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
+        
     # radiation (0 is direct 1 is diffuse)
     DIRECT: Literal[0, 1]
 
@@ -36,6 +44,13 @@ class Rtm(BaseModel):
 
 
 class Ice(BaseModel):
+    """
+    Define the valid ranges and types of the ice/snow properties.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
 
     # thickness of each vertical layer (unit : m)
     THICKNESS: conlist(confloat(ge=1e-10, le=1000), min_length=1, max_length=1000)
@@ -68,6 +83,15 @@ class Ice(BaseModel):
 
 
 class Particle(BaseModel):
+    """
+    Define the valid ranges and types for the properties of a light absorbing
+    particle.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
+    
     FILE: str
     COATED: bool
     UNIT: Literal[0, 1]
@@ -78,6 +102,14 @@ class Particle(BaseModel):
 
 
 class LightAbsorbingParticles(BaseModel):
+    """
+    Define an object for the configuration of all light absorbing particles.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
+    
     # Optional: Black carbon and algae
     BC: Particle | None = None
     ALG: Particle | None = None
@@ -87,6 +119,14 @@ class LightAbsorbingParticles(BaseModel):
 
 
 class Config(BaseModel):
+    """
+    Combine the different objects inheriting from BaseModel.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type 
+    validation and parsing of yaml files.
+        
+    """ 
+    
     RTM: Rtm
     ICE: Ice
     LIGHT_ABSORBING_PARTICLES: LightAbsorbingParticles
@@ -113,8 +153,8 @@ class Config(BaseModel):
 
         if len(lengths) > 1:
             raise ValueError(
-                f"All ICE layer-related lists must have the same length, got lengths: "
-                f"{[len(lst) for lst in ice_lists]}"
+                f"All ICE layer-related lists must have the same length, but now"
+                f"are: {[len(lst) for lst in ice_lists]}"
             )
 
         ice_layers = len(self.ICE.THICKNESS)
