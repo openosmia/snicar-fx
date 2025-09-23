@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -55,8 +50,9 @@ class Ice(BaseModel):
     RF_TYPE: Literal["Pic16", "Wrn08", "Coop21"]
 
     # m2 kg-1
-    SPECIFIC_SURFACE_AREA: conlist(confloat(ge=1e-10, le=100), min_length=1, 
-                                   max_length=1000)
+    SPECIFIC_SURFACE_AREA: conlist(
+        confloat(ge=1e-10, le=100), min_length=1, max_length=1000
+    )
 
     # LWC content in snow/ice
     LWC: conlist(confloat(ge=0.0, le=1.0), min_length=1, max_length=1000)
@@ -102,7 +98,7 @@ class Config(BaseModel):
         """
         Check that all ICE and LIGHT_ABSORBING_PARTICLES
         layer-related lists have the same length
-        
+
         """
 
         ice_lists = [
@@ -124,7 +120,7 @@ class Config(BaseModel):
         ice_layers = len(self.ICE.THICKNESS)
 
         # Check that all particle CONC lists match ICE layers
-        if self.LIGHT_ABSORBING_PARTICLES is not None: 
+        if self.LIGHT_ABSORBING_PARTICLES is not None:
             for particle_name in self.LIGHT_ABSORBING_PARTICLES.model_fields:
                 particle = getattr(self.LIGHT_ABSORBING_PARTICLES, particle_name)
                 if particle is not None and len(particle.CONC) != ice_layers:

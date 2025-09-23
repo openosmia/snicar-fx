@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -19,20 +14,20 @@ class ColumnProperties:
     Physical and optical properties of a snow or ice column.
 
     This class computes and stores the properties of a snow/ice column for each
-    layer based on the YAML input file. 
+    layer based on the YAML input file.
 
     Attributes
     ----------
     model_inputs : ModelInputs
         An instance of the ModelInputs class containing model input data parsed
         from the YAML configuration file.
-    layer_type : list 
+    layer_type : list
         Type of layer (0 for snow grains in air, 1 for air bubbles in ice).
     nbr_lyr : int
         Number of layers in the column.
-    thickness_profile : list 
+    thickness_profile : list
         Thicknesses [m] of each layer of the snow or ice column.
-    density : list 
+    density : list
         Density of snow/ice for each layer [kg/m3].
     rf_type : str
         Source of refractive index data.
@@ -109,8 +104,8 @@ class ColumnProperties:
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
         """
         Load and set refractive indices and diffuse Fresnel coefficients.
-    
-        This method loads high-resolution ice/water refractive index data as 
+
+        This method loads high-resolution ice/water refractive index data as
         well as diffuse Fresnel reflection coefficients, and interpolates them
         to the model's spectral resolution.
         """
@@ -148,9 +143,9 @@ class ColumnProperties:
     def set_lap_properties(self):
         """
         Load and set optical properties of light-absorbing particles (LAPs).
-    
-        This method sets the properties of each LAP defined in the input 
-        configuration, converting their concentrations to consistent units, 
+
+        This method sets the properties of each LAP defined in the input
+        configuration, converting their concentrations to consistent units,
         and interpolating their properties to the model's spectral grid.
         """
 
@@ -227,21 +222,19 @@ class ColumnProperties:
                 properties[ext_cff_tag].values,
             )
             self.lap_ext_cff[i, :] = ext_cff
-            
+
     def set_column_ops_without_laps(self):
         """
         Compute optical properties of a clean snow/ice column (no LAPs).
-    
-        This method calculates wavelength-dependent extinction coefficients, 
-        single scattering albedo, asymmetry parameters, and optical thickness 
-        for each layer based on the input physical parameters and refractive 
+
+        This method calculates wavelength-dependent extinction coefficients,
+        single scattering albedo, asymmetry parameters, and optical thickness
+        for each layer based on the input physical parameters and refractive
         indices. Different models are used depending on whether layers are made
         of snow grains in air or ice with air inclusions, but all use geometric
         optics approximation (grain/bubble larger than the wavelength).
         """
-        self.layer_mass = (np.array(self.density) 
-                           * np.array(self.thickness_profile)
-                           )
+        self.layer_mass = np.array(self.density) * np.array(self.thickness_profile)
 
         for lyr in range(self.nbr_lyr):
 
@@ -273,51 +266,55 @@ class ColumnProperties:
                 self.asm_prm[lyr, :] = 0.49274 + 0.44466 / (
                     0.69233 * np.sqrt(np.pi / 2)
                 ) * np.exp(-2 * ((1 / self.ref_idx_re - 1.04882) / 0.69233) ** 2)
-                
+
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
 
                 self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
 
             else:  # ice grains in air
-                # under geometric optics assumptions, the extinction 
+                # under geometric optics assumptions, the extinction
                 # cross section is the extinction efficiency (=2) multiplied
-                # by the cross section K. To get the mass extinction coeff 
-                # in m2 kg-1, we then divide by the particle volume V and the 
+                # by the cross section K. To get the mass extinction coeff
+                # in m2 kg-1, we then divide by the particle volume V and the
                 # ice density D, i.e. ext = 2 * (K / V) / D.
                 # For convex grains, K = S / 4 with S the surface area of
                 # the ice grain (Eq. 2.47 in Kokhanovsky 2001).
                 # Since the is SSA = S / (V * D), then ext = 2 * SSA.
-                
-                self.ext_cff[lyr, :] = (
-                    self.ssa[lyr] / 2
-                ) 
+
+                self.ext_cff[lyr, :] = self.ssa[lyr] / 2
                 self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
-                
+
                 k_eq = (
                     self.lwc[lyr] * self.ref_idx_im_water
                     + (1 - self.lwc[lyr]) * self.ref_idx_im
                 )
-                
+
                 # cf Eq. 7, 8 in Kokhanovsky 2024
-                # z = 4 * pi * k / wl * deff = 4 * pi * k / wl * 3 / 2 * V / K 
+                # z = 4 * pi * k / wl * deff = 4 * pi * k / wl * 3 / 2 * V / K
                 # with V / K = 4 / (SSA * D)
-                z = (4 * np.pi * k_eq / (self.wavelengths)
-                     * 3 / 2 
-                     * 4
-                     / (self.ssa[lyr] * 917)
-                     )
+                z = (
+                    4
+                    * np.pi
+                    * k_eq
+                    / (self.wavelengths)
+                    * 3
+                    / 2
+                    * 4
+                    / (self.ssa[lyr] * 917)
+                )
 
                 if self.grain_shape[lyr] == 0:
-                    
+
                     # Eq. 2.45 in Kokhanovsky 2001, Eq. 10 in Kokhanovsky 2024
-                    eta = (0.3639 
-                           + 1.676 * (self.ref_idx_re - 1) 
-                           - 1.6284 * (self.ref_idx_re - 1)**2
-                           )
+                    eta = (
+                        0.3639
+                        + 1.676 * (self.ref_idx_re - 1)
+                        - 1.6284 * (self.ref_idx_re - 1) ** 2
+                    )
                     ginf = 1.008 - 0.11 * (self.ref_idx_re - 1)
                     g0 = 1.006 - 0.3641 * (self.ref_idx_re - 1)
                     self.asm_prm[lyr, :] = ginf - (ginf - g0) * np.exp(-z * eta)
-                    
+
                     # Table 5 from Kokhanovsky and Macke 1997
                     n_tab = [1.1, 1.2, 1.333, 1.4, 1.5, 1.6, 1.7]
                     b_tab = [1.11, 1.18, 1.24, 1.26, 1.29, 1.31, 1.33]
@@ -327,7 +324,6 @@ class ColumnProperties:
                     # Robledano 2023 measurements
                     self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.815
                     b = self.ref_idx_re**2
-                
 
                 # Eq. 2.45 in Kokhanovsky 2001
                 rho = 0.0123 + 0.1622 * (self.ref_idx_re - 1)
@@ -338,9 +334,9 @@ class ColumnProperties:
 
     def update_column_ops_with_laps(self):
         """
-        Update the optical properties of the snow/ice column to account for 
+        Update the optical properties of the snow/ice column to account for
         the effct of light-absorbing particles.
-        
+
         This method computes the combined optical properties of the snow/ice
         matrix and the embedded LAPs, following two-stream approximation mixing
         formulas. It adjusts optical thickness, single scattering albedo, and

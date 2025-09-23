@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -27,12 +22,12 @@ def test_multistream_outputs(
     absolute_tolerance_benchmark,
 ):
     """
-    Assert that snicar-fx reproduces the spectral albedo modelled using the 
+    Assert that snicar-fx reproduces the spectral albedo modelled using the
     ADA module of the Community Radiative Transfer Model (CRTM) within a tolerance
     of 1e-5 when the exact same input data is used. Input data is defined via
     the input test file and the `params_ada` parameter.
-     
-    
+
+
     Parameters
     ----------
     params_ada : array
@@ -40,11 +35,11 @@ def test_multistream_outputs(
     column : ColumnProperties
         Instance of the ColumnProperties class
     benchmark_ada_spectral_data : array
-        Spectral albedo data generated using the Fortran-based ADA module of 
+        Spectral albedo data generated using the Fortran-based ADA module of
         CRTM for the parameter grid `params`.
     absolute_tolerance_benchmark: float
         Tolerance value for the error.
-    
+
     """
     w, t_od, g, wvl_idx = params_ada
 

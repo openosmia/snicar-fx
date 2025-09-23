@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -23,23 +18,23 @@ def test_solarirradiance_values(
     """
     Assert that average values of attributes defined in the test input file
     match expected values within a tolerance threshold.
-    
+
     Parameters
     ----------
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class
     expected_mean_fs : float
-        Expected mean value of the direct collimated beam as sourced in 
+        Expected mean value of the direct collimated beam as sourced in
         the test input file.
     expected_mean_flx_slr : float
-        Expected mean value of the total solar flux as sourced 
+        Expected mean value of the total solar flux as sourced
         in the test input file.
     expected_fd : float
-        Expected mean value of the diffuse solar beam for light as sourced 
+        Expected mean value of the diffuse solar beam for light as sourced
         in the test input file.
     absolute_tolerance_internal_variables: float
         Tolerance value for the error.
-    
+
     """
 
     assert np.all(~np.isnan(irradiance.fs))

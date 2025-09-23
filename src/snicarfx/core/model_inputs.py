@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -51,13 +46,8 @@ class ModelInputs:
         """
         with open(input_file) as ymlfile:
             self.inputs = yaml.load(ymlfile, Loader=yaml.FullLoader)
-            
-        self.dir_base = snicarfx.__file__.rsplit('/', 3)[0]
-        self.data_path = self.dir_base + '/data/'
-        self.lap_path = self.data_path + 'light_absorbing_particles/'
-        self.solar_fluxes_path = self.data_path + 'solar_fluxes/'
 
-
-
-        
-        
+        self.dir_base = snicarfx.__file__.rsplit("/", 3)[0]
+        self.data_path = self.dir_base + "/data/"
+        self.lap_path = self.data_path + "light_absorbing_particles/"
+        self.solar_fluxes_path = self.data_path + "solar_fluxes/"

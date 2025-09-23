@@ -1,12 +1,7 @@
 """
-This file is part of the snicar-fx software package. 
+This file is part of the snicar-fx software package.
 
-https://github.com/openosmia/snicar-fx 
-
-
-Author(s)
----------
-snicar-fx development team
+https://github.com/openosmia/snicar-fx
 
 """
 
@@ -108,6 +103,7 @@ def expected_fd():
     """Fetch mean diffuse solar beam from test input file."""
     return 0.0
 
+
 def twostream_parameter_grid():
     """Define parameter grid to test snicar-fx against SNICAR-ADv4 outputs."""
     layer_type_grid = [0, 1]
@@ -136,6 +132,7 @@ def benchmark_ada_spectral_data():
     """Read CRTM ADA outputs to test snicar-fx against."""
     return xr.open_dataset("./tests/test_data/benchmark_ADA_spectral_albedo.nc")
 
+
 def multistream_ada_parameter_grid(ds):
     """Read parameter grid to test snicar-fx against CRTM ADA outputs."""
     return list(
@@ -146,6 +143,7 @@ def multistream_ada_parameter_grid(ds):
             ds.wvl_idx.values,
         )
     )
+
 
 def pytest_generate_tests(metafunc):
     """Store parameter grid for the tests against CRTM into `params_ada`."""
@@ -176,10 +174,12 @@ def benchmark_snicaradv4_absorbed_flux_data():
         "./tests/test_data/benchmark_SNICARADv4_absorbed_flux.csv", header=None
     )
 
+
 @pytest.fixture(scope="module")
 def absolute_tolerance_internal_variables():
     """Set absolute tolerance on error for the internal variables."""
     return 1e-9
+
 
 @pytest.fixture(scope="module")
 def absolute_tolerance_benchmark():
