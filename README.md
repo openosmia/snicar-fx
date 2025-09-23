@@ -22,10 +22,10 @@ strengths and assumptions.
 
 - **flexible spectral grid**: between 200 and 5000nm with resolution >= 1nm
 - **light weight**: no dependence on large optical properties databases
-- **fast**: up to 50x faster (single-threaded) depending on the model
-  set-up (nb layers in particular)
-- **directional capability**: two-stream and multi-stream solver (! no fresnel layers and diffuse irradiance for now)
-- **specialized snow and ice features**: liquid water content and empirical optical properties of glacial microbes
+- **fast**: up to 50x faster in single-threaded runs depending on model
+  configuration (number of layers in particular)
+- **directional capability**: two-stream and multi-stream solvers
+- **specialized snow and ice features**: liquid water content and empirical optical properties of glacial microbes and minerals
 
 ## Brief description
 
@@ -38,7 +38,7 @@ single scattering properties, in contrast to SNICAR-ADv4 which uses
 Mie theory. Each layer has a specific surface area, water content 
 and concentrations of various light absorbing particles. The
 incoming irradiance can be direct with a prescribed
-SZA, or diffuse. Fresnel boundary layers can be incorporated between
+Solar Zenith Angle (SZA), or diffuse. Fresnel boundary layers can be incorporated between
 layers to account for the change in refractive index between air and ice 
 when using the two-stream Delta-Eddingon solver (
 [Briegleb and Light 2007](https://doi.org/10.5065/D6B27S71),
@@ -47,15 +47,14 @@ A multi-stream delta-M solver employing the
 advanced matrix operator method is also available 
 ([Liu and Weng 2006](https://doi.org/10.1175/JAS3808.1), 
 [Liu and Weng 2013](https://doi.org/10.1109/JSTARS.2013.2247026)),
-but does not support Fresnel layers and diffuse irradiance for
-now. 
+but does not support Fresnel layers and diffuse irradiance to date. 
 SNICAR-fx is currently developed with a focus on melting environments
 and the radiative forcing of light absorbing particles. More specifically, 
 the development currently targets melting weathering crust environments and
 the software recently incorporated an empirical ice refractive index 
 ([Cooper et al. 2021](https://doi.org/10.5194/tc-15-1931-2021)),
-empirical optical properties of various glacial microbes as well as the option 
-to include liquid water within the column.
+empirical optical properties of various glacial light absorbing particles (microbes, dust...) 
+as well as the option to include liquid water within the column.
 
 ## How to use
 
@@ -79,14 +78,14 @@ Activate the new `conda` environment named `snicarfx`
 conda activate snicarfx
 ```
 
-Install the `snicarfx` software in editable (-e) mode, so that there is not need to re-install the package after local modifications. `conda` has already installed the dependencies at the previous step, so here pip only sets up the associated paths
+Install the `snicarfx` software in editable (-e) mode, so that there is not need to re-install the package after local modifications. `conda` has already installed the dependencies at the previous step, so here `pip` only sets up the associated paths
 ```bash
 pip install -e .
 ```
 
 ### Running the code
 
-Example scripts are provided in `/examples`. So far only single runs using the two-stream solver are provided, but code for batch runs is coming!
+Example scripts are provided in `/examples`. So far, only single runs using the two-stream solver are provided, but examples for batch runs are coming!
 
 
 ## References
