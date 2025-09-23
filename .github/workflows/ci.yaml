@@ -30,5 +30,15 @@ jobs:
           pip install ruff
           ruff check .
           
-      - name: Run tests
-        run: pytest .
+      - name: Run tests and generate coverage report
+        shell: bash -l {0}
+        run: |
+          pip install pytest
+          pip install pytest-cov
+          pytest --cov --cov-branch --cov-report=xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          
