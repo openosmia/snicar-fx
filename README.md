@@ -124,6 +124,8 @@ a physically based radiative transfer model to represent the spectral albedo of 
 <details>
 <summary>Multi-stream advanced matrix operator method and adding solver</summary> 
 
+<br>
+
 - Liu, Q., & Weng, F. (2013). Using advanced matrix operator (AMOM) in community radiative transfer model. 
 IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing, 6(3), 1211-1218. 
 [DOI](https://doi.org/10.1109/JSTARS.2013.2247026)
@@ -131,13 +133,15 @@ IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing
 
 <details>
 <summary>Air bubble asymmetry parameter</summary> 
+ 
+<br>
 
 - Kokhanovsky, A. A. (2002). Optical properties of bubbles. Journal of Optics A: Pure and Applied Optics, 
-5(1), 47. [https://doi.org/10.1088/1464-4258/5/1/307](https://doi.org/10.1088/1464-4258/5/1/307)
+5(1), 47. [DOI](https://doi.org/10.1088/1464-4258/5/1/307)
 </details>
 
 <details>
-<summary>Ice grain single scattering properties (similar as in [TARTES](https://github.com/ghislainp/tartes))</summary> 
+<summary>Ice grain single scattering properties (similar as in <a href="https://github.com/ghislainp/tartes">TARTES</a>)</summary>
 
 - Kokhanovsky, A. A. (2021). Snow optics. Springer. 
 [DOI](https://doi.org/10.1007/978-3-031-85979-3)</summary> 
@@ -175,6 +179,8 @@ revised compilation. Journal of Geophysical Research: Atmospheres, 113(D14).
 <details>
 <summary>Spectral irradiances (SWNB2 model runs)</summary> 
 
+<br>
+
 - Flanner, M. G., Arnheim, J., Cook, J. M., Dang, C., He, C., Huang, X., ... & Zender, C. S. (2021). SNICAR-AD
 v3: A community tool for modeling spectral snow albedo. Geoscientific Model Development, 2021, 1-49.
 [DOI](https://doi.org/10.5194/gmd-14-7673-2021)
@@ -209,7 +215,6 @@ learning. The Cryosphere, 19(4), 1527-1538.
 radiative forcing from the 2010 Eyjafjallajökull volcanic eruptions. Journal of Geophysical Research: 
 Atmospheres, 119(15), 9481-9491. 
 [DOI](https://doi.org/10.1002/2014JD021977)
-</details>
 
 - **Greenland dust**: Cook, J. M., Tedstone, A. J., Williamson, C., McCutcheon, J., Hodson, A. J., Dayal, A., ... 
 & Tranter, M. (2020). Glacier algae accelerate melt rates on the south-western Greenland Ice Sheet. The 
