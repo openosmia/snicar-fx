@@ -1,3 +1,18 @@
+% SET VARIABLE INPUT ARGUMENTS
+nbr_lyr = 3;
+lyr_array     = [1, 2];
+direct_array  = [1, 0];
+zen_array     = [30, 50, 70];
+density_array = [300, 600, 900];
+reff_array    = [200, 600, 1000];
+bc_array      = [0, 100, 1000];
+dz_array = [
+    0.01, 0.01, 0.01;   % very thin column
+    0.01, 0.1, 1;       % medium thick column
+    0.01, 10, 100       % very thick column
+];
+
+
 % SET FIXED INPUT ARGUMENTS
 input_args.atm                     = 2;      % atmospheric profile: mid-latitude summer
 input_args.nbr_lyr                 = 3;
@@ -32,19 +47,6 @@ input_args.dcmf_pig_carb(1:nbr_lyr)         = 0.0;    % dry cell mass fraction o
 input_args.glc_alg_mss_cnc(1:nbr_lyr)       = 0;      % GLACIER algae [UNITS ng/g]
 input_args.glc_alg_rds                   = 4;      % GLACIER algae radius [um]
 input_args.glc_alg_len                   = 40;     % GLACIER algae length [um]
-
-% SET VARIABLE INPUT ARGUMENTS
-lyr_array     = [1, 2];
-direct_array  = [1, 0];
-zen_array     = [30, 50, 70];
-density_array = [300, 600, 900];
-reff_array    = [200, 600, 1000];
-bc_array      = [0, 100, 1000];
-dz_array = [
-    0.01, 0.01, 0.01;   % very thin column
-    0.01, 0.1, 1;       % medium thick column
-    0.01, 10, 100       % very thick column
-];
 
 
 % RUN SNICAR
@@ -93,7 +95,140 @@ for lyr_type = 1:length(lyr_array)
     end
 end
 
-writematrix(albedo_out,'benchmark_SNICARADv4_spectral_albedo.csv');
-writematrix(bba_out,'benchmark_SNICARADv4_BBA.csv');
-writematrix(flx_slr_abs,'benchmark_SNICARADv4_absorbed_flux.csv');
 
+
+
+wavelength = (200:10:4990)';
+n_wavelength = length(wavelength);
+n_lyr = length(lyr_array);
+n_density = length(density_array);
+n_reff = length(reff_array);
+n_sza = length(zen_array);
+n_bc = length(bc_array);
+n_dz = size(dz_array, 1);
+n_direct = length(direct_array);
+n_layer = size(dz_array, 2);
+
+ncfile = 'benchmark_SNICARADv4_spectral_albedo.nc';
+
+nccreate(ncfile, 'albedo', ...
+    'Dimensions', {'wavelength', n_wavelength, ...
+                   'layer_type', n_lyr, ...
+                   'density', n_density, ...
+                   'reff', n_reff, ...
+                   'sza', n_sza, ...
+                   'bc', n_bc, ...
+                   'thickness_profiles', n_dz, ...
+                   'direct', n_direct});
+
+albedo_out_reshaped = reshape(albedo_out, ...
+    [n_wavelength, n_lyr, n_density, n_reff, n_sza, n_bc, n_dz, n_direct]);
+
+ncwrite(ncfile, 'albedo', albedo_out_reshaped);
+
+nccreate(ncfile, 'wavelength', 'Dimensions', {'wavelength', n_wavelength});
+ncwrite(ncfile, 'wavelength', wavelength);
+
+nccreate(ncfile, 'layer_type', 'Dimensions', {'layer_type', n_lyr});
+ncwrite(ncfile, 'layer_type', lyr_array);
+
+nccreate(ncfile, 'density', 'Dimensions', {'density', n_density});
+ncwrite(ncfile, 'density', density_array);
+
+nccreate(ncfile, 'reff', 'Dimensions', {'reff', n_reff});
+ncwrite(ncfile, 'reff', reff_array);
+
+nccreate(ncfile, 'sza', 'Dimensions', {'sza', n_sza});
+ncwrite(ncfile, 'sza', zen_array);
+
+nccreate(ncfile, 'bc', 'Dimensions', {'bc', n_bc});
+ncwrite(ncfile, 'bc', bc_array);
+
+nccreate(ncfile, 'direct', 'Dimensions', {'direct', n_direct});
+ncwrite(ncfile, 'direct', direct_array);
+
+nccreate(ncfile, 'dz_layers', 'Dimensions', {'layer', n_layer, 'thickness_profiles', n_dz});
+ncwrite(ncfile, 'dz_layers', dz_array);
+
+ncwriteatt(ncfile, '/', 'description', ...
+    'Spectral albedo produced with the Matlab code of SNICAR-ADv4 to test SNICAR-fx.');
+
+ncfile = 'benchmark_SNICARADv4_BBA.nc';
+
+nccreate(ncfile, 'BBA', ...
+    'Dimensions', {'layer_type', n_lyr, ...
+                   'density', n_density, ...
+                   'reff', n_reff, ...
+                   'sza', n_sza, ...
+                   'bc', n_bc, ...
+                   'dz', n_dz, ...
+                   'direct', n_direct});
+
+bba_out_reshaped = reshape(bba_out, ...
+    [n_lyr, n_density, n_reff, n_sza, n_bc, n_dz, n_direct]);
+
+ncwrite(ncfile, 'BBA', bba_out_reshaped);
+
+nccreate(ncfile, 'layer_type', 'Dimensions', {'layer_type', n_lyr});
+ncwrite(ncfile, 'layer_type', lyr_array);
+
+nccreate(ncfile, 'density', 'Dimensions', {'density', n_density});
+ncwrite(ncfile, 'density', density_array);
+
+nccreate(ncfile, 'reff', 'Dimensions', {'reff', n_reff});
+ncwrite(ncfile, 'reff', reff_array);
+
+nccreate(ncfile, 'sza', 'Dimensions', {'sza', n_sza});
+ncwrite(ncfile, 'sza', zen_array);
+
+nccreate(ncfile, 'bc', 'Dimensions', {'bc', n_bc});
+ncwrite(ncfile, 'bc', bc_array);
+
+nccreate(ncfile, 'direct', 'Dimensions', {'direct', n_direct});
+ncwrite(ncfile, 'direct', direct_array);
+
+nccreate(ncfile, 'dz_layers', 'Dimensions', {'layer', n_layer, 'thickness_profiles', n_dz});
+ncwrite(ncfile, 'dz_layers', dz_array);
+
+ncwriteatt(ncfile, '/', 'description', ...
+    'BBA produced with the Matlab code of SNICAR-ADv4 to test SNICAR-fx.');
+
+ncfile = 'benchmark_SNICARADv4_absorbed_flux.nc';
+
+nccreate(ncfile, 'absorbed_flux', ...
+    'Dimensions', {'layer_type', n_lyr, ...
+                   'density', n_density, ...
+                   'reff', n_reff, ...
+                   'sza', n_sza, ...
+                   'bc', n_bc, ...
+                   'dz', n_dz, ...
+                   'direct', n_direct});
+
+flx_slr_abs_out_reshaped = reshape(flx_slr_abs, ...
+    [n_lyr, n_density, n_reff, n_sza, n_bc, n_dz, n_direct]);
+
+ncwrite(ncfile, 'absorbed_flux', flx_slr_abs_out_reshaped);
+
+nccreate(ncfile, 'layer_type', 'Dimensions', {'layer_type', n_lyr});
+ncwrite(ncfile, 'layer_type', lyr_array);
+
+nccreate(ncfile, 'density', 'Dimensions', {'density', n_density});
+ncwrite(ncfile, 'density', density_array);
+
+nccreate(ncfile, 'reff', 'Dimensions', {'reff', n_reff});
+ncwrite(ncfile, 'reff', reff_array);
+
+nccreate(ncfile, 'sza', 'Dimensions', {'sza', n_sza});
+ncwrite(ncfile, 'sza', zen_array);
+
+nccreate(ncfile, 'bc', 'Dimensions', {'bc', n_bc});
+ncwrite(ncfile, 'bc', bc_array);
+
+nccreate(ncfile, 'direct', 'Dimensions', {'direct', n_direct});
+ncwrite(ncfile, 'direct', direct_array);
+
+nccreate(ncfile, 'dz_layers', 'Dimensions', {'layer', n_layer, 'thickness_profiles', n_dz});
+ncwrite(ncfile, 'dz_layers', dz_array);
+
+ncwriteatt(ncfile, '/', 'description', ...
+    'Total absorbed fluxes produced with the Matlab code of SNICAR-ADv4 to test SNICAR-fx.');

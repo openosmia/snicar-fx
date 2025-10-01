@@ -6,7 +6,6 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
-import pytest
 import xarray as xr
 
 from snicarfx.core import (
@@ -15,14 +14,12 @@ from snicarfx.core import (
     SolarIrradiance,
     solve_two_stream_rt,
 )
-from tests.conftest import twostream_parameter_grid
 from tests.solvers.utils import match_matlab_config
 
 
-@pytest.mark.parametrize("idx, params", enumerate(twostream_parameter_grid()))
+# @pytest.mark.parametrize("params", twostream_parameter_grid())
 def test_twostreams_outputs(
-    idx,
-    params,
+    params_2str,
     column,
     benchmark_snicaradv4_spectral_data,
     benchmark_snicaradv4_bba_data,
@@ -59,7 +56,7 @@ def test_twostreams_outputs(
 
     """
 
-    layer_type, density, radius, sza, bc, thickness_profile, direct = params
+    layer_type, density, radius, sza, bc, thickness_profile, direct = params_2str
 
     # Setup inputs
     model_inputs = ModelInputs("./tests/inputs_tests.yaml")
@@ -124,20 +121,39 @@ def test_twostreams_outputs(
     # clipped to 0.99 in SNICAR-ADv4 but not in snicar-fx, producing larger
     # discrepancies than the tolerance of 1e-5.
 
+    
+    # fetch index of thickness profile
+    thickness_profile_idx = np.where(
+        np.all(
+            benchmark_snicaradv4_bba_data.dz_layers == thickness_profile, 
+            axis=1))[0][0]
+    
     assert np.allclose(
         outputs.albedo[:250],
-        benchmark_snicaradv4_spectral_data[idx][:250],
+        benchmark_snicaradv4_spectral_data.sel(
+            layer_type=layer_type+1, density=density, reff=radius, sza=sza, 
+            bc=bc, direct=direct, thickness_profiles=thickness_profile_idx)[
+            "albedo"
+        ].values[:250],
         atol=absolute_tolerance_benchmark,
     )
-    # BBA
+    
     assert np.allclose(
         outputs.BBA,
-        benchmark_snicaradv4_bba_data[idx],
+        benchmark_snicaradv4_bba_data.sel(
+            layer_type=layer_type+1, density=density, reff=radius, sza=sza, 
+            bc=bc, direct=direct, thickness_profiles=thickness_profile_idx)[
+            "BBA"
+        ].values,
         atol=absolute_tolerance_benchmark,
     )
-    # Absorbed flux
+    
     assert np.allclose(
         outputs.abs_slr_tot,
-        benchmark_snicaradv4_absorbed_flux_data[idx],
+        benchmark_snicaradv4_absorbed_flux_data.sel(
+            layer_type=layer_type+1, density=density, reff=radius, sza=sza, 
+            bc=bc, direct=direct, thickness_profiles=thickness_profile_idx)[
+            "flux_absorbed"
+        ].values,
         atol=absolute_tolerance_benchmark,
     )
