@@ -24,19 +24,19 @@ irradiance = SolarIrradiance(model_inputs)
 
 # %% declare ranges of parameter to use in runs of the ADA solver
 
-# single scattering albedo values
+# single scattering albedos
 w_list = np.arange(0.2, 0.7, 0.1)
 
-# g values
+# asymmetry parameters
 g_list = [0.32, 0.86]
 
-# fixed number of angles
+# number of angles
 n_angles = 8
 
-# optical depth values
+# optical depths
 t_od_list = np.arange(5, 220, 20)
 
-# discrete wavelength indices to use
+# discrete wavelength indices
 wavelength_index_list = [10, 40, 60, 80]
 
 # calculate Legendre polynomials required by the Fortran solver
