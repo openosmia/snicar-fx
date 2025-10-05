@@ -8,11 +8,13 @@ against its Python implementation.
 
 """
 
-from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
-import snicarfx.core.advanced_doubling_adding_solver_vectorized as adv_solver_mod
-import numpy as np
 import subprocess
+
+import numpy as np
 import xarray as xr
+
+import snicarfx.core.advanced_doubling_adding_solver_vectorized as adv_solver_mod
+from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
 
 # %% instanciate snicar-fx classes
 
@@ -49,7 +51,7 @@ f90_results = np.zeros(
 
 # %% run the Fortran solver
 
-for l, wavelength_index in enumerate(wavelength_index_list):
+for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
 
     # save g in files first because too big to pass at run time
     for g in g_list:
@@ -84,9 +86,9 @@ for l, wavelength_index in enumerate(wavelength_index_list):
     solar_irradiance = solver.solar_irradiance[wavelength_index]
 
     # pass other simpler arguments now, at run time
-    for j, t_od in enumerate(t_od_list):
-        for i, w in enumerate(w_list):
-            for k, g in enumerate(g_list):
+    for t_od_enumerator, t_od in enumerate(t_od_list):
+        for w_enumerator, w in enumerate(w_list):
+            for g_enumerator, g in enumerate(g_list):
 
                 # update python variables
                 column.ss_alb[:, wavelength_index] = w
@@ -104,7 +106,11 @@ for l, wavelength_index in enumerate(wavelength_index_list):
                 # run fortran version by passing variables to the executable
                 subprocess.run(
                     # ./run_ADA w T_OD g COS_SUN Solar_irradiance
-                    f"./run_ADA {solver.w[0, wavelength_index]} {solver.t_od[0, wavelength_index]} {g} {cos_sun} {solar_irradiance}",
+                    (
+                        f"./run_ADA {solver.w[0, wavelength_index]} "
+                        f"{solver.t_od[0, wavelength_index]} {g} {cos_sun} "
+                        f"{solar_irradiance} "
+                    ),
                     shell=True,
                     executable="/bin/bash",
                 )
@@ -124,22 +130,28 @@ for l, wavelength_index in enumerate(wavelength_index_list):
                 )
 
                 # store albedo results
-                f90_results[i, j, k, l] = albedo_f90
+                f90_results[
+                    w_enumerator, t_od_enumerator, g_enumerator, wvl_enumarator
+                ] = albedo_f90
 
 
 # %% save results
 
 data_xr = xr.Dataset(
-    data_vars=dict(albedo=(["w", "t_od", "g", "wavelength_index"], f90_results)),
+    data_vars={"albedo": (["w", "t_od", "g", "wavelength_index"], f90_results)},
     coords={
         "w": w_list,
         "t_od": t_od_list,
         "g": g_list,
         "wavelength_index": wavelength_index_list,
     },
-    attrs=dict(
-        description="Albedo produced with the Fortran version of the multistream solver. All dimension values are before delta scaling."
-    ),
+    attrs={
+        "description": (
+            "Albedo produced with the Fortran version of the "
+            "multistream solver. All dimension values are before "
+            "delta scaling."
+        )
+    },
 )
 
 data_xr.to_netcdf(path="../test_data/benchmark_ADA_spectral_albedo.nc")
