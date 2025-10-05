@@ -66,13 +66,13 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
         bb_wvl = solver.bb[:, :, :, wavelength_index]
 
         np.savetxt(
-            f"./test_data/ff_g{g}.csv",
+            f"../test_data/ff_g{g}.csv",
             ff_wvl[:, :, 0],
             delimiter=",",
         )
 
         np.savetxt(
-            f"./test_data/bb_g{g}.csv",
+            f"../test_data/bb_g{g}.csv",
             bb_wvl[:, :, 0],
             delimiter=",",
         )
