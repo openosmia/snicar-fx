@@ -25,7 +25,7 @@ strengths and assumptions.
 - **fast**: up to 50x faster in single-threaded runs depending on model
   configuration (number of layers in particular)
 - **directional capability**: two-stream and multi-stream solvers
-- **specialized snow and ice features**: liquid water content and empirical optical properties of glacial microbes and minerals
+- **specialized snow and ice features**: liquid water content and empirical optical properties of glacial microbes
 
 ## Brief description
 
@@ -42,19 +42,17 @@ Solar Zenith Angle (SZA), or diffuse. Fresnel boundary layers can be incorporate
 layers to account for the change in refractive index between air and ice 
 when using the two-stream Delta-Eddingon solver (
 [Briegleb and Light 2007](https://doi.org/10.5065/D6B27S71),
-[Whicker et al. 2022](https://doi.org/10.5194/tc-16-1197-2022)). 
+[Whicker et al. 2022](https://doi.org/10.5194/tc-16-1197-2022) as in 
+[SNICAR-ADv4](https://doi.org/10.5065/D6B27S71](https://github.com/chloewhicker/SNICAR-ADv4)). 
 A multi-stream delta-M solver employing the
 advanced matrix operator method is also available 
 ([Liu and Weng 2006](https://doi.org/10.1175/JAS3808.1), 
-[Liu and Weng 2013](https://doi.org/10.1109/JSTARS.2013.2247026)),
-but does not support Fresnel layers and diffuse irradiance to date. 
+[Liu and Weng 2013](https://doi.org/10.1109/JSTARS.2013.2247026) as in 
+[CRTM](https://github.com/JCSDA/crtm)),
+but does not support Fresnel layers to for now. 
 SNICAR-fx is currently developed with a focus on melting environments
 and the radiative forcing of light absorbing particles. More specifically, 
-the development currently targets melting weathering crust environments and
-the software recently incorporated an empirical ice refractive index 
-([Cooper et al. 2021](https://doi.org/10.5194/tc-15-1931-2021)),
-empirical optical properties of various glacial light absorbing particles (microbes, dust...) 
-as well as the option to include liquid water within the column.
+the development currently targets melting weathering crust environments.
 
 ## How to use
 
@@ -108,7 +106,7 @@ v3: A community tool for modeling spectral snow albedo. Geoscientific Model Deve
 </details>
 
 <details>
-<summary>Adding-doubling solver with Fresnel layers</summary>
+<summary>Two-stream adding-doubling solver with Fresnel layers</summary>
 
 - Briegleb, P., & Light, B. (2007). A Delta-Eddington mutiple scattering parameterization for solar radiation 
 in the sea ice component of the community climate system model. 
@@ -120,13 +118,16 @@ a physically based radiative transfer model to represent the spectral albedo of 
 </details>
 
 <details>
-<summary>Multi-stream advanced matrix operator method and adding solver</summary> 
+<summary>Multi-stream advanced matrix operator method and adding solver (similar as in <a href="https://github.com/JCSDA/crtm">CRTM</a>)</summary> 
 
-<br>
+- Liu, Q., & Weng, F. (2006). Advanced Doubling–Adding Method for Radiative Transfer in Planetary Atmospheres. 
+Journal of the Atmospheric Sciences, 63(12), 3459-3465.
+[DOI](https://doi.org/10.1175/JAS3808.1)
 
 - Liu, Q., & Weng, F. (2013). Using advanced matrix operator (AMOM) in community radiative transfer model. 
 IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing, 6(3), 1211-1218. 
 [DOI](https://doi.org/10.1109/JSTARS.2013.2247026)
+
 </details>
 
 <details>
