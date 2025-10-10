@@ -14,8 +14,8 @@ a python translation of
 [SNICAR-ADv4](https://github.com/chloewhicker/SNICAR-ADv4) (SNow, ICe
 and Aerosols Radiative model), to a version that would be more portable
 and enable a flexible spectral range and resolution. Since then, it 
-evolved into a distinct model with expanded functionality and its own
-strengths and assumptions.
+evolved into a distinct model with **expanded functionality** and its own
+**strengths** and **assumptions**.
 
 
 ## What makes SNICAR-fx different from SNICAR-ADv4?
@@ -43,7 +43,7 @@ layers to account for the change in refractive index between air and ice
 when using the two-stream Delta-Eddingon solver (
 [Briegleb and Light 2007](https://doi.org/10.5065/D6B27S71),
 [Whicker et al. 2022](https://doi.org/10.5194/tc-16-1197-2022) as in 
-[SNICAR-ADv4](https://doi.org/10.5065/D6B27S71](https://github.com/chloewhicker/SNICAR-ADv4)). 
+[SNICAR-ADv4](https://doi.org/10.5065/D6B27S71](https://github.com/chloewhicker/SNICAR-ADv4))). 
 A multi-stream delta-M solver employing the
 advanced matrix operator method is also available 
 ([Liu and Weng 2006](https://doi.org/10.1175/JAS3808.1), 
@@ -127,6 +127,17 @@ Journal of the Atmospheric Sciences, 63(12), 3459-3465.
 - Liu, Q., & Weng, F. (2013). Using advanced matrix operator (AMOM) in community radiative transfer model. 
 IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing, 6(3), 1211-1218. 
 [DOI](https://doi.org/10.1109/JSTARS.2013.2247026)
+
+</details>
+
+<details>
+<summary>Delta-M truncation method</summary> 
+
+<br>
+
+-Wiscombe, W. J. (1977). The delta–M method: Rapid yet accurate radiative flux calculations for strongly asymmetric phase functions. 
+Journal of Atmospheric Sciences, 34(9), 1408-1422.
+[DOI](https://doi.org/10.1175/1520-0469(1977)034<1408:TDMRYA>2.0.CO;2)
 
 </details>
 
