@@ -1321,7 +1321,7 @@ PROGRAM main
   CALL Initialize_CRTM_Shared()
   CALL CRTM_ADA()
 
-  write(filename,'(A,G0.2,A,G0.2,A)') '/home/adrien/research/snicar-fx-dev/data/test_data/s_Level_Rad_UP_temp.csv'
+  write(filename,'(A,G0.2,A,G0.2,A)') './data/test_data/s_Level_Rad_UP_temp.csv'
   
   open(unit=10, file=filename, status='replace')
   write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
