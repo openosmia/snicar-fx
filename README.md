@@ -1,5 +1,6 @@
  [![License: ACSL](https://img.shields.io/badge/License-ACSL-red.svg)](https://anticapitalist.software/)
  [![Continuous integration](https://github.com/openosmia/snicar-fx/workflows/CI/badge.svg)](https://github.com/openosmia/snicar-fx/actions)
+ [![codecov](https://codecov.io/gh/openosmia/snicar-fx/graph/badge.svg?token=GS6DG4A1CU)](https://codecov.io/gh/openosmia/snicar-fx)
  [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://pre-commit.com/)
  [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Validated with Pydantic](https://img.shields.io/badge/Validated%20with-Pydantic-4FC08D?style=flat&logo=pydantic)](https://docs.pydantic.dev/)
