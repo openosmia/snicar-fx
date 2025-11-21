@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 
 
-class ColumnProperties:
+class LandColumn:
     """
     Physical and optical properties of a snow or ice column.
 
