@@ -6,8 +6,6 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
-import xarray as xr
-
 
 class AtmosphereColumn:
     """
@@ -66,96 +64,59 @@ class AtmosphereColumn:
 
     def __init__(self, model_inputs):
         self.model_inputs = model_inputs
-        self.layer_type = model_inputs.inputs["ICE"]["LAYER_TYPE"]
-        self.nbr_lyr = len(self.layer_type)
-        self.thickness_profile = model_inputs.inputs["ICE"]["THICKNESS"]
-        self.density = model_inputs.inputs["ICE"]["DENSITY"]
-        self.rf_type = model_inputs.inputs["ICE"]["RF_TYPE"]
-        self.grain_shape = model_inputs.inputs["ICE"]["GRAIN_SHAPE"]
-        self.lwc = model_inputs.inputs["ICE"]["LWC"]
-        self.ssa = model_inputs.inputs["ICE"]["SPECIFIC_SURFACE_AREA"]
 
-        self.wavelengths = (
-            np.arange(
-                self.model_inputs.inputs["RTM"]["WVL_START"],
-                self.model_inputs.inputs["RTM"]["WVL_END"],
-                self.model_inputs.inputs["RTM"]["RESOLUTION"],
-            )
-            * 1e-9
-        )
-
-        self.nbr_wvl = len(self.wavelengths)
-        self.sfc = np.ones(self.nbr_wvl) * model_inputs.inputs["ICE"]["SFC"]
 
         # init the ssps
-        self.ext_cff = np.ones((self.nbr_lyr, self.nbr_wvl))
+        self.phase_coefficients = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.ss_alb = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.tau = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.layer_mass = np.zeros(self.nbr_lyr)
 
-        self.set_refractive_index_and_diffuse_fresnel_coeffs()
-        self.set_column_ops_without_laps()
-
-        if self.model_inputs.inputs["LIGHT_ABSORBING_PARTICLES"] is not None:
-            self.set_lap_properties()
-            self.update_column_ops_with_laps()
 
     def load_atmospheric_profile(self):
+        # get concentration of each gas + air pressure/density/temperature for
+        # each layer
         return None
 
     def load_gas_absorptions(self):
+        # get absorption in (c)m2 / molecule for each gas
         return None
 
-    def compute_gas_absorptions(self):
+    def compute_gas_optical_thickness(self):
         """
-        Compute optical properties of a clean snow/ice column (no aerosols).
-
-        This method calculates wavelength-dependent extinction coefficients,
-        single scattering albedo, asymmetry parameters, and optical thickness
-        for each layer based on the input physical parameters and refractive
-        indices. Different models are used depending on whether layers are made
-        of snow grains in air or ice with air inclusions, but all use geometric
-        optics approximation (grain/bubble larger than the wavelength).
+        Compute wavelength-dependent optical thickness of atmospheric gases 
+        for each layer based on their concentrations.
         """
-        self.layer_mass = np.array(self.density) * np.array(self.thickness_profile)
 
         for lyr in range(self.nbr_lyr):
 
-            # sum sigma * Ngas * dZ
-            self.ext_cff_gases[lyr, :] = abs_cff
-
-            self.tau_gases[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
+            # sum absorption * conc for all gas for given layer
+            absorption = np.sum(gas_absorptions * gas_concentrations, axis=1)
+            
+            # get gaseous optical thickness
+            self.tau_gases[lyr, :] = absorption * dZ 
 
         return None
 
     def compute_rayleigh_scattering(self):
         """
-        Compute optical properties of a clean snow/ice column (no aerosols).
-
-        This method calculates wavelength-dependent extinction coefficients,
-        single scattering albedo, asymmetry parameters, and optical thickness
-        for each layer based on the input physical parameters and refractive
-        indices. Different models are used depending on whether layers are made
-        of snow grains in air or ice with air inclusions, but all use geometric
-        optics approximation (grain/bubble larger than the wavelength).
+        Compute wavelength-dependent optical thickness and rayleigh scattering
+        phase function of air molecules for each layer.
         """
-        self.layer_mass = np.array(self.density) * np.array(self.thickness_profile)
 
         for lyr in range(self.nbr_lyr):
 
-            # sigma * Nr * dZ
-            self.ext_cff_molecules[lyr, :] = scattering_cff
+            # (cm2 / mol * mol / cm3 * cm)
 
-            self.tau_molecules[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
+            self.tau_molecules[lyr, :] = f(_lambda) * N_air * dZ
 
-            self.phase_function = None
+            self.rayleigh_phase_coefficients = None
 
         return None
 
-    def set_atmospheric_properties(self):
+    def set_atmospheric_properties_wout_aerosols(self):
 
         self.tau = self.tau_molecules + self.tau_gases
         self.ss_alb = self.tau_molecules / (self.tau_gases + self.tau_molecules)
-
+        self.phase_coefficients = self.rayleigh_phase_coefficients
+        
         return None
