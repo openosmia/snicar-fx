@@ -12,7 +12,7 @@ SOLAR:
   SZA: 50
 
 ATMOSPHERE:
-  SKY_CONDITION: "clear" # clear, cloudy
+  SKY_CONDITIONS: "clear" # clear, cloudy
   ATMOSPHERIC_PROFILE_TYPE: "afglss"
   
 LAND:  
@@ -24,7 +24,8 @@ LAND:
   GRAIN_SHAPE: [0,0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023  
   RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21" # ice refractive index
   SFC: 0 # reflectance of lower boundary  
-
+  ALTITUDE: 1.0 # surface altitude in km
+  
   LIGHT_ABSORBING_PARTICLES:
     BC:
       FILE: "bc_ChCB_rn40_dns1270.nc"
