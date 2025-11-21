@@ -1,27 +1,34 @@
-RTM:
-  DIRECT: 1
+# Input file of the snicar-fx software
+# https://github.com/openosmia/snicar-fx
+
+SOLVER:
+  TYPE: "two-stream" # two-stream, multi-stream
   WVL_START: 350
   WVL_END: 2500
   RESOLUTION: 10
-  SZA: 50
-  IRRADIANCE_TYPE: "mls" # "mlw", "mls", "saw", "sas", "smm", "hmn", "trp"
+  ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling
 
-ICE:
+SOLAR:
+  SZA: 50
+
+ATMOSPHERE:
+  SKY_CONDITION: "clear" # clear, cloudy
+  ATMOSPHERIC_PROFILE_TYPE: "afglss"
+  
+LAND:  
   THICKNESS: [1, 5, 100]  # thickness of each vertical layer (unit : m)
   LAYER_TYPE: [0, 0, 0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
   DENSITY: [650, 650, 650]  # density of each layer (unit : kg m-3)
-  RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21"
   SPECIFIC_SURFACE_AREA: [1, 3, 10] # m2 kg-1. for ice, should be below 3.5
-  LWC: [0, 0, 0] # LWC content in snow/ice 
+  LWC: [0, 0, 0] # LWC content in snow/ice
+  GRAIN_SHAPE: [0,0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023  
+  RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21" # ice refractive index
   SFC: 0 # reflectance of lower boundary  
-  GRAIN_SHAPE: [0,0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
 
-LIGHT_ABSORBING_PARTICLES:
-   BC:
-     FILE: "bc_ChCB_rn40_dns1270.nc"
-     COATED: False
-     UNIT: 0
-     CONC: [0, 0, 0]
-     
+  LIGHT_ABSORBING_PARTICLES:
+    BC:
+      FILE: "bc_ChCB_rn40_dns1270.nc"
+      CONC: [0, 0, 0]
+      
 
 
