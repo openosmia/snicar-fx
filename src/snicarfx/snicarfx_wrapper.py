@@ -5,9 +5,9 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
-from snicarfx.core.config_validator import Config
-from snicarfx.core.two_stream_solver import solve_two_stream_rt
+from snicarfx.core import LandColumn, AtmosphereColumn, SolarIrradiance
+from snicarfx.core import Config
+from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
 
 
 def run_two_stream(input_file):
@@ -39,16 +39,23 @@ def run_two_stream(input_file):
         If the input file is invalid or fails schema validation.
     """
 
+    input_file = "./src/snicarfx/inputs.yaml"
+
     # make sure the input file is valid
-    Config.validate_yaml_file(input_file)
+    config = Config.from_yaml(input_file)
 
     # create the different instances
-    model_inputs = ModelInputs(input_file)
-    column = ColumnProperties(model_inputs)
-    irradiance = SolarIrradiance(model_inputs)
+    column = ColumnProperties(config)
+    irradiance = SolarIrradiance(config)
 
     # solve radiative transfer equations
     outputs = solve_two_stream_rt(column, irradiance)
+
+    simulation = RTMSimulation("inputs.yaml")
+
+    simulation.update_SZA()
+
+    results = simulation.run()
 
     return outputs
 

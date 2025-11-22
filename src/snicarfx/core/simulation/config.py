@@ -18,6 +18,7 @@ class Solver(BaseModel):
 
     Inherits from the Pydantic BaseModel class, which enables automatic type
     validation and parsing of yaml files.
+
     """
 
     # radiative transfer solver to use
@@ -208,7 +209,7 @@ class Config(BaseModel):
         return self
 
     @classmethod
-    def validate_yaml_file(cls, yaml_file: str) -> "Config":
+    def from_yaml(cls, yaml_file: str) -> "Config":
         """Wrap the yaml file validation"""
         with open(yaml_file) as f:
             input_data = yaml.load(f, Loader=yaml.FullLoader)

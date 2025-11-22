@@ -2,19 +2,21 @@
 # https://github.com/openosmia/snicar-fx
 
 SOLVER:
-  TYPE: "two-stream" # two-stream, multi-stream
-  WVL_START: 350
+  TYPE: "two-stream" # two-stream, multi-stream # updt
+  WVL_START: 350 
   WVL_END: 2500
   RESOLUTION: 10
-  ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling
+  ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling # updt
 
+  # N_LEGENDRE_MOMENTS (10, 17) optional, default 15
+  
 SOLAR:
-  SZA: 50
+  SZA: 50 # updt
 
 ATMOSPHERE:
-  SKY_CONDITIONS: "clear" # clear, cloudy
-  ATMOSPHERIC_PROFILE_TYPE: "afglss"
-  
+  SKY_CONDITIONS: "clear" # clear, cloudy # updt
+  ATMOSPHERIC_PROFILE_TYPE: "afglss" # updt
+
 LAND:  
   THICKNESS: [1, 5, 100]  # thickness of each vertical layer (unit : m)
   LAYER_TYPE: [0, 0, 0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
@@ -30,6 +32,5 @@ LAND:
     BC:
       FILE: "bc_ChCB_rn40_dns1270.nc"
       CONC: [0, 0, 0]
-      
 
 
