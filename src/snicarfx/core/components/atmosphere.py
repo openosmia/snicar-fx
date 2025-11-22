@@ -16,60 +16,25 @@ class AtmosphereColumn:
 
     Attributes
     ----------
-    model_inputs : ModelInputs
-        An instance of the ModelInputs class containing model input data parsed
-        from the YAML configuration file.
-    layer_type : list
-        Type of layer (0 for snow grains in air, 1 for air bubbles in ice).
     nbr_lyr : int
         Number of layers in the column.
-    thickness_profile : list
-        Thicknesses [m] of each layer of the snow or ice column.
-    density : list
-        Density of snow/ice for each layer [kg/m3].
-    rf_type : str
-        Source of refractive index data.
-    grain_shape : list
-        Identifier for grain shape model for each layer.
-    lwc : list
-        Liquid water content fraction for each layer [0-1].
-    ssa : list
-        Specific surface area of snow or ice in each layer [m2/kg].
-    sfc : float
-        Reflectance of underlying surface (wavelength independent).
-    wavelengths : list
-        Spectral grid used for all optical property calculations [m].
     nbr_wvl : int
         Number of wavelengths in the spectral grid.
-    lap_ss_alb : ndarray
-        Wavelength-dependent single scattering albedo of each LAP [unitless].
-    lap_asm_prm : ndarray
-        Wavelength-dependent asymmetry parameter of each LAP [unitless].
-    lap_ext_cff : ndarray
-        Wavelength-dependent mass extinction coefficient of each LAP [m2/kg].
-    lap_concentrations : ndarray
-        Mass concentrations of LAPs per layer [kg/kg].
-    ext_cff : ndarray
-        Wavelength-dependent mass extinction coefficient of each layer [m2/kg].
     ss_alb : ndarray
         Wavelength-dependent single scattering albedo of each layer [unitless].
     asm_prm : ndarray
         Wavelength-dependent asymmetry parameter of each layer [unitless].
     tau : ndarray
         Wavelength-dependent optical thickness of each layer [unitless].
-    layer_mass : ndarray
-        Mass per unit area of each layer [kg/m2].
 
     """
 
-    def __init__(self, model_inputs):
-        self.model_inputs = model_inputs
-
+    def __init__(self):
 
         # init the ssps
-        self.phase_coefficients = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.ss_alb = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.tau = np.ones((self.nbr_lyr, self.nbr_wvl))
+        self.ss_alb_atm = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
+        self.tau_atm = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
+        self.rayleigh_legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr_atm, self.nbr_wvl))
 
 
     def load_atmospheric_profile(self):
@@ -109,14 +74,15 @@ class AtmosphereColumn:
 
             self.tau_molecules[lyr, :] = f(_lambda) * N_air * dZ
 
-            self.rayleigh_phase_coefficients = None
+            # phase coeffs of order > 3 are null
+            self.rayleigh_legendre_moments[:3, lyr, :] = np.array([1, 0, 1/10])[:, None, None]
 
         return None
 
     def set_atmospheric_properties_wout_aerosols(self):
 
-        self.tau = self.tau_molecules + self.tau_gases
-        self.ss_alb = self.tau_molecules / (self.tau_gases + self.tau_molecules)
-        self.phase_coefficients = self.rayleigh_phase_coefficients
+        self.tau_atm = self.tau_molecules + self.tau_gases
+        self.ss_alb_atm = self.tau_molecules / (self.tau_gases + self.tau_molecules)
+        self.legendre_moments_atm = self.rayleigh_legendre_moments
         
         return None
