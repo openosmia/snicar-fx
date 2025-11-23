@@ -5,9 +5,12 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from snicarfx.core import LandColumn, AtmosphereColumn, SolarIrradiance
-from snicarfx.core import Config
-from snicarfx.core.two_stream_solver import solve_two_stream_rt
+from ..components.land import LandColumn
+from ..components.atmosphere import AtmosphereColumn
+from ..components.solar import SolarIrradiance
+from .config import Config
+from ..solvers.two_stream_solver import solve_two_stream_rt
+from ..solvers.multi_stream_solver import solve_multi_stream_rt
 
 
 class Simulation:
@@ -23,7 +26,13 @@ class Simulation:
 
     def run(self):
         """Run the radiative transfer solver."""
-        self.outputs = solve_two_stream_rt(self.column, self.irradiance)
+
+        if self.config.SOLVER.TYPE == "two-stream":
+            self.outputs = solve_two_stream_rt(self.column, self.irradiance)
+
+        elif self.config.SOLVER.TYPE == "multi-stream":
+            self.outputs = solve_two_stream_rt(self.column, self.irradiance)
+
         return self.outputs
 
     def to_dataset(self):
