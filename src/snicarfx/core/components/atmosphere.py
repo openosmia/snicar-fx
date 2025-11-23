@@ -31,13 +31,26 @@ class AtmosphereColumn:
 
     def __init__(self):
 
-        # init the ssps
+        # maybe also set path to atm profile / gas conc data
+        self.n_expansion = config.SOLVER.N_EXPANSION
+        self.surface_elevation = config.LAND.ALTITUDE
+        
+        # 1 - load atm profile first
+        
+        # 2 - set nb of atm layers second depending on altitude
+        
+        # 3 - init the ssps third
         self.ss_alb_atm = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
         self.tau_atm = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
         self.rayleigh_legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr_atm, self.nbr_wvl))
 
 
     def load_atmospheric_profile(self):
+        # get concentration of each gas + air pressure/density/temperature for
+        # each layer
+        return None
+    
+    def set_nb_atmospheric_layers(self):
         # get concentration of each gas + air pressure/density/temperature for
         # each layer
         return None
