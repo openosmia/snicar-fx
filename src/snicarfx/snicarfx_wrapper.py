@@ -51,9 +51,7 @@ def run_two_stream(input_file):
     # solve radiative transfer equations
     outputs = solve_two_stream_rt(column, irradiance)
 
-    simulation = RTMSimulation("inputs.yaml")
-
-    simulation.update_SZA()
+    simulation = Simulation("inputs.yaml")
 
     results = simulation.run()
 
