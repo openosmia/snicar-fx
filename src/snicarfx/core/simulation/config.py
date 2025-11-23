@@ -36,6 +36,9 @@ class Solver(BaseModel):
     # explicit surface-atmosphere coupling
     ATMOSPHERE_COUPLING: bool
 
+    # number of Legendre moments to use in phase functions
+    N_LEGENDRE_MOMENTS: int = Field(15, ge=10, le=17)
+
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 

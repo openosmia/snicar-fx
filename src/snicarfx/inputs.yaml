@@ -8,8 +8,6 @@ SOLVER:
   RESOLUTION: 10
   ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling # updt
 
-  # N_LEGENDRE_MOMENTS (10, 17) optional, default 15
-  
 SOLAR:
   SZA: 50 # updt
 
