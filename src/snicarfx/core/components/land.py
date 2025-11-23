@@ -18,8 +18,8 @@ class LandColumn:
 
     Attributes
     ----------
-    model_inputs : ModelInputs
-        An instance of the ModelInputs class containing model input data parsed
+    config : Config
+        An instance of the Config class containing model input data parsed
         from the YAML configuration file.
     layer_type : list
         Type of layer (0 for snow grains in air, 1 for air bubbles in ice).
@@ -43,16 +43,6 @@ class LandColumn:
         Spectral grid used for all optical property calculations [m].
     nbr_wvl : int
         Number of wavelengths in the spectral grid.
-    lap_ss_alb : ndarray
-        Wavelength-dependent single scattering albedo of each LAP [unitless].
-    lap_asm_prm : ndarray
-        Wavelength-dependent asymmetry parameter of each LAP [unitless].
-    lap_ext_cff : ndarray
-        Wavelength-dependent mass extinction coefficient of each LAP [m2/kg].
-    lap_concentrations : ndarray
-        Mass concentrations of LAPs per layer [kg/kg].
-    ext_cff : ndarray
-        Wavelength-dependent mass extinction coefficient of each layer [m2/kg].
     ss_alb : ndarray
         Wavelength-dependent single scattering albedo of each layer [unitless].
     asm_prm : ndarray
@@ -61,11 +51,24 @@ class LandColumn:
         Wavelength-dependent optical thickness of each layer [unitless].
     layer_mass : ndarray
         Mass per unit area of each layer [kg/m2].
-
+    laps: dict
+        Light absorbing particles included in the model configuration.
+    lap_concentrations : ndarray
+        Mass concentrations of LAPs per layer [kg/kg].
+    lap_ss_alb : ndarray
+        Wavelength-dependent single scattering albedo of each LAP [unitless].
+    lap_asm_prm : ndarray
+        Wavelength-dependent asymmetry parameter of each LAP [unitless].
+    lap_ext_cff : ndarray
+        Wavelength-dependent mass extinction coefficient of each LAP [m2/kg].
+    n_expansion : int
+        Order of the Legendre expansion of the phase function.
+    legendre_moments: ndarray
+        Moments of the Legendre expansion of the Henyey-Greenstein phase function
+    
     """
 
     def __init__(self, config):
-        self.config = config
         self.layer_type = config.ICE.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
         self.thickness_profile = config.ICE.THICKNESS
@@ -74,30 +77,34 @@ class LandColumn:
         self.grain_shape = config.ICE.GRAIN_SHAPE
         self.lwc = config.ICE.LWC
         self.ssa = config.ICE.SPECIFIC_SURFACE_AREA
+        self.sfc = np.ones(self.nbr_wvl) * config.ICE.SFC
 
         self.wavelengths = (
             np.arange(
-                self.config.SOLVER.WVL_START,
-                self.config.SOLVER.WVL_END,
-                self.config.SOLVER.RESOLUTION,
+                config.SOLVER.WVL_START,
+                config.SOLVER.WVL_END,
+                config.SOLVER.RESOLUTION,
             )
             * 1e-9
         )
 
         self.nbr_wvl = len(self.wavelengths)
-        self.sfc = np.ones(self.nbr_wvl) * config.ICE.SFC
-
-        # init the ssps
-        self.ext_cff = np.ones((self.nbr_lyr, self.nbr_wvl))
+        
+        # ssps 
         self.ss_alb = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.tau = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.layer_mass = np.zeros(self.nbr_lyr)
+        self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
+        self.n_expansion = self.config.SOLVER.N_LEGENDRE_MOMENTS
+        self.legendre_moments = np.zeros((self.n_expansion, 
+                                          self.nbr_lyr, 
+                                          self.nbr_wvl))
+                
 
         self.set_refractive_index_and_diffuse_fresnel_coeffs()
         self.set_column_ops_without_laps()
 
-        if "LIGHT_ABSORBING_PARTICLES" in config.LAND.model_fields:
+        if config.LAND.LIGHT_ABSORBING_PARTICLES is not None:
+            self.laps = config.LAND.LIGHT_ABSORBING_PARTICLES.root
             self.set_lap_properties()
             self.update_column_ops_with_laps()
 
@@ -110,109 +117,25 @@ class LandColumn:
         to the model's spectral resolution.
         """
 
-        # set spectral resolution
-        resolution = self.config.SOLVER.RESOLUTION
-        wvl_start = self.config.SOLVER.WVL_START
-        wvl_end = self.config.SOLVER.WVL_END
-        wvl_high_res = np.arange(200, 5001, 1)
-
-        idx1 = np.where(wvl_high_res == wvl_start)[0][0]
-        idx2 = np.where(wvl_high_res == wvl_end)[0][0]
-
-        refidx_file = xr.open_dataset(self.config.data_path + "refractive_indices.nc")
+    
+        refidx_file = xr.open_dataset(
+            "./data/refractive_indices.nc"
+            ).sel(wvl=self.wavelengths)
         fresnel_diffuse_file = xr.open_dataset(
-            self.config.data_path + "fresnel_diffuse_coefficients.nc"
-        )
+           "./data/fresnel_diffuse_coefficients.nc"
+        ).sel(wvl=self.wavelengths)
+        
 
-        self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values[
-            idx1:idx2:resolution
-        ]
-        self.ref_idx_im = refidx_file[str("im_" + self.rf_type)].values[
-            idx1:idx2:resolution
-        ]
-        self.ref_idx_im_water = refidx_file["im_Row20"].values[idx1:idx2:resolution]
+        self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values
+        self.ref_idx_im = refidx_file[str("im_" + self.rf_type)].values
+        self.ref_idx_im_water = refidx_file["im_Row20"].values
+        
         self.fl_r_dif_a = fresnel_diffuse_file[
             str("R_dif_fa_ice_" + self.rf_type)
-        ].values[idx1:idx2:resolution]
+        ].values
         self.fl_r_dif_b = fresnel_diffuse_file[
             str("R_dif_fb_ice_" + self.rf_type)
-        ].values[idx1:idx2:resolution]
-
-    def set_lap_properties(self):
-        """
-        Load and set optical properties of light-absorbing particles (LAPs).
-
-        This method sets the properties of each LAP defined in the input
-        configuration, converting their concentrations to consistent units,
-        and interpolating their properties to the model's spectral grid.
-        """
-
-        # set spectral resolution
-        resolution = self.config.SOLVER.RESOLUTION
-        wvl_start = self.config.SOLVER.WVL_START
-        wvl_end = self.config.SOLVER.WVL_END
-
-        # initialize properties
-        nb_laps = len(self.config.LAND.LIGHT_ABSORBING_PARTICLES.model_dump())
-
-        self.lap_ss_alb = np.zeros((nb_laps, self.nbr_wvl))
-        self.lap_asm_prm = np.zeros((nb_laps, self.nbr_wvl))
-        self.lap_ext_cff = np.zeros((nb_laps, self.nbr_wvl))
-
-        # get concentrations
-        self.lap_concentrations = np.vstack(
-            [
-                (
-                    np.array(
-                        # convert from ppb to kg kg-1
-                        self.config["LIGHT_ABSORBING_PARTICLES"][name]["CONC"]
-                    )
-                    * 1e-9
-                    if self.config["LIGHT_ABSORBING_PARTICLES"][name]["UNIT"] == 0
-                    else np.array(
-                        # convert from cells mL-1 to kg kg-1 (1cell=1ng)
-                        self.config["LIGHT_ABSORBING_PARTICLES"][name]["CONC"]
-                    )
-                    * 0.917
-                    * 1e-9
-                )
-                for name in self.config["LIGHT_ABSORBING_PARTICLES"]
-            ]
-        ).T
-
-        # get properties in a large array
-        for i, lap in enumerate(self.config["LIGHT_ABSORBING_PARTICLES"]):
-
-            # first get the ext coeff tag
-            if self.config["LIGHT_ABSORBING_PARTICLES"][lap]["COATED"]:
-                ext_cff_tag = "ext_cff_mss_ncl"
-            else:
-                ext_cff_tag = "ext_cff_mss"
-
-            # then interpolate the properties to the right resolution
-            properties = xr.open_dataset(
-                self.config.lap_path
-                + self.config["LIGHT_ABSORBING_PARTICLES"][lap]["FILE"]
-            )
-
-            ss_alb = np.interp(
-                np.arange(wvl_start, wvl_end, resolution),
-                properties.wvl.values * 1e9,  # from m to nm
-                properties["ss_alb"].values,
-            )
-            self.lap_ss_alb[i, :] = ss_alb
-            asm_prm = np.interp(
-                np.arange(wvl_start, wvl_end, resolution),
-                properties.wvl.values * 1e9,  # from m to nm
-                properties["asm_prm"].values,
-            )
-            self.lap_asm_prm[i, :] = asm_prm
-            ext_cff = np.interp(
-                np.arange(wvl_start, wvl_end, resolution),
-                properties.wvl.values * 1e9,  # from m to nm
-                properties[ext_cff_tag].values,
-            )
-            self.lap_ext_cff[i, :] = ext_cff
+        ].values
 
     def set_column_ops_without_laps(self):
         """
@@ -225,6 +148,7 @@ class LandColumn:
         of snow grains in air or ice with air inclusions, but all use geometric
         optics approximation (grain/bubble larger than the wavelength).
         """
+        
         self.layer_mass = np.array(self.density) * np.array(self.thickness_profile)
 
         for lyr in range(self.nbr_lyr):
@@ -249,9 +173,7 @@ class LandColumn:
                     )
                 )
 
-                self.ext_cff[lyr, :] = scattering_cff + abs_cff
-
-                self.ss_alb[lyr, :] = scattering_cff / self.ext_cff[lyr, :]
+                self.ss_alb[lyr, :] = scattering_cff / (scattering_cff + abs_cff)
 
                 # Kokhanovsky 2002
                 self.asm_prm[lyr, :] = 0.49274 + 0.44466 / (
@@ -260,7 +182,7 @@ class LandColumn:
 
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
 
-                self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
+                self.tau[lyr, :] = (scattering_cff + abs_cff) * self.layer_mass[lyr]
 
             else:  # ice grains in air
                 # under geometric optics assumptions, the extinction
@@ -272,8 +194,8 @@ class LandColumn:
                 # the ice grain (Eq. 2.47 in Kokhanovsky 2001).
                 # Since the is SSA = S / (V * D), then ext = 2 * SSA.
 
-                self.ext_cff[lyr, :] = self.ssa[lyr] / 2
-                self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
+                ext_cff = self.ssa[lyr] / 2
+                self.tau[lyr, :] = self.layer_mass[lyr] * ext_cff
 
                 k_eq = (
                     self.lwc[lyr] * self.ref_idx_im_water
@@ -322,6 +244,64 @@ class LandColumn:
                 phi = 2.0 / 3 * b / (1 - rho)
                 # Eq. 7 in Kokhanovsky and Macke 1997 (ss_alb = (1-Cabs)/Cext)
                 self.ss_alb[lyr, :] = 1 - 0.5 * (1 - rho) * (1 - np.exp(-z * phi))
+                
+            # Delta truncation: Legendre term of HG function at 2M = 16 
+            # Wicombe 1977 Eq. 15
+            f = self.asm_prm ** (self.n_expansion + 1)  
+
+            # Calculate legendre moments 
+            # Wiscombe 1977 Eq. 14
+            self.legendre_moments[:, lyr, :] = (
+                (self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None, None]
+                 - f[None, lyr, :])
+                / (1 - f[None, lyr, :])
+            )
+                
+                
+    def set_lap_properties(self):
+        """
+        Load and set optical properties of light-absorbing particles (LAPs).
+
+        This method sets the properties of each LAP defined in the input
+        configuration, converting their concentrations to consistent units,
+        and interpolating their properties to the model's spectral grid.
+        """
+        
+        self.lap_concentrations = (
+            np.array([obj.CONC for obj in self.laps.values()]) * 1e-9
+        ).T
+
+        self.lap_ss_alb = np.stack(
+                [
+                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
+                      .interp(wvl=self.wavelengths)["ss_alb"]
+                      .values
+                    for lap, cfg in self.laps.items()
+                ],
+                axis=0
+            )
+        
+        self.lap_asm_prm = np.stack(
+                [
+                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
+                      .interp(wvl=self.wavelengths)["asm_prm"]
+                      .values
+                    for lap, cfg in self.laps.items()
+                ],
+                axis=0
+            )
+        
+        self.lap_ext_cff = np.stack(
+                [
+                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
+                      .interp(wvl=self.wavelengths)["ext_cff_mss"]
+                      .values
+                    for lap, cfg in self.laps.items()
+                ],
+                axis=0
+            )
+        
+        
 
     def update_column_ops_with_laps(self):
         """
@@ -333,30 +313,30 @@ class LandColumn:
         formulas. It adjusts optical thickness, single scattering albedo, and
         asymmetry parameters.
         """
-
-        asm_prm_lap = np.zeros([self.nbr_lyr, self.nbr_wvl])
-        ss_alb_lap = np.zeros_like(asm_prm_lap)
-        tau_lap = np.zeros_like(asm_prm_lap)
-        lap_mass = np.zeros_like(self.lap_concentrations)
-
+        
+        # combine properties of all LAPs
         lap_mass = np.array(self.layer_mass)[:, np.newaxis] * self.lap_concentrations
 
-        tau_lap = lap_mass @ self.lap_ext_cff
+        tau_all_laps = lap_mass @ self.lap_ext_cff
 
-        ss_alb_lap = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb)
+        ss_alb_all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb)
 
-        asm_prm_lap = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm)
+        asm_prm__all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm)
 
+        # update layer mass in tau by removing lap mass
+        ext_cff_before_lap_correction = self.tau.copy() / self.layer_mass.copy()
         self.layer_mass = self.layer_mass - np.sum(lap_mass, axis=1)
+        self.tau = self.layer_mass[:, np.newaxis] * ext_cff_before_lap_correction
 
-        self.tau = self.layer_mass[:, np.newaxis] * self.ext_cff
-
+        # combine LAPs + snow/ice
         tau_clean = self.tau.copy()
         ss_alb_clean = self.ss_alb.copy()
         asm_prm_clean = self.asm_prm.copy()
 
-        self.tau = tau_lap + tau_clean
-        self.ss_alb = (1 / self.tau) * (ss_alb_lap + (ss_alb_clean * tau_clean))
+        self.tau = tau_all_laps + tau_clean
+        self.ss_alb = (1 / self.tau) * (ss_alb_all_laps + (ss_alb_clean * tau_clean))
         self.asm_prm = (1 / (self.tau * (self.ss_alb))) * (
-            asm_prm_lap + (asm_prm_clean * ss_alb_clean * tau_clean)
+            asm_prm__all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
+        
+    

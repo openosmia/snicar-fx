@@ -16,7 +16,7 @@ class AtmosphereColumn:
 
     Attributes
     ----------
-    nbr_lyr : int
+    nbr_lyr_atm : int
         Number of layers in the column.
     nbr_wvl : int
         Number of wavelengths in the spectral grid.
@@ -29,19 +29,22 @@ class AtmosphereColumn:
 
     """
 
-    def __init__(self):
+    def __init__(self, config):
 
-        # maybe also set path to atm profile / gas conc data
-        self.n_expansion = config.SOLVER.N_EXPANSION
-        self.surface_elevation = config.LAND.ALTITUDE
+        self.n_expansion = self.config.SOLVER.N_LEGENDRE_MOMENTS
+        self.surface_elevation = self.config.LAND.ALTITUDE
+        self.wavelengths = np.arange(self.config.SOLVER.WVL_START, 
+                                     self.config.SOLVER.WVL_END, 
+                                     self.config.SOLVER.RESOLUTION)
+        self.nbr_wvl = len(self.wavelengths)
         
         # 1 - load atm profile first
         
         # 2 - set nb of atm layers second depending on altitude
         
         # 3 - init the ssps third
-        self.ss_alb_atm = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
-        self.tau_atm = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
+        self.ss_alb = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
+        self.tau = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
         self.rayleigh_legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr_atm, self.nbr_wvl))
 
 
