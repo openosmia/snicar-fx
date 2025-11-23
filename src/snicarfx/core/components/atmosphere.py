@@ -16,7 +16,7 @@ class AtmosphereColumn:
 
     Attributes
     ----------
-    nbr_lyr_atm : int
+    nbr_lyr : int
         Number of layers in the column.
     nbr_wvl : int
         Number of wavelengths in the spectral grid.
@@ -26,6 +26,10 @@ class AtmosphereColumn:
         Wavelength-dependent asymmetry parameter of each layer [unitless].
     tau : ndarray
         Wavelength-dependent optical thickness of each layer [unitless].
+    n_expansion : int
+        Order of the Legendre expansion of the phase function.
+    rayleigh_legendre_moments: ndarray
+        Moments of the Legendre expansion of the Rayleigh phase function.
 
     """
 
