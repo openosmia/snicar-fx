@@ -26,7 +26,7 @@ class SolarIrradiance:
         The irradiance profile to use.
     """
 
-    def __init__(self, model_inputs):
+    def __init__(self, config):
         """
         Initialize the SolarIrradiance class using model configuration inputs.
 
@@ -37,14 +37,24 @@ class SolarIrradiance:
 
         Parameters
         ----------
-        model_inputs : ModelInputs
-            An instance of the ModelInputs class containing model input data parsed
+        config : Config
+            An instance of the Config class containing model input data parsed
             from the YAML configuration file.
         """
-        self.model_inputs = model_inputs
-        self.direct = model_inputs.inputs["RTM"]["DIRECT"]
-        self.sza = model_inputs.inputs["RTM"]["SZA"]
-        self.irradiance_type = model_inputs.inputs["RTM"]["IRRADIANCE_TYPE"]
+        self.direct = (config.ATMOSPHERE.SKY_CONDITIONS == 'clear')
+        self.sza = config.SOLAR.SZA
+        self.wavelengths = (
+            np.arange(
+                config.SOLVER.WVL_START,
+                config.SOLVER.WVL_END,
+                config.SOLVER.RESOLUTION,
+            )
+            * 1e-9
+        )
+        
+        # hardcoded for tests for now
+        self.irradiance_type = "mls"
+        # self.irradiance_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
 
         self.set_irradiance()
 
@@ -74,7 +84,7 @@ class SolarIrradiance:
 
             flux_file = xr.open_dataset(
                 str(
-                    self.model_inputs.solar_fluxes_path
+                    './data/solar_fluxes/'
                     + "swnb_480bnd_"
                     + self.irradiance_type
                     + "_clr_"
@@ -86,24 +96,16 @@ class SolarIrradiance:
 
             flux_file = xr.open_dataset(
                 str(
-                    self.model_inputs.solar_fluxes_path
+                    './data/solar_fluxes/'
                     + "swnb_480bnd_"
                     + self.irradiance_type
                     + "_cld.nc"
                 )
             )
 
-        # interp at the correct spectral resolution
-        self.flx_slr = np.interp(
-            np.arange(
-                self.model_inputs.inputs["RTM"]["WVL_START"],
-                self.model_inputs.inputs["RTM"]["WVL_END"],
-                self.model_inputs.inputs["RTM"]["RESOLUTION"],
-            ),
-            flux_file.wvl_ctr.values * 1e3,
-            flux_file["flx_frc_sfc"].values,
-        )
-
+        # wvl in these files are in um --> convert wvl from m to um
+        self.flx_slr = flux_file.interp(wvl_ctr=self.wavelengths * 1e6)["flx_frc_sfc"].values
+          
         # normalize
 
         self.flx_slr = self.flx_slr / np.sum(self.flx_slr)

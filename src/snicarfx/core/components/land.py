@@ -69,15 +69,15 @@ class LandColumn:
     """
 
     def __init__(self, config):
-        self.layer_type = config.ICE.LAYER_TYPE
+        self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
-        self.thickness_profile = config.ICE.THICKNESS
-        self.density = config.ICE.DENSITY
-        self.rf_type = config.ICE.RF_TYPE
-        self.grain_shape = config.ICE.GRAIN_SHAPE
-        self.lwc = config.ICE.LWC
-        self.ssa = config.ICE.SPECIFIC_SURFACE_AREA
-        self.sfc = np.ones(self.nbr_wvl) * config.ICE.SFC
+        self.thickness_profile = config.LAND.THICKNESS
+        self.density = config.LAND.DENSITY
+        self.rf_type = config.LAND.RF_TYPE
+        self.grain_shape = config.LAND.GRAIN_SHAPE
+        self.lwc = config.LAND.LWC
+        self.ssa = config.LAND.SPECIFIC_SURFACE_AREA
+        
 
         self.wavelengths = (
             np.arange(
@@ -89,12 +89,13 @@ class LandColumn:
         )
 
         self.nbr_wvl = len(self.wavelengths)
+        self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
         
         # ssps 
         self.ss_alb = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.tau = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.n_expansion = self.config.SOLVER.N_LEGENDRE_MOMENTS
+        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.legendre_moments = np.zeros((self.n_expansion, 
                                           self.nbr_lyr, 
                                           self.nbr_wvl))
@@ -252,7 +253,7 @@ class LandColumn:
             # Calculate legendre moments 
             # Wiscombe 1977 Eq. 14
             self.legendre_moments[:, lyr, :] = (
-                (self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None, None]
+                (self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
                  - f[None, lyr, :])
                 / (1 - f[None, lyr, :])
             )
@@ -324,7 +325,7 @@ class LandColumn:
         asm_prm__all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm)
 
         # update layer mass in tau by removing lap mass
-        ext_cff_before_lap_correction = self.tau.copy() / self.layer_mass.copy()
+        ext_cff_before_lap_correction = self.tau.copy() / self.layer_mass.copy()[:, None]
         self.layer_mass = self.layer_mass - np.sum(lap_mass, axis=1)
         self.tau = self.layer_mass[:, np.newaxis] * ext_cff_before_lap_correction
 

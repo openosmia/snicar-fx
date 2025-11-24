@@ -168,9 +168,9 @@ class Session:
         TODO: Add outputs to an existing DataFrame out outputs or create it"""
 
         if self.config.SOLVER.TYPE == "two-stream":
-            self.outputs = solve_two_stream_rt(self.column, self.irradiance)
+            self.outputs = solve_two_stream_rt(self.land_column, self.solar_irradiance)
 
         elif self.config.SOLVER.TYPE == "multi-stream":
-            self.outputs = solve_two_stream_rt(self.column, self.irradiance)
+            self.outputs = solve_two_stream_rt(self.land_column, self.solar_irradiance)
 
         return self.outputs

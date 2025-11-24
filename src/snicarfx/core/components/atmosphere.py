@@ -35,21 +35,22 @@ class AtmosphereColumn:
 
     def __init__(self, config):
 
-        self.n_expansion = self.config.SOLVER.N_LEGENDRE_MOMENTS
-        self.surface_elevation = self.config.LAND.ALTITUDE
-        self.wavelengths = np.arange(self.config.SOLVER.WVL_START, 
-                                     self.config.SOLVER.WVL_END, 
-                                     self.config.SOLVER.RESOLUTION)
+        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
+        self.surface_elevation = config.LAND.ALTITUDE
+        self.wavelengths = np.arange(config.SOLVER.WVL_START, 
+                                     config.SOLVER.WVL_END, 
+                                     config.SOLVER.RESOLUTION)
         self.nbr_wvl = len(self.wavelengths)
         
         # 1 - load atm profile first
         
         # 2 - set nb of atm layers second depending on altitude
+        self.nbr_lyr = self.set_nb_atmospheric_layers()
         
         # 3 - init the ssps third
-        self.ss_alb = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
-        self.tau = np.zeros((self.nbr_lyr_atm, self.nbr_wvl))
-        self.rayleigh_legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr_atm, self.nbr_wvl))
+        self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
+        self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
+        self.rayleigh_legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr, self.nbr_wvl))
 
 
     def load_atmospheric_profile(self):
@@ -60,7 +61,7 @@ class AtmosphereColumn:
     def set_nb_atmospheric_layers(self):
         # get concentration of each gas + air pressure/density/temperature for
         # each layer
-        return None
+        return 50
 
     def load_gas_absorptions(self):
         # get absorption in (c)m2 / molecule for each gas
