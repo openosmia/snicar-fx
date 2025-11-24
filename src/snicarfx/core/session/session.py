@@ -171,6 +171,8 @@ class Session:
             self.outputs = solve_two_stream_rt(self.land_column, self.solar_irradiance)
 
         elif self.config.SOLVER.TYPE == "multi-stream":
-            self.outputs = solve_two_stream_rt(self.land_column, self.solar_irradiance)
+            self.outputs = solve_multi_stream_rt(self.land_column, 
+                                                 self.atmosphere_column,
+                                                 self.solar_irradiance)
 
         return self.outputs

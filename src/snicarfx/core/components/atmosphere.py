@@ -41,6 +41,7 @@ class AtmosphereColumn:
                                      config.SOLVER.WVL_END, 
                                      config.SOLVER.RESOLUTION)
         self.nbr_wvl = len(self.wavelengths)
+        self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
         
         # 1 - load atm profile first
         
