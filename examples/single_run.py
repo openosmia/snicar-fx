@@ -7,15 +7,13 @@ https://github.com/openosmia/snicar-fx
 """
 
 import matplotlib.pyplot as plt
+from snicarfx.core import Session
 
-from snicarfx import snicarfx_wrapper
-
-input_file = "./src/snicarfx/inputs.yaml"
-
-outputs = snicarfx_wrapper.run_two_stream(input_file)
+simulation = Session("./src/snicarfx/inputs.yaml")
+results = simulation.run()
 
 plt.figure(figsize=(6, 4))
-plt.plot(outputs.wavelengths, outputs.albedo)
+plt.plot(results.wavelengths, results.albedo)
 plt.xlabel("Wavelengths (meters)")
 plt.ylabel("Albedo")
 plt.ylim(0, 1)
