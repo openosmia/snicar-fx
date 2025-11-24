@@ -10,7 +10,9 @@ from itertools import product
 import pytest
 import xarray as xr
 
-from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
+from snicarfx.core.components.land import LandColumn
+from snicarfx.core.session.config import Config
+
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
 CORE_INPUT_FILE = "./src/snicarfx/inputs.yaml"
@@ -22,39 +24,41 @@ def test_input_file():
     return TEST_INPUT_FILE
 
 
-@pytest.fixture(scope="module")
-def core_input_file():
-    """Fetch path to the core input file."""
-    return CORE_INPUT_FILE
+# @pytest.fixture(scope="module")
+# def core_input_file():
+#     """Fetch path to the core input file."""
+#     return CORE_INPUT_FILE
 
+# @pytest.fixture(scope="module")
+# def irradiance(model_inputs):
+#     """Provide a SolarIrradiance instance using shared ModelInputs."""
+#     return SolarIrradiance(model_inputs)
+
+# @pytest.fixture(scope="module")
+# def expected_fd():
+#     """Fetch mean diffuse solar beam from test input file."""
+#     return 0.0
 
 @pytest.fixture(scope="module")
-def model_inputs():
+def config():
     """Provide a shared instance of ModelInputs."""
-    return ModelInputs(TEST_INPUT_FILE)
+    return Config.from_yaml(TEST_INPUT_FILE)
+
+@pytest.fixture(scope="module")
+def land_column(config):
+    """Provide a shared LandColumn instance using shared Config."""
+    return LandColumn(config)
 
 
 @pytest.fixture(scope="module")
-def column(model_inputs):
-    """Provide a shared ColumnProperties instance using shared ModelInputs."""
-    return ColumnProperties(model_inputs)
-
-
-@pytest.fixture(scope="module")
-def irradiance(model_inputs):
-    """Provide a SolarIrradiance instance using shared ModelInputs."""
-    return SolarIrradiance(model_inputs)
-
-
-@pytest.fixture(scope="module")
-def expected_shapes(column):
+def expected_shapes(land_column):
     """Fetch expected shapes in the layer and wavelength dimensions."""
     return {
-        "1d_layers": (column.nbr_lyr,),
-        "1d_wavelengths": (column.nbr_wvl,),
+        "1d_layers": (land_column.nbr_lyr,),
+        "1d_wavelengths": (land_column.nbr_wvl,),
         "2d_layers_wavelengths": (
-            column.nbr_lyr,
-            column.nbr_wvl,
+            land_column.nbr_lyr,
+            land_column.nbr_wvl,
         ),
     }
 
@@ -96,11 +100,6 @@ def expected_mean_flx_slr():
     """Fetch mean solar flux from test input file."""
     return 0.0020833333333333324
 
-
-@pytest.fixture(scope="module")
-def expected_fd():
-    """Fetch mean diffuse solar beam from test input file."""
-    return 0.0
 
 
 @pytest.fixture(scope="module")

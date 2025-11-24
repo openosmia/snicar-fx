@@ -8,19 +8,21 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 import xarray as xr
 
-from snicarfx.core import (
-    ColumnProperties,
-    ModelInputs,
-    SolarIrradiance,
-    solve_two_stream_rt,
-)
+# from snicarfx.core import (
+#     ColumnProperties,
+#     ModelInputs,
+#     SolarIrradiance,
+#     solve_two_stream_rt,
+# )
+from snicarfx.core.components.land import LandColumn
+from snicarfx.core.components.solar import SolarIrradiance
+from snicarfx.core.session.config import Config
 from tests.solvers.utils import match_matlab_config
+from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
 
-
-# @pytest.mark.parametrize("params", twostream_parameter_grid())
 def test_twostreams_outputs(
     params_2str,
-    column,
+    land_column,
     benchmark_snicaradv4_spectral_data,
     benchmark_snicaradv4_bba_data,
     benchmark_snicaradv4_absorbed_flux_data,
@@ -40,8 +42,8 @@ def test_twostreams_outputs(
         Indices of parameter sets.
     params : array
         Sets of parameters used as input for the model.
-    column : ColumnProperties
-        Instance of the ColumnProperties class
+    land_column : LandColumn
+        Instance of the LandColumn class
     benchmark_snicaradv4_spectral_data : array
         Spectral albedo data generated with SNICAR-ADv4 for the parameter grid
         `params`.
@@ -59,11 +61,11 @@ def test_twostreams_outputs(
     layer_type, density, radius, sza, bc, thickness_profile, direct = params_2str
 
     # Setup inputs
-    model_inputs = ModelInputs("./tests/inputs_tests.yaml")
-    column = ColumnProperties(model_inputs)
-    irradiance = SolarIrradiance(model_inputs)
+    config = Config.from_yaml("./tests/inputs_tests.yaml")
+    land_column = LandColumn(config)
+    irradiance = SolarIrradiance(config)
 
-    column = match_matlab_config(column)
+    land_column = match_matlab_config(land_column)
 
     # calculate irradiance
     irradiance.direct = direct
@@ -71,29 +73,28 @@ def test_twostreams_outputs(
     irradiance.set_irradiance()
 
     # calculate column ssa, g, mac
-    column.thickness_profile = thickness_profile
-    column.layer_type = [layer_type] * len(column.thickness_profile)
-    column.density = [density] * len(column.thickness_profile)
-    column.layer_mass = [
-        column.density[i] * column.thickness_profile[i]
-        for i in range(len(column.thickness_profile))
+    land_column.thickness_profile = thickness_profile
+    land_column.layer_type = [layer_type] * len(land_column.thickness_profile)
+    land_column.density = [density] * len(land_column.thickness_profile)
+    land_column.layer_mass = [
+        land_column.density[i] * land_column.thickness_profile[i]
+        for i in range(len(land_column.thickness_profile))
     ]
 
-    snow_idx = np.where(np.array(column.layer_type) == 0)[0]
-    ice_idx = np.where(np.array(column.layer_type) != 0)[0]
+    snow_idx = np.where(np.array(land_column.layer_type) == 0)[0]
+    ice_idx = np.where(np.array(land_column.layer_type) != 0)[0]
 
     for i in snow_idx:
         file_ssps = str(
             "./tests/test_data/ice_spherical_grains_BH83/"
-            + f"ice_{column.rf_type}/ice_{column.rf_type}_"
+            + f"ice_{land_column.rf_type}/ice_{land_column.rf_type}_"
             + "{}.nc".format(str(radius).rjust(4, "0"))
         )
 
         with xr.open_dataset(file_ssps) as ssps:
-            column.ss_alb[i, :] = ssps["ss_alb"].values
-            column.ext_cff[i, :] = ssps["ext_cff_mss"].values
-            column.asm_prm[i, :] = ssps["asm_prm"].values
-            column.tau[i, :] = column.layer_mass[i] * column.ext_cff[i, :]
+            land_column.ss_alb[i, :] = ssps["ss_alb"].values
+            land_column.asm_prm[i, :] = ssps["asm_prm"].values
+            land_column.tau[i, :] = land_column.layer_mass[i] * ssps["ext_cff_mss"].values
 
     for i in ice_idx:
         file_ssps = str(
@@ -102,20 +103,19 @@ def test_twostreams_outputs(
         )
         with xr.open_dataset(file_ssps) as ssps:
             sca_cff_vlm_air_bbl = ssps["sca_cff_vlm"].values
-            vlm_frac_air = 1 - column.density[i] / 917
-            scattering_cff = sca_cff_vlm_air_bbl * vlm_frac_air / column.density[i]
-            abs_cff = (4 * np.pi * column.ref_idx_im) / (column.wavelengths) / 917
-            column.ext_cff[i, :] = scattering_cff + abs_cff
-            column.ss_alb[i, :] = scattering_cff / column.ext_cff[i, :]
-            column.asm_prm[i, :] = ssps["asm_prm"].values
-            column.tau[i, :] = column.layer_mass[i] * column.ext_cff[i, :]
+            vlm_frac_air = 1 - land_column.density[i] / 917
+            scattering_cff = sca_cff_vlm_air_bbl * vlm_frac_air / land_column.density[i]
+            abs_cff = (4 * np.pi * land_column.ref_idx_im) / (land_column.wavelengths) / 917
+            land_column.ss_alb[i, :] = scattering_cff / (scattering_cff + abs_cff)
+            land_column.asm_prm[i, :] = ssps["asm_prm"].values
+            land_column.tau[i, :] = land_column.layer_mass[i] * (scattering_cff + abs_cff)
 
-    column.lap_concentrations[:, 0] = bc * 1e-9
+    land_column.lap_concentrations[:, 0] = bc * 1e-9
 
-    column.update_column_ops_with_laps()
+    land_column.update_column_ops_with_laps()
 
     # solve RTE
-    outputs = solve_two_stream_rt(column, irradiance)
+    outputs = solve_two_stream_rt(land_column, irradiance)
 
     # spectral albedo only until 2705nm for now, as the asymmetry parameter is
     # clipped to 0.99 in SNICAR-ADv4 but not in snicar-fx, producing larger

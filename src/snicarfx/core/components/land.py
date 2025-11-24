@@ -93,6 +93,7 @@ class LandColumn:
         
         # ssps 
         self.ss_alb = np.ones((self.nbr_lyr, self.nbr_wvl))
+        self.ext_cff = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.tau = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
@@ -182,6 +183,8 @@ class LandColumn:
                 ) * np.exp(-2 * ((1 / self.ref_idx_re - 1.04882) / 0.69233) ** 2)
 
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
+                
+                self.ext_cff[lyr, :] = (scattering_cff + abs_cff)
 
                 self.tau[lyr, :] = (scattering_cff + abs_cff) * self.layer_mass[lyr]
 
@@ -196,6 +199,7 @@ class LandColumn:
                 # Since the is SSA = S / (V * D), then ext = 2 * SSA.
 
                 ext_cff = self.ssa[lyr] / 2
+                self.ext_cff[lyr, :] = self.ssa[lyr] / 2
                 self.tau[lyr, :] = self.layer_mass[lyr] * ext_cff
 
                 k_eq = (
@@ -325,9 +329,10 @@ class LandColumn:
         asm_prm__all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm)
 
         # update layer mass in tau by removing lap mass
-        ext_cff_before_lap_correction = self.tau.copy() / self.layer_mass.copy()[:, None]
+        # ext_cff_before_lap_correction = self.tau.copy() / self.layer_mass.copy()[:, None]
+        
         self.layer_mass = self.layer_mass - np.sum(lap_mass, axis=1)
-        self.tau = self.layer_mass[:, np.newaxis] * ext_cff_before_lap_correction
+        self.tau = self.layer_mass[:, np.newaxis] * self.ext_cff
 
         # combine LAPs + snow/ice
         tau_clean = self.tau.copy()
