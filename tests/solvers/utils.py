@@ -40,6 +40,8 @@ def use_data_snicaradv4(column, irradiance):
         "./tests/test_data/fl_reflection_diffuse.nc"
     ).R_dif_fa_ice_Pic16.values
     
+    irradiance.cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza)))
+    
     if irradiance.direct == 1: 
         irradiance.flx_slr = xr.open_dataset(
             './tests/test_data/swnb_480bnd_'
@@ -49,7 +51,7 @@ def use_data_snicaradv4(column, irradiance):
             )["flx_frc_sfc"].values 
         irradiance.flx_slr[irradiance.flx_slr == 0] = 1e-30
         irradiance.fs = (irradiance.flx_slr 
-                          / (np.cos(np.deg2rad(np.rint(irradiance.sza))) * np.pi)
+                          / (irradiance.cos_sza * np.pi)
                           )
         irradiance.fd = np.zeros_like(irradiance.fs)
 
