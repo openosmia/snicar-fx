@@ -65,7 +65,19 @@ def test_twostreams_outputs(
     land_column = LandColumn(config)
     irradiance = SolarIrradiance(config)
 
-    land_column = match_matlab_config(land_column)
+    # use ref indices & fnl coefficients from SNICAR repo
+    land_column.ref_idx_im = xr.open_dataset(
+        "./tests/test_data/rfidx_ice.nc"
+    ).im_Pic16.values
+    land_column.ref_idx_re = xr.open_dataset(
+        "./tests/test_data/rfidx_ice.nc"
+    ).re_Pic16.values
+    land_column.fl_r_dif_b = xr.open_dataset(
+        "./tests/test_data/fl_reflection_diffuse.nc"
+    ).R_dif_fb_ice_Pic16.values
+    land_column.fl_r_dif_a = xr.open_dataset(
+        "./tests/test_data/fl_reflection_diffuse.nc"
+    ).R_dif_fa_ice_Pic16.values
 
     # calculate irradiance
     irradiance.direct = direct
@@ -92,9 +104,10 @@ def test_twostreams_outputs(
         )
 
         with xr.open_dataset(file_ssps) as ssps:
+            land_column.ext_cff[i, :] = ssps["ext_cff_mss"].values
             land_column.ss_alb[i, :] = ssps["ss_alb"].values
             land_column.asm_prm[i, :] = ssps["asm_prm"].values
-            land_column.tau[i, :] = land_column.layer_mass[i] * ssps["ext_cff_mss"].values
+            land_column.tau[i, :] = land_column.layer_mass[i] * land_column.ext_cff[i, :]
 
     for i in ice_idx:
         file_ssps = str(
@@ -108,6 +121,7 @@ def test_twostreams_outputs(
             abs_cff = (4 * np.pi * land_column.ref_idx_im) / (land_column.wavelengths) / 917
             land_column.ss_alb[i, :] = scattering_cff / (scattering_cff + abs_cff)
             land_column.asm_prm[i, :] = ssps["asm_prm"].values
+            land_column.ext_cff[i, :] = (scattering_cff + abs_cff)
             land_column.tau[i, :] = land_column.layer_mass[i] * (scattering_cff + abs_cff)
 
     land_column.lap_concentrations[:, 0] = bc * 1e-9

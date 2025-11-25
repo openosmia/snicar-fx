@@ -185,8 +185,9 @@ class LandColumn:
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
                 
                 self.ext_cff[lyr, :] = (scattering_cff + abs_cff)
+                
+                self.tau[lyr, :] = self.ext_cff[lyr, :] * self.layer_mass[lyr]
 
-                self.tau[lyr, :] = (scattering_cff + abs_cff) * self.layer_mass[lyr]
 
             else:  # ice grains in air
                 # under geometric optics assumptions, the extinction
@@ -198,9 +199,8 @@ class LandColumn:
                 # the ice grain (Eq. 2.47 in Kokhanovsky 2001).
                 # Since the is SSA = S / (V * D), then ext = 2 * SSA.
 
-                ext_cff = self.ssa[lyr] / 2
                 self.ext_cff[lyr, :] = self.ssa[lyr] / 2
-                self.tau[lyr, :] = self.layer_mass[lyr] * ext_cff
+                self.tau[lyr, :] = self.layer_mass[lyr] * self.ext_cff[lyr, :]
 
                 k_eq = (
                     self.lwc[lyr] * self.ref_idx_im_water
@@ -326,7 +326,7 @@ class LandColumn:
 
         ss_alb_all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb)
 
-        asm_prm__all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm)
+        asm_prm_all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm)
 
         # update layer mass in tau by removing lap mass
         # ext_cff_before_lap_correction = self.tau.copy() / self.layer_mass.copy()[:, None]
@@ -342,7 +342,7 @@ class LandColumn:
         self.tau = tau_all_laps + tau_clean
         self.ss_alb = (1 / self.tau) * (ss_alb_all_laps + (ss_alb_clean * tau_clean))
         self.asm_prm = (1 / (self.tau * (self.ss_alb))) * (
-            asm_prm__all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
+            asm_prm_all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
         
     
