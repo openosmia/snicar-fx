@@ -7,6 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 
+
 class AtmosphereColumn:
     """
     Properties of the atmosphere column.
@@ -33,32 +34,33 @@ class AtmosphereColumn:
 
     """
 
-    def __init__(self, config):
+    def __init__(self, config, PACKAGE_ROOT):
 
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.surface_elevation = config.LAND.ALTITUDE
-        self.wavelengths = np.arange(config.SOLVER.WVL_START, 
-                                     config.SOLVER.WVL_END, 
-                                     config.SOLVER.RESOLUTION)
+        self.wavelengths = np.arange(
+            config.SOLVER.WVL_START, config.SOLVER.WVL_END, config.SOLVER.RESOLUTION
+        )
         self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
-        
+
         # 1 - load atm profile first
-        
+
         # 2 - set nb of atm layers second depending on altitude
         self.nbr_lyr = self.set_nb_atmospheric_layers()
-        
+
         # 3 - init the ssps third
         self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
         self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
-        self.rayleigh_legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr, self.nbr_wvl))
-
+        self.rayleigh_legendre_moments = np.zeros(
+            (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
+        )
 
     def load_atmospheric_profile(self):
         # get concentration of each gas + air pressure/density/temperature for
         # each layer
         return None
-    
+
     def set_nb_atmospheric_layers(self):
         # get concentration of each gas + air pressure/density/temperature for
         # each layer
@@ -70,7 +72,7 @@ class AtmosphereColumn:
 
     def compute_gas_optical_thickness(self):
         """
-        Compute wavelength-dependent optical thickness of atmospheric gases 
+        Compute wavelength-dependent optical thickness of atmospheric gases
         for each layer based on their concentrations.
         """
 
@@ -78,9 +80,9 @@ class AtmosphereColumn:
 
             # sum absorption * conc for all gas for given layer
             absorption = np.sum(gas_absorptions * gas_concentrations, axis=1)
-            
+
             # get gaseous optical thickness
-            self.tau_gases[lyr, :] = absorption * dZ 
+            self.tau_gases[lyr, :] = absorption * dZ
 
         return None
 
@@ -97,7 +99,9 @@ class AtmosphereColumn:
             self.tau_molecules[lyr, :] = f(_lambda) * N_air * dZ
 
             # phase coeffs of order > 3 are null
-            self.rayleigh_legendre_moments[:3, lyr, :] = np.array([1, 0, 1/10])[:, None, None]
+            self.rayleigh_legendre_moments[:3, lyr, :] = np.array([1, 0, 1 / 10])[
+                :, None, None
+            ]
 
         return None
 
@@ -106,5 +110,5 @@ class AtmosphereColumn:
         self.tau_atm = self.tau_molecules + self.tau_gases
         self.ss_alb_atm = self.tau_molecules / (self.tau_gases + self.tau_molecules)
         self.legendre_moments_atm = self.rayleigh_legendre_moments
-        
+
         return None

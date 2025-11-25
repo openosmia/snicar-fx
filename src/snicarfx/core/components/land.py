@@ -65,10 +65,14 @@ class LandColumn:
         Order of the Legendre expansion of the phase function.
     legendre_moments: ndarray
         Moments of the Legendre expansion of the Henyey-Greenstein phase function
-    
+
     """
 
-    def __init__(self, config):
+    def __init__(self, config, PACKAGE_ROOT):
+
+        # set module root path for data loading
+        self.PACKAGE_ROOT = PACKAGE_ROOT
+
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
         self.thickness_profile = config.LAND.THICKNESS
@@ -77,7 +81,6 @@ class LandColumn:
         self.grain_shape = config.LAND.GRAIN_SHAPE
         self.lwc = config.LAND.LWC
         self.ssa = config.LAND.SPECIFIC_SURFACE_AREA
-        
 
         self.wavelengths = (
             np.arange(
@@ -90,17 +93,14 @@ class LandColumn:
 
         self.nbr_wvl = len(self.wavelengths)
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
-        
-        # ssps 
+
+        # ssps
         self.ss_alb = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.ext_cff = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.tau = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
-        self.legendre_moments = np.zeros((self.n_expansion, 
-                                          self.nbr_lyr, 
-                                          self.nbr_wvl))
-                
+        self.legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr, self.nbr_wvl))
 
         self.set_refractive_index_and_diffuse_fresnel_coeffs()
         self.set_column_ops_without_laps()
@@ -119,19 +119,17 @@ class LandColumn:
         to the model's spectral resolution.
         """
 
-    
         refidx_file = xr.open_dataset(
-            "./data/refractive_indices.nc"
-            ).sel(wvl=self.wavelengths)
-        fresnel_diffuse_file = xr.open_dataset(
-           "./data/fresnel_diffuse_coefficients.nc"
+            f"{self.PACKAGE_ROOT}/data/refractive_indices.nc"
         ).sel(wvl=self.wavelengths)
-        
+        fresnel_diffuse_file = xr.open_dataset(
+            f"{self.PACKAGE_ROOT}/data/fresnel_diffuse_coefficients.nc"
+        ).sel(wvl=self.wavelengths)
 
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values
         self.ref_idx_im = refidx_file[str("im_" + self.rf_type)].values
         self.ref_idx_im_water = refidx_file["im_Row20"].values
-        
+
         self.fl_r_dif_a = fresnel_diffuse_file[
             str("R_dif_fa_ice_" + self.rf_type)
         ].values
@@ -150,7 +148,7 @@ class LandColumn:
         of snow grains in air or ice with air inclusions, but all use geometric
         optics approximation (grain/bubble larger than the wavelength).
         """
-        
+
         self.layer_mass = np.array(self.density) * np.array(self.thickness_profile)
 
         for lyr in range(self.nbr_lyr):
@@ -183,11 +181,10 @@ class LandColumn:
                 ) * np.exp(-2 * ((1 / self.ref_idx_re - 1.04882) / 0.69233) ** 2)
 
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
-                
-                self.ext_cff[lyr, :] = (scattering_cff + abs_cff)
-                
-                self.tau[lyr, :] = self.ext_cff[lyr, :] * self.layer_mass[lyr]
 
+                self.ext_cff[lyr, :] = scattering_cff + abs_cff
+
+                self.tau[lyr, :] = self.ext_cff[lyr, :] * self.layer_mass[lyr]
 
             else:  # ice grains in air
                 # under geometric optics assumptions, the extinction
@@ -249,20 +246,18 @@ class LandColumn:
                 phi = 2.0 / 3 * b / (1 - rho)
                 # Eq. 7 in Kokhanovsky and Macke 1997 (ss_alb = (1-Cabs)/Cext)
                 self.ss_alb[lyr, :] = 1 - 0.5 * (1 - rho) * (1 - np.exp(-z * phi))
-                
-            # Delta truncation: Legendre term of HG function at 2M = 16 
-            # Wicombe 1977 Eq. 15
-            f = self.asm_prm ** (self.n_expansion + 1)  
 
-            # Calculate legendre moments 
+            # Delta truncation: Legendre term of HG function at 2M = 16
+            # Wicombe 1977 Eq. 15
+            f = self.asm_prm ** (self.n_expansion + 1)
+
+            # Calculate legendre moments
             # Wiscombe 1977 Eq. 14
             self.legendre_moments[:, lyr, :] = (
-                (self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
-                 - f[None, lyr, :])
-                / (1 - f[None, lyr, :])
-            )
-                
-                
+                self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
+                - f[None, lyr, :]
+            ) / (1 - f[None, lyr, :])
+
     def set_lap_properties(self):
         """
         Load and set optical properties of light-absorbing particles (LAPs).
@@ -271,42 +266,46 @@ class LandColumn:
         configuration, converting their concentrations to consistent units,
         and interpolating their properties to the model's spectral grid.
         """
-        
+
         self.lap_concentrations = (
             np.array([obj.CONC for obj in self.laps.values()]) * 1e-9
         ).T
 
         self.lap_ss_alb = np.stack(
-                [
-                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths)["ss_alb"]
-                      .values
-                    for lap, cfg in self.laps.items()
-                ],
-                axis=0
-            )
-        
+            [
+                xr.open_dataset(
+                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                )
+                .interp(wvl=self.wavelengths)["ss_alb"]
+                .values
+                for lap, cfg in self.laps.items()
+            ],
+            axis=0,
+        )
+
         self.lap_asm_prm = np.stack(
-                [
-                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths)["asm_prm"]
-                      .values
-                    for lap, cfg in self.laps.items()
-                ],
-                axis=0
-            )
-        
+            [
+                xr.open_dataset(
+                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                )
+                .interp(wvl=self.wavelengths)["asm_prm"]
+                .values
+                for lap, cfg in self.laps.items()
+            ],
+            axis=0,
+        )
+
         self.lap_ext_cff = np.stack(
-                [
-                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths)["ext_cff_mss"]
-                      .values
-                    for lap, cfg in self.laps.items()
-                ],
-                axis=0
-            )
-        
-        
+            [
+                xr.open_dataset(
+                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                )
+                .interp(wvl=self.wavelengths)["ext_cff_mss"]
+                .values
+                for lap, cfg in self.laps.items()
+            ],
+            axis=0,
+        )
 
     def update_column_ops_with_laps(self):
         """
@@ -318,7 +317,7 @@ class LandColumn:
         formulas. It adjusts optical thickness, single scattering albedo, and
         asymmetry parameters.
         """
-        
+
         # combine properties of all LAPs
         lap_mass = np.array(self.layer_mass)[:, np.newaxis] * self.lap_concentrations
 
@@ -326,11 +325,13 @@ class LandColumn:
 
         ss_alb_all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb)
 
-        asm_prm_all_laps = lap_mass @ (self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm)
+        asm_prm_all_laps = lap_mass @ (
+            self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm
+        )
 
         # update layer mass in tau by removing lap mass
         # ext_cff_before_lap_correction = self.tau.copy() / self.layer_mass.copy()[:, None]
-        
+
         self.layer_mass = self.layer_mass - np.sum(lap_mass, axis=1)
         self.tau = self.layer_mass[:, np.newaxis] * self.ext_cff
 
@@ -344,5 +345,3 @@ class LandColumn:
         self.asm_prm = (1 / (self.tau * (self.ss_alb))) * (
             asm_prm_all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
-        
-    

@@ -26,7 +26,7 @@ class SolarIrradiance:
         The irradiance profile to use.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, PACKAGE_ROOT):
         """
         Initialize the SolarIrradiance class using model configuration inputs.
 
@@ -41,7 +41,11 @@ class SolarIrradiance:
             An instance of the Config class containing model input data parsed
             from the YAML configuration file.
         """
-        self.direct = (config.ATMOSPHERE.SKY_CONDITIONS == 'clear')
+
+        # set module root path for data loading
+        self.PACKAGE_ROOT = PACKAGE_ROOT
+
+        self.direct = config.ATMOSPHERE.SKY_CONDITIONS == "clear"
         self.sza = config.SOLAR.SZA
         self.wavelengths = (
             np.arange(
@@ -51,7 +55,7 @@ class SolarIrradiance:
             )
             * 1e-9
         )
-        
+
         # hardcoded for tests for now
         self.irradiance_type = "mls"
         # self.irradiance_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
@@ -84,7 +88,7 @@ class SolarIrradiance:
 
             flux_file = xr.open_dataset(
                 str(
-                    './data/solar_fluxes/'
+                    f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
                     + "swnb_480bnd_"
                     + self.irradiance_type
                     + "_clr_"
@@ -96,7 +100,7 @@ class SolarIrradiance:
 
             flux_file = xr.open_dataset(
                 str(
-                    './data/solar_fluxes/'
+                    f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
                     + "swnb_480bnd_"
                     + self.irradiance_type
                     + "_cld.nc"
@@ -104,8 +108,10 @@ class SolarIrradiance:
             )
 
         # wvl in these files are in um --> convert wvl from m to um
-        self.flx_slr = flux_file.interp(wvl_ctr=self.wavelengths * 1e6)["flx_frc_sfc"].values
-          
+        self.flx_slr = flux_file.interp(wvl_ctr=self.wavelengths * 1e6)[
+            "flx_frc_sfc"
+        ].values
+
         # normalize
 
         self.flx_slr = self.flx_slr / np.sum(self.flx_slr)
