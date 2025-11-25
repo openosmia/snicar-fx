@@ -17,13 +17,13 @@ import xarray as xr
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
 from snicarfx.core.session.config import Config
+from snicarfx.core.session.session import Session
 from tests.solvers.utils import use_data_snicaradv4
 from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
 
 
 def test_twostreams_outputs(
     params_2str,
-    land_column,
     benchmark_snicaradv4_spectral_data,
     benchmark_snicaradv4_bba_data,
     benchmark_snicaradv4_absorbed_flux_data,
@@ -61,23 +61,25 @@ def test_twostreams_outputs(
 
     layer_type, density, radius, sza, bc, thickness_profile, direct = params_2str
 
+    package_root = Session.get_package_root()
+
     # Setup inputs
     config = Config.from_yaml("./tests/inputs_tests.yaml")
-    land_column = LandColumn(config)
-    irradiance = SolarIrradiance(config)
+    land_column = LandColumn(config, package_root)
+    irradiance = SolarIrradiance(config, package_root)
 
     # # calculate irradiance
     irradiance.direct = direct
     irradiance.sza = sza
     irradiance.set_irradiance()
-    
-    #land_column = LandColumn(config)
-    #irradiance = SolarIrradiance(config)
-    #irradiance.direct = direct
-    #irradiance.sza = sza
+
+    # land_column = LandColumn(config)
+    # irradiance = SolarIrradiance(config)
+    # irradiance.direct = direct
+    # irradiance.sza = sza
     # match irradiance type, fnl coeffs and ref idx from Matlab config
     # land_column, irradiance = use_data_snicaradv4(land_column, irradiance)
-    print(irradiance.sza, np.nanmean(irradiance.fs)) #,irradiance2.sza, np.nanmean(irradiance2.fs))
+    # print(irradiance.sza, np.nanmean(irradiance.fs)) #,irradiance2.sza, np.nanmean(irradiance2.fs))
 
     # calculate column ssa, g, mac
     land_column.thickness_profile = thickness_profile
@@ -102,7 +104,9 @@ def test_twostreams_outputs(
             land_column.ext_cff[i, :] = ssps["ext_cff_mss"].values
             land_column.ss_alb[i, :] = ssps["ss_alb"].values
             land_column.asm_prm[i, :] = ssps["asm_prm"].values
-            land_column.tau[i, :] = land_column.layer_mass[i] * land_column.ext_cff[i, :]
+            land_column.tau[i, :] = (
+                land_column.layer_mass[i] * land_column.ext_cff[i, :]
+            )
 
     for i in ice_idx:
         file_ssps = str(
@@ -113,11 +117,15 @@ def test_twostreams_outputs(
             sca_cff_vlm_air_bbl = ssps["sca_cff_vlm"].values
             vlm_frac_air = 1 - land_column.density[i] / 917
             scattering_cff = sca_cff_vlm_air_bbl * vlm_frac_air / land_column.density[i]
-            abs_cff = (4 * np.pi * land_column.ref_idx_im) / (land_column.wavelengths) / 917
+            abs_cff = (
+                (4 * np.pi * land_column.ref_idx_im) / (land_column.wavelengths) / 917
+            )
             land_column.ss_alb[i, :] = scattering_cff / (scattering_cff + abs_cff)
             land_column.asm_prm[i, :] = ssps["asm_prm"].values
-            land_column.ext_cff[i, :] = (scattering_cff + abs_cff)
-            land_column.tau[i, :] = land_column.layer_mass[i] * (scattering_cff + abs_cff)
+            land_column.ext_cff[i, :] = scattering_cff + abs_cff
+            land_column.tau[i, :] = land_column.layer_mass[i] * (
+                scattering_cff + abs_cff
+            )
 
     land_column.lap_concentrations[:, 0] = bc * 1e-9
 
@@ -130,39 +138,49 @@ def test_twostreams_outputs(
     # clipped to 0.99 in SNICAR-ADv4 but not in snicar-fx, producing larger
     # discrepancies than the tolerance of 1e-5.
 
-    
     # fetch index of thickness profile
     thickness_profile_idx = np.where(
-        np.all(
-            benchmark_snicaradv4_bba_data.dz_layers == thickness_profile, 
-            axis=1))[0][0]
-    
+        np.all(benchmark_snicaradv4_bba_data.dz_layers == thickness_profile, axis=1)
+    )[0][0]
+
     assert np.allclose(
         outputs.albedo[:250],
         benchmark_snicaradv4_spectral_data.sel(
-            layer_type=layer_type+1, density=density, reff=radius, sza=sza, 
-            bc=bc, direct=direct, thickness_profiles=thickness_profile_idx)[
-            "albedo"
-        ].values[:250],
+            layer_type=layer_type + 1,
+            density=density,
+            reff=radius,
+            sza=sza,
+            bc=bc,
+            direct=direct,
+            thickness_profiles=thickness_profile_idx,
+        )["albedo"].values[:250],
         atol=absolute_tolerance_benchmark,
     )
-    
+
     assert np.allclose(
         outputs.BBA,
         benchmark_snicaradv4_bba_data.sel(
-            layer_type=layer_type+1, density=density, reff=radius, sza=sza, 
-            bc=bc, direct=direct, thickness_profiles=thickness_profile_idx)[
-            "BBA"
-        ].values,
+            layer_type=layer_type + 1,
+            density=density,
+            reff=radius,
+            sza=sza,
+            bc=bc,
+            direct=direct,
+            thickness_profiles=thickness_profile_idx,
+        )["BBA"].values,
         atol=absolute_tolerance_benchmark,
     )
-    
+
     assert np.allclose(
         outputs.abs_slr_tot,
         benchmark_snicaradv4_absorbed_flux_data.sel(
-            layer_type=layer_type+1, density=density, reff=radius, sza=sza, 
-            bc=bc, direct=direct, thickness_profiles=thickness_profile_idx)[
-            "flux_absorbed"
-        ].values,
+            layer_type=layer_type + 1,
+            density=density,
+            reff=radius,
+            sza=sza,
+            bc=bc,
+            direct=direct,
+            thickness_profiles=thickness_profile_idx,
+        )["flux_absorbed"].values,
         atol=absolute_tolerance_benchmark,
     )
