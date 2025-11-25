@@ -5,12 +5,15 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from ..components.land import LandColumn
+import pathlib
+import sys
+
 from ..components.atmosphere import AtmosphereColumn
+from ..components.land import LandColumn
 from ..components.solar import SolarIrradiance
-from .config import Config
-from ..solvers.two_stream_solver import solve_two_stream_rt
 from ..solvers.multi_stream_solver import solve_multi_stream_rt
+from ..solvers.two_stream_solver import solve_two_stream_rt
+from .config import Config
 
 
 class Session:
@@ -28,10 +31,13 @@ class Session:
         # parse configuration file
         self.config = Config.from_yaml(input_file)
 
+        # set module root path for data loading
+        self.ROOT_PATH = self.get_package_root()
+
         # build components
-        self.land_column = LandColumn(self.config)
-        self.solar_irradiance = SolarIrradiance(self.config)
-        self.atmosphere_column = AtmosphereColumn(self.config)
+        self.land_column = LandColumn(self.config, self.ROOT_PATH)
+        self.solar_irradiance = SolarIrradiance(self.config, self.ROOT_PATH)
+        self.atmosphere_column = AtmosphereColumn(self.config, self.ROOT_PATH)
 
         # store history of updates
         self._applied_updates = {
@@ -171,8 +177,17 @@ class Session:
             self.outputs = solve_two_stream_rt(self.land_column, self.solar_irradiance)
 
         elif self.config.SOLVER.TYPE == "multi-stream":
-            self.outputs = solve_multi_stream_rt(self.land_column, 
-                                                 self.atmosphere_column,
-                                                 self.solar_irradiance)
+            self.outputs = solve_multi_stream_rt(
+                self.land_column, self.atmosphere_column, self.solar_irradiance
+            )
 
         return self.outputs
+
+    def get_package_root(self) -> pathlib.Path:
+        """
+        Return the root path of the snicarfx package.
+        """
+        snicarfx_module = sys.modules["snicarfx"]
+        snicarfx_root_path = pathlib.Path(snicarfx_module.__file__).resolve().parents[2]
+
+        return snicarfx_root_path

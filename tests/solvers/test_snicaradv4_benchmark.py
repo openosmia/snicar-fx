@@ -20,6 +20,7 @@ from snicarfx.core.session.config import Config
 from tests.solvers.utils import use_data_snicaradv4
 from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
 
+
 def test_twostreams_outputs(
     params_2str,
     land_column,
