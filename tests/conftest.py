@@ -11,6 +11,7 @@ import pytest
 import xarray as xr
 
 from snicarfx.core.components.land import LandColumn
+from snicarfx.core.components.solar import SolarIrradiance
 from snicarfx.core.session.config import Config
 
 
@@ -23,21 +24,16 @@ def test_input_file():
     """Fetch path to the test input file."""
     return TEST_INPUT_FILE
 
+@pytest.fixture(scope="module")
+def core_input_file():
+    """Fetch path to the core input file."""
+    return CORE_INPUT_FILE
 
-# @pytest.fixture(scope="module")
-# def core_input_file():
-#     """Fetch path to the core input file."""
-#     return CORE_INPUT_FILE
 
-# @pytest.fixture(scope="module")
-# def irradiance(model_inputs):
-#     """Provide a SolarIrradiance instance using shared ModelInputs."""
-#     return SolarIrradiance(model_inputs)
-
-# @pytest.fixture(scope="module")
-# def expected_fd():
-#     """Fetch mean diffuse solar beam from test input file."""
-#     return 0.0
+@pytest.fixture(scope="module")
+def expected_fd():
+    """Fetch mean diffuse solar beam from test input file."""
+    return 0.0
 
 @pytest.fixture(scope="module")
 def config():
@@ -49,6 +45,10 @@ def land_column(config):
     """Provide a shared LandColumn instance using shared Config."""
     return LandColumn(config)
 
+@pytest.fixture(scope="module")
+def irradiance(config):
+    """Provide a SolarIrradiance instance using shared Config."""
+    return SolarIrradiance(config)
 
 @pytest.fixture(scope="module")
 def expected_shapes(land_column):

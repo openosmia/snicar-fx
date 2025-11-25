@@ -17,7 +17,7 @@ import xarray as xr
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
 from snicarfx.core.session.config import Config
-from tests.solvers.utils import match_matlab_config
+from tests.solvers.utils import use_data_snicaradv4
 from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
 
 def test_twostreams_outputs(
@@ -65,24 +65,18 @@ def test_twostreams_outputs(
     land_column = LandColumn(config)
     irradiance = SolarIrradiance(config)
 
-    # use ref indices & fnl coefficients from SNICAR repo
-    land_column.ref_idx_im = xr.open_dataset(
-        "./tests/test_data/rfidx_ice.nc"
-    ).im_Pic16.values
-    land_column.ref_idx_re = xr.open_dataset(
-        "./tests/test_data/rfidx_ice.nc"
-    ).re_Pic16.values
-    land_column.fl_r_dif_b = xr.open_dataset(
-        "./tests/test_data/fl_reflection_diffuse.nc"
-    ).R_dif_fb_ice_Pic16.values
-    land_column.fl_r_dif_a = xr.open_dataset(
-        "./tests/test_data/fl_reflection_diffuse.nc"
-    ).R_dif_fa_ice_Pic16.values
-
-    # calculate irradiance
+    # # calculate irradiance
     irradiance.direct = direct
     irradiance.sza = sza
     irradiance.set_irradiance()
+    
+    #land_column = LandColumn(config)
+    #irradiance = SolarIrradiance(config)
+    #irradiance.direct = direct
+    #irradiance.sza = sza
+    # match irradiance type, fnl coeffs and ref idx from Matlab config
+    # land_column, irradiance = use_data_snicaradv4(land_column, irradiance)
+    print(irradiance.sza, np.nanmean(irradiance.fs)) #,irradiance2.sza, np.nanmean(irradiance2.fs))
 
     # calculate column ssa, g, mac
     land_column.thickness_profile = thickness_profile

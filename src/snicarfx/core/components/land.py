@@ -279,7 +279,8 @@ class LandColumn:
         self.lap_ss_alb = np.stack(
                 [
                     xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths)["ss_alb"]
+                      .interp(wvl=self.wavelengths, 
+                              kwargs={"fill_value": "extrapolate"})["ss_alb"]
                       .values
                     for lap, cfg in self.laps.items()
                 ],
@@ -289,7 +290,8 @@ class LandColumn:
         self.lap_asm_prm = np.stack(
                 [
                     xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths)["asm_prm"]
+                      .interp(wvl=self.wavelengths, 
+                              kwargs={"fill_value": "extrapolate"})["asm_prm"]
                       .values
                     for lap, cfg in self.laps.items()
                 ],
@@ -299,7 +301,8 @@ class LandColumn:
         self.lap_ext_cff = np.stack(
                 [
                     xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths)["ext_cff_mss"]
+                      .interp(wvl=self.wavelengths, 
+                              kwargs={"fill_value": "extrapolate"})["ext_cff_mss"]
                       .values
                     for lap, cfg in self.laps.items()
                 ],

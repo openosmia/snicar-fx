@@ -6,9 +6,10 @@ https://github.com/openosmia/snicar-fx
 """
 
 import xarray as xr
+import numpy as np
 
 
-def match_matlab_config(column):
+def use_data_snicaradv4(column, irradiance):
     """
     Ensures the refractive index and fresnel coefficients used to generate
     snicar-fx benchmark data to test snicar-fx against SNICAR-ADv4 correspond
@@ -38,5 +39,28 @@ def match_matlab_config(column):
     column.fl_r_dif_a = xr.open_dataset(
         "./tests/test_data/fl_reflection_diffuse.nc"
     ).R_dif_fa_ice_Pic16.values
+    
+    if irradiance.direct == 1: 
+        irradiance.flx_slr = xr.open_dataset(
+            './tests/test_data/swnb_480bnd_'
+                + "mls_clr_"
+                + str("SZA" + str(irradiance.sza).rjust(2, "0"))
+                + ".nc"
+            )["flx_frc_sfc"].values 
+        irradiance.flx_slr[irradiance.flx_slr == 0] = 1e-30
+        irradiance.fs = (irradiance.flx_slr 
+                          / (np.cos(np.deg2rad(np.rint(irradiance.sza))) * np.pi)
+                          )
+        irradiance.fd = np.zeros_like(irradiance.fs)
 
-    return column
+        
+    else: 
+        irradiance.flx_slr = xr.open_dataset(
+            './tests/test_data/swnb_480bnd_mls_cld.nc'
+            )["flx_frc_sfc"].values
+        irradiance.flx_slr[irradiance.flx_slr == 0] = 1e-30
+        irradiance.fd = irradiance.flx_slr 
+        irradiance.fs = np.zeros_like(irradiance.fd)
+        
+
+    return column, irradiance
