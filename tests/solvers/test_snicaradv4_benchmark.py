@@ -17,8 +17,8 @@ import xarray as xr
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
 from snicarfx.core.session.config import Config
-from tests.solvers.utils import match_matlab_config
 from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
+
 
 def test_twostreams_outputs(
     params_2str,

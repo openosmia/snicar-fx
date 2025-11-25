@@ -7,6 +7,7 @@ https://github.com/openosmia/snicar-fx
 """
 
 import matplotlib.pyplot as plt
+
 from snicarfx.core import Session
 
 simulation = Session("./src/snicarfx/inputs.yaml")

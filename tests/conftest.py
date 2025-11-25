@@ -13,7 +13,6 @@ import xarray as xr
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.session.config import Config
 
-
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
 CORE_INPUT_FILE = "./src/snicarfx/inputs.yaml"
 

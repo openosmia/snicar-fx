@@ -5,10 +5,10 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from typing import Dict, Literal
+from typing import Literal
 
 import yaml
-from pydantic import BaseModel, RootModel, Field, confloat, conlist, model_validator
+from pydantic import BaseModel, Field, RootModel, confloat, conlist, model_validator
 
 
 class Solver(BaseModel):
@@ -98,7 +98,7 @@ class Particle(BaseModel):
     model_config = {"extra": "forbid"}
 
 
-class LightAbsorbingParticles(RootModel[Dict[str, Particle]]):
+class LightAbsorbingParticles(RootModel[dict[str, Particle]]):
     """
     Define an object for the configuration of all light absorbing particles.
     Ensure each key in LIGHT_ABSORBING_PARTICLES is valid.
@@ -108,7 +108,6 @@ class LightAbsorbingParticles(RootModel[Dict[str, Particle]]):
 
     """
 
-    pass
 
 
 class Land(BaseModel):
