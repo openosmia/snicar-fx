@@ -46,7 +46,7 @@ class _MultiStreamSolver:
         self.mth_azi = 0
         self.solar_irradiance = np.ones_like(irradiance.flx_slr) * 2
         self.solar_flag = True
-        self.cos_sun = irradiance.cos_sza
+        self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
         self.DELTA_OPTICAL_DEPTH = 1e-8
         self.max_albedo = 0.999999
         self.SCATTERING_ALBEDO_tHRESHOLD = 1e-10
@@ -546,7 +546,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
             * np.array(aads.cos_weight)[:, None],
             axis=0,
         )
-        / (aads.solar_irradiance[None, :] * aads.cos_sun)
+        / (aads.solar_irradiance[None, :] * aads.cos_sun) # project solar beam
     ).flatten()
 
     return albedo
