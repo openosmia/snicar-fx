@@ -3,7 +3,7 @@ SOLVER:
   WVL_START: 205 
   WVL_END: 5000
   RESOLUTION: 10
-  ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling
+  ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
 
 SOLAR:
   SZA: 50 

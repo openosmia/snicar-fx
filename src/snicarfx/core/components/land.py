@@ -254,9 +254,10 @@ class LandColumn:
             # Calculate legendre moments
             # Wiscombe 1977 Eq. 14
             self.legendre_moments[:, lyr, :] = (
-                self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
-                - f[None, lyr, :]
-            ) / (1 - f[None, lyr, :])
+                (self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
+                - f[None, lyr, :])
+                / (1 - f[None, lyr, :])
+                )
 
     def set_lap_properties(self):
         """
