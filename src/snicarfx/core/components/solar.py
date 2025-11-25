@@ -58,9 +58,21 @@ class SolarIrradiance:
 
         # hardcoded for tests for now
         self.irradiance_type = "mls"
-        # self.irradiance_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
-
         self.set_irradiance()
+        
+        # to do: 
+        # self.irradiance_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
+        # read file from selected profile
+            # flux_file = xr.open_dataset(libradtran_file)
+        # select wavelength range: 
+            # solar_irradiance = flux_file.interp(wvl_ctr=self.wavelengths * 1e6) 
+        # calculate fs, fd and flx_slr
+            # fs = solar_irradiance.direct / (cos_sza *pi)
+            # fd = solar_irradiance.diffuse
+            # flx_slr = solar_irradiance.diffuse + solar_irradiance.direct
+            
+        # the indexing in SZA will be in the solvers directly
+
 
     def set_irradiance(self):
         """
