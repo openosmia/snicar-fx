@@ -8,12 +8,6 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 import xarray as xr
 
-# from snicarfx.core import (
-#     ColumnProperties,
-#     ModelInputs,
-#     SolarIrradiance,
-#     solve_two_stream_rt,
-# )
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
 from snicarfx.core.session.config import Config
@@ -71,15 +65,9 @@ def test_twostreams_outputs(
     # # calculate irradiance
     irradiance.direct = direct
     irradiance.sza = sza
-    irradiance.set_irradiance()
-
-    # land_column = LandColumn(config)
-    # irradiance = SolarIrradiance(config)
-    # irradiance.direct = direct
-    # irradiance.sza = sza
+    
     # match irradiance type, fnl coeffs and ref idx from Matlab config
-    # land_column, irradiance = use_data_snicaradv4(land_column, irradiance)
-    # print(irradiance.sza, np.nanmean(irradiance.fs)) #,irradiance2.sza, np.nanmean(irradiance2.fs))
+    land_column, irradiance = use_data_snicaradv4(land_column, irradiance)
 
     # calculate column ssa, g, mac
     land_column.thickness_profile = thickness_profile

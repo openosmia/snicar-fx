@@ -46,7 +46,7 @@ class _MultiStreamSolver:
         self.mth_azi = 0
         self.solar_irradiance = np.ones_like(irradiance.flx_slr) * 2
         self.solar_flag = True
-        self.cos_sun = irradiance.cos_sza
+        self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
         self.DELTA_OPTICAL_DEPTH = 1e-8
         self.max_albedo = 0.999999
         self.SCATTERING_ALBEDO_tHRESHOLD = 1e-10
@@ -57,7 +57,7 @@ class _MultiStreamSolver:
         # apply delta scaling to land column
         # Delta truncation: get highest Legendre term following
         # Wicombe 1977 Eq. (15) -  2M = n_expansion + 1
-        f = land.asm_prm ** (atmosphere.n_expansion + 1) 
+        f = np.array(land.asm_prm ** (land.n_expansion + 1))
         # Wiscombe 1977 Eq. 20(a, b)
         land.tau = (1.0 - land.ss_alb * f) * land.tau
         land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
@@ -80,8 +80,7 @@ class _MultiStreamSolver:
         
         # initialize arrays
         self.total_opt = np.zeros((self.nbr_lyr + 1, self.nbr_wvl))
-
-
+        
         self.ff = np.zeros(
             (self.n_angles, self.n_angles + 1, self.nbr_lyr, self.nbr_wvl)
         )
@@ -123,7 +122,7 @@ class _MultiStreamSolver:
         # Calculate scaled expansion coefficients
         # Wiscombe 1977 Eq. 14
         # Convention is 0.5 * (2l+1) * Bl for the expansion
-        orders = np.arange(0, atmosphere.n_expansion)
+        orders = np.arange(0, land.n_expansion)
         
         phase_coeffs = (
             (2 * orders[:, None, None] + 1)
@@ -134,7 +133,7 @@ class _MultiStreamSolver:
         )
 
         # Calculate Legendre polynomials
-        leg_poly = np.zeros((self.n_expansion, self.n_angles + 1))
+        leg_poly = np.zeros((land.n_expansion, self.n_angles + 1))
 
         # for all but the last column
         for order in orders:
@@ -144,7 +143,7 @@ class _MultiStreamSolver:
         for order in orders:
             leg_poly[order, self.n_angles] = legendre(order)(self.cos_sun)
 
-        legs = np.arange(self.mth_azi, self.n_expansion)
+        legs = np.arange(self.mth_azi, land.n_expansion)
         ifac = (-1) ** (legs - self.mth_azi)
 
         # Calculate phase matrices
@@ -547,7 +546,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
             * np.array(aads.cos_weight)[:, None],
             axis=0,
         )
-        / (aads.solar_irradiance[None, :] * aads.cos_sun)
+        / (aads.solar_irradiance[None, :] * aads.cos_sun) # project solar beam
     ).flatten()
 
     return albedo

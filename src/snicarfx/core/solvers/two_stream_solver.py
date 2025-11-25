@@ -85,6 +85,8 @@ class _TwoStreamSolver:
         self.column = column
 
         self.irradiance = irradiance
+        
+        self.cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza)))
 
         # to deal with singularity
         self.epsilon = 1e-5
@@ -95,18 +97,18 @@ class _TwoStreamSolver:
         self.nr = np.zeros(shape=column.nbr_wvl)
 
         # cos beam angle = incident beam
-        self.mu0 = irradiance.cos_sza * np.ones(column.nbr_wvl)
+        self.mu0 = self.cos_sza * np.ones(column.nbr_wvl)
 
         # ice-adjusted real refractive index
         temp1 = (
             column.ref_idx_re**2
             - column.ref_idx_im**2
-            + np.sin(np.arccos(irradiance.cos_sza)) ** 2
+            + np.sin(np.arccos(self.cos_sza)) ** 2
         )
         temp2 = (
             column.ref_idx_re**2
             - column.ref_idx_im**2
-            - np.sin(np.arccos(irradiance.cos_sza)) ** 2
+            - np.sin(np.arccos(self.cos_sza)) ** 2
         )
         self.nr = (np.sqrt(2) / 2) * (
             temp1 + (temp2**2 + 4 * column.ref_idx_re**2 * column.ref_idx_im**2) ** 0.5
@@ -419,7 +421,7 @@ class _TwoStreamSolver:
         # mask where total internal reflection occurs
         ref_indx = self.column.ref_idx_re + 1j * self.column.ref_idx_im
         critical_angle = np.arcsin(ref_indx)
-        mask = np.arccos(self.irradiance.cos_sza) >= critical_angle
+        mask = np.arccos(self.cos_sza) >= critical_angle
         rf_dir_a[mask] = 1
         tf_dir_a[mask] = 0
 
@@ -636,12 +638,12 @@ class _TwoStreamSolver:
         for n in np.arange(0, self.column.nbr_lyr + 1, 1):
             self.F_up[:, n] = (
                 self.fdirup[:, n]
-                * (self.irradiance.fs * self.irradiance.cos_sza * np.pi)
+                * (self.irradiance.fs * self.cos_sza * np.pi)
                 + self.fdifup[:, n] * self.irradiance.fd
             )
             self.F_dwn[:, n] = (
                 self.fdirdn[:, n]
-                * (self.irradiance.fs * self.irradiance.cos_sza * np.pi)
+                * (self.irradiance.fs * self.cos_sza * np.pi)
                 + self.fdifdn[:, n] * self.irradiance.fd
             )
 
@@ -679,7 +681,7 @@ class _TwoStreamSolver:
         """
         # Incident direct+diffuse radiation equals (absorbed+transmitted+bulk_reflected)
         energy_sum = (
-            (self.irradiance.cos_sza * np.pi * self.irradiance.fs)
+            (self.cos_sza * np.pi * self.irradiance.fs)
             + self.irradiance.fd
             - (np.sum(self.F_abs, axis=1) + self.F_btm_net + self.F_top_pls)
         )
@@ -723,7 +725,7 @@ class _TwoStreamSolver:
 
         # Total incident insolation (Wm - 2)
         outputs.total_insolation = np.sum(
-            (self.irradiance.cos_sza * np.pi * self.irradiance.fs) + self.irradiance.fd
+            (self.cos_sza * np.pi * self.irradiance.fs) + self.irradiance.fd
         )
 
         # Spectrally-integrated absorption by underlying surface:
