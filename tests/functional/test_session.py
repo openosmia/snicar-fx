@@ -10,8 +10,8 @@ import pathlib
 def test_session_attributes(session, config, land_column, irradiance, 
                              atmosphere_column):
     """
-    Verify that an instance of ModelInputs has the correct type and that
-    required attributes exist.
+    Verify that the required attributes of Session exist and have the correct 
+    types.
 
     Parameters
     ----------
