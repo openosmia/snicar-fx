@@ -63,9 +63,13 @@ def test_twostreams_outputs(
     irradiance = SolarIrradiance(config, package_root)
 
     # # calculate irradiance
-    irradiance.direct = direct
     irradiance.sza = sza
-    
+
+    if direct == 1:
+        irradiance.sky_conditions = "clear"
+    elif direct == 0:
+        irradiance.sky_conditions = "cloudy"
+
     # match irradiance type, fnl coeffs and ref idx from Matlab config
     land_column, irradiance = use_data_snicaradv4(land_column, irradiance)
 

@@ -19,45 +19,54 @@ from snicarfx.core.session.session import Session
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
 CORE_INPUT_FILE = "./src/snicarfx/inputs.yaml"
 
+
 @pytest.fixture(scope="module")
 def core_input_file():
     """Fetch path to the core input file."""
     return CORE_INPUT_FILE
+
 
 @pytest.fixture(scope="module")
 def test_input_file():
     """Fetch path to the test input file."""
     return TEST_INPUT_FILE
 
+
 @pytest.fixture(scope="module")
 def config():
     """Provide a shared instance of Config."""
     return Config.from_yaml(TEST_INPUT_FILE)
+
 
 @pytest.fixture(scope="module")
 def session():
     """Provide a shared Session instance."""
     return Session(TEST_INPUT_FILE)
 
+
 @pytest.fixture(scope="module")
 def root_dir():
     """Provide a shared package root directory."""
     return Session.get_package_root()
+
 
 @pytest.fixture(scope="module")
 def land_column(config, root_dir):
     """Provide a shared LandColumn instance using shared Config."""
     return LandColumn(config, root_dir)
 
+
 @pytest.fixture(scope="module")
 def atmosphere_column(config, root_dir):
     """Provide a shared AtmosphereColumn instance using shared Config."""
     return AtmosphereColumn(config, root_dir)
 
+
 @pytest.fixture(scope="module")
 def irradiance(config, root_dir):
     """Provide a SolarIrradiance instance using shared Config."""
     return SolarIrradiance(config, root_dir)
+
 
 @pytest.fixture(scope="module")
 def expected_shapes(land_column):
@@ -103,10 +112,12 @@ def expected_mean_fs():
     """Fetch mean direct collimated solar beam from test input file."""
     return 0.0010316714047111436
 
+
 @pytest.fixture(scope="module")
 def expected_fd():
     """Fetch mean diffuse solar beam from test input file."""
     return 0.0
+
 
 @pytest.fixture(scope="module")
 def expected_mean_flx_slr():
@@ -131,20 +142,24 @@ def multistream_ada_parameter_grid(ds):
         )
     )
 
+
 @pytest.fixture(scope="module")
 def benchmark_snicaradv4_spectral_data():
     """Read SNICAR_ADv4 spectral albedo outputs to test snicar-fx against."""
     return xr.open_dataset("./tests/test_data/benchmark_SNICARADv4_spectral_albedo.nc")
+
 
 @pytest.fixture(scope="module")
 def benchmark_snicaradv4_bba_data():
     """Read SNICAR_ADv4 BBA outputs to test snicar-fx against."""
     return xr.open_dataset("./tests/test_data/benchmark_SNICARADv4_BBA.nc")
 
+
 @pytest.fixture(scope="module")
 def benchmark_snicaradv4_absorbed_flux_data():
     """Read SNICAR_ADv4 absorbed flux outputs to test snicar-fx against."""
     return xr.open_dataset("./tests/test_data/benchmark_SNICARADv4_absorbed_flux.nc")
+
 
 def twostream_parameter_grid(ds):
     """Define parameter grid to test snicar-fx against SNICAR-ADv4 outputs."""
@@ -160,6 +175,7 @@ def twostream_parameter_grid(ds):
         )
     )
 
+
 def pytest_generate_tests(metafunc):
     """Store parameter grid for the tests."""
     if {"params_ada"} <= set(metafunc.fixturenames):
@@ -170,6 +186,7 @@ def pytest_generate_tests(metafunc):
         ds = xr.open_dataset("./tests/test_data/benchmark_SNICARADv4_BBA.nc")
         grid = list(twostream_parameter_grid(ds))
         metafunc.parametrize("params_2str", grid)
+
 
 @pytest.fixture(scope="module")
 def absolute_tolerance_internal_variables():
