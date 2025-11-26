@@ -638,12 +638,12 @@ class _TwoStreamSolver:
         for n in np.arange(0, self.column.nbr_lyr + 1, 1):
             self.F_up[:, n] = (
                 self.fdirup[:, n]
-                * (self.irradiance.fs * self.cos_sza * np.pi)
+                * (self.irradiance.fs)
                 + self.fdifup[:, n] * self.irradiance.fd
             )
             self.F_dwn[:, n] = (
                 self.fdirdn[:, n]
-                * (self.irradiance.fs * self.cos_sza * np.pi)
+                * (self.irradiance.fs)
                 + self.fdifdn[:, n] * self.irradiance.fd
             )
 
@@ -681,7 +681,7 @@ class _TwoStreamSolver:
         """
         # Incident direct+diffuse radiation equals (absorbed+transmitted+bulk_reflected)
         energy_sum = (
-            (self.cos_sza * np.pi * self.irradiance.fs)
+            (self.irradiance.fs)
             + self.irradiance.fd
             - (np.sum(self.F_abs, axis=1) + self.F_btm_net + self.F_top_pls)
         )
@@ -725,7 +725,7 @@ class _TwoStreamSolver:
 
         # Total incident insolation (Wm - 2)
         outputs.total_insolation = np.sum(
-            (self.cos_sza * np.pi * self.irradiance.fs) + self.irradiance.fd
+            (self.irradiance.fs) + self.irradiance.fd
         )
 
         # Spectrally-integrated absorption by underlying surface:

@@ -49,11 +49,8 @@ def use_data_snicaradv4(column, irradiance):
                 + ".nc"
             )["flx_frc_sfc"].values 
         irradiance.flx_slr[irradiance.flx_slr == 0] = 1e-30
-        cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza))) 
-        irradiance.fs = (irradiance.flx_slr 
-                          / (cos_sza
-                             * np.pi)
-                          )
+
+        irradiance.fs = irradiance.flx_slr 
         irradiance.fd = np.zeros_like(irradiance.fs)
 
         

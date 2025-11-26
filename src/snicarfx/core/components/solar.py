@@ -126,10 +126,8 @@ class SolarIrradiance:
 
         self.flx_slr[self.flx_slr == 0] = 1e-30
         
-        cos_sza = np.cos(np.deg2rad(np.rint(self.sza)))
-
         if self.direct:
-            self.fs = self.flx_slr / (cos_sza * np.pi)
+            self.fs = self.flx_slr 
             self.fd = np.zeros_like(self.fs)
         else:
             self.fd = self.flx_slr
