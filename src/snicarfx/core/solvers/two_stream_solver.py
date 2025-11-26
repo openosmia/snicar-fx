@@ -5,10 +5,47 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+import datetime
 from dataclasses import dataclass
 from typing import Any
-
+import xarray as xr
 import numpy as np
+
+
+@dataclass
+class _TwoStreamSolverResults:
+    """
+    Stores output data from radiative transfer calculations.
+
+    This class holds computed radiative properties of the snow or ice column,
+    such as albedo, broadband heating rates, and energy absorption.
+
+    Attributes
+    ----------
+    albedo : array
+        Spectrally resolved surface albedo [unitless].
+    wavelengths : array
+        Wavelength grid [m].
+    BBA : float
+        Broadband albedo (spectrally-integrated albedo) [unitless].
+    absorbed_flux_per_layer : array
+        Layer-wise spectrally-resolved absorbed solar flux [W/m² per layer].
+    abs_slr_btm : array
+        Spectrally-resolved absorbed solar energy at the bottom layer [W/m²].
+    abs_slr_tot : array
+        Spectrally-integrated absorbed solar energy across the column [W/m²].
+    heat_rt : array
+        Heating rate in each layer [K/s per layer].
+    total_insolation : array
+        Spectrally-integrated incoming solar energy at the top layer [W/m²].
+
+    """
+
+    wavelengths: np.ndarray
+    albedo: np.ndarray
+    BBA: float
+    absorbed_flux_fraction_per_layer: np.ndarray
+    absorbed_flux_fraction_bottom: float
 
 
 class _TwoStreamSolver:
@@ -85,7 +122,7 @@ class _TwoStreamSolver:
         self.column = column
 
         self.irradiance = irradiance
-        
+
         self.cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza)))
 
         # to deal with singularity
@@ -637,13 +674,11 @@ class _TwoStreamSolver:
 
         for n in np.arange(0, self.column.nbr_lyr + 1, 1):
             self.F_up[:, n] = (
-                self.fdirup[:, n]
-                * (self.irradiance.fs)
+                self.fdirup[:, n] * (self.irradiance.fs)
                 + self.fdifup[:, n] * self.irradiance.fd
             )
             self.F_dwn[:, n] = (
-                self.fdirdn[:, n]
-                * (self.irradiance.fs)
+                self.fdirdn[:, n] * (self.irradiance.fs)
                 + self.fdifdn[:, n] * self.irradiance.fd
             )
 
@@ -697,89 +732,34 @@ class _TwoStreamSolver:
 
     def get_outputs(self):
         """
-        Compile and return radiative transfer results into an Outputs object.
+        Compile and return radiative transfer results as an xarray Dataset.
 
         Returns
         -------
-        Outputs
-            An instance of the `Outputs` class.
-
+        xr.Dataset
+            Two-stream solver results in an xarray Dataset.
         """
-
-        outputs = Outputs()
 
         # Radiative heating rate:
         f_abs_slr = np.sum(self.F_abs, axis=0)
 
-        # [K/s] 2117 = specific heat column (J kg-1 K-1)
-        heat_rt = f_abs_slr / (np.array(self.column.layer_mass) * 2117)
-        outputs.heat_rt = heat_rt * 3600  # [K/hr]
-
-        # Spectral albedo
-        outputs.albedo = self.albedo
-
         # Spectrally-integrated solar, visible, and NIR albedos:
-        outputs.BBA = np.sum(self.irradiance.flx_slr * self.albedo) / np.sum(
+        BBA = np.sum(self.irradiance.flx_slr * self.albedo) / np.sum(
             self.irradiance.flx_slr
         )
 
-        # Total incident insolation (Wm - 2)
-        outputs.total_insolation = np.sum(
-            (self.irradiance.fs) + self.irradiance.fd
+        # Spectrally-integrated absorption by underlying surface:
+        abs_slr_btm = np.sum(self.F_btm_net, axis=0)
+
+        results = _TwoStreamSolverResults(
+            wavelengths=self.column.wavelengths,
+            albedo=self.albedo,
+            BBA=BBA,
+            absorbed_flux_fraction_per_layer=f_abs_slr,
+            absorbed_flux_fraction_bottom=abs_slr_btm,
         )
 
-        # Spectrally-integrated absorption by underlying surface:
-        outputs.abs_slr_btm = np.sum(self.F_btm_net, axis=0)
-
-        # Spectrally-integrated absorption by entire snow/column column
-        outputs.abs_slr_tot = np.sum(f_abs_slr)
-
-        # Spectrally-integrated absorption by each layer
-        outputs.absorbed_flux_per_layer = f_abs_slr
-
-        # Wavelength grid
-        outputs.wavelengths = self.column.wavelengths
-
-        return outputs
-
-
-@dataclass
-class Outputs:
-    """
-    Stores output data from radiative transfer calculations.
-
-    This class holds computed radiative properties of the snow or ice column,
-    such as albedo, broadband heating rates, and energy absorption.
-
-    Attributes
-    ----------
-    albedo : array
-        Spectrally resolved surface albedo [unitless].
-    wavelengths : array
-        Wavelength grid [m].
-    BBA : float
-        Broadband albedo (spectrally-integrated albedo) [unitless].
-    absorbed_flux_per_layer : array
-        Layer-wise spectrally-resolved absorbed solar flux [W/m² per layer].
-    abs_slr_btm : array
-        Spectrally-resolved absorbed solar energy at the bottom layer [W/m²].
-    abs_slr_tot : array
-        Spectrally-integrated absorbed solar energy across the column [W/m²].
-    heat_rt : array
-        Heating rate in each layer [K/s per layer].
-    total_insolation : array
-        Spectrally-integrated incoming solar energy at the top layer [W/m²].
-
-    """
-
-    albedo: float | None = None
-    wavelengths: float | None = None
-    BBA: float | None = None
-    absorbed_flux_per_layer: Any | None = None
-    abs_slr_btm: float | None = None
-    abs_slr_tot: float | None = None
-    heat_rt: Any | None = None
-    total_insolation: float | None = None
+        return results
 
 
 def solve_two_stream_rt(column, irradiance):

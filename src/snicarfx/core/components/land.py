@@ -254,10 +254,9 @@ class LandColumn:
             # Calculate legendre moments
             # Wiscombe 1977 Eq. 14
             self.legendre_moments[:, lyr, :] = (
-                (self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
-                - f[None, lyr, :])
-                / (1 - f[None, lyr, :])
-                )
+                self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
+                - f[None, lyr, :]
+            ) / (1 - f[None, lyr, :])
 
     def set_lap_properties(self):
         """
@@ -273,39 +272,46 @@ class LandColumn:
         ).T
 
         self.lap_ss_alb = np.stack(
-                [
-                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths, 
-                              kwargs={"fill_value": "extrapolate"})["ss_alb"]
-                      .values
-                    for lap, cfg in self.laps.items()
-                ],
-                axis=0
-            )
-        
+            [
+                xr.open_dataset(
+                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                )
+                .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
+                    "ss_alb"
+                ]
+                .values
+                for lap, cfg in self.laps.items()
+            ],
+            axis=0,
+        )
+
         self.lap_asm_prm = np.stack(
-                [
-                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths, 
-                              kwargs={"fill_value": "extrapolate"})["asm_prm"]
-                      .values
-                    for lap, cfg in self.laps.items()
-                ],
-                axis=0
-            )
-        
+            [
+                xr.open_dataset(
+                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                )
+                .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
+                    "asm_prm"
+                ]
+                .values
+                for lap, cfg in self.laps.items()
+            ],
+            axis=0,
+        )
+
         self.lap_ext_cff = np.stack(
-                [
-                    xr.open_dataset('./data/light_absorbing_particles/' + cfg.FILE)
-                      .interp(wvl=self.wavelengths, 
-                              kwargs={"fill_value": "extrapolate"})["ext_cff_mss"]
-                      .values
-                    for lap, cfg in self.laps.items()
-                ],
-                axis=0
-            )
-        
-        
+            [
+                xr.open_dataset(
+                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                )
+                .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
+                    "ext_cff_mss"
+                ]
+                .values
+                for lap, cfg in self.laps.items()
+            ],
+            axis=0,
+        )
 
     def update_column_ops_with_laps(self):
         """

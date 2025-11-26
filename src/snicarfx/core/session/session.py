@@ -13,6 +13,10 @@ from ..solvers.two_stream_solver import solve_two_stream_rt
 from ..solvers.multi_stream_solver import solve_multi_stream_rt
 import pathlib
 import sys
+from importlib.metadata import version
+import xarray as xr
+from datetime import datetime
+import numpy as np
 
 
 class Session:
@@ -129,7 +133,6 @@ class Session:
             self.config.model_copy(update={"ATMOSPHERE": updates})
 
         # update SZA and sky conditions, reload irradiance file and recompute
-        # irradiance
         if "SKY_CONDITIONS" in updates:
             self.solar_irradiance.sky_conditions = updates["SKY_CONDITIONS"]
             self.solar_irradiance.load_irradiance()
@@ -163,12 +166,16 @@ class Session:
         if "SKY_CONDITIONS" in updates:
             pass
 
-    def run(self):
-        """Run the radiative transfer solver.
-        TODO: Add outputs to an existing DataFrame out outputs or create it"""
+    def run(self, to_xarray=True):
+        """
+        Run the radiative transfer solver and return outputs
+        """
 
         if self.config.SOLVER.TYPE == "two-stream":
             self.outputs = solve_two_stream_rt(self.land_column, self.solar_irradiance)
+            # return outputs as a metadata-rich xarray dataset
+            if to_xarray:
+                self.outputs = self.two_stream_results_to_xarray()
 
         elif self.config.SOLVER.TYPE == "multi-stream":
             self.outputs = solve_multi_stream_rt(
@@ -186,3 +193,38 @@ class Session:
         snicarfx_root_path = pathlib.Path(snicarfx_module.__file__).resolve().parents[2]
 
         return snicarfx_root_path
+
+    def two_stream_results_to_xarray(self) -> xr.Dataset:
+        """
+        Save results to an xarray with rather extensive model and
+        session state metadata.
+        """
+
+        attrs = {
+            "model_name": "snicar-fx",
+            "model_version": version("snicarfx"),
+            "model_url": "https://github.com/openosmia/snicar-fx",
+            "creation_date": datetime.utcnow().isoformat(),
+            "session_state": self._write_current_state(),
+        }
+
+        ds = xr.Dataset(
+            data_vars={
+                "albedo": ("wavelength", self.outputs.albedo),
+                "BBA": self.outputs.BBA,
+                "absorbed_flux_fraction": (
+                    "layer",
+                    self.outputs.absorbed_flux_fraction_per_layer,
+                ),
+                "absorbed_flux_fraction_bottom": self.outputs.absorbed_flux_fraction_bottom,
+            },
+            coords={
+                "wavelength": self.outputs.wavelengths,
+                "layer": np.arange(len(self.outputs.absorbed_flux_fraction_per_layer)),
+            },
+        )
+
+        # add attributes
+        ds.attrs.update(attrs)
+
+        return ds

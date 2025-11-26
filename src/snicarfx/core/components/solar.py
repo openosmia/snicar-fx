@@ -102,15 +102,24 @@ class SolarIrradiance:
         # wvl in these files are in um --> convert wvl from m to um
         ds_sza_interpolated = ds_sza.interp(wavelength=self.wavelengths * 1e9)
 
-        # normalize each irradiance for the spectral sum to be equal to 1
-        irradiance_sum = ds_sza_interpolated["irradiance"].sum(dim="wavelength")
-        irradiance_normalized = ds_sza_interpolated["irradiance"] / irradiance_sum
+        irradiance_direct = ds_sza_interpolated.sel(irradiance_type="direct")[
+            "irradiance"
+        ]
+        irradiance_diffuse = ds_sza_interpolated.sel(irradiance_type="diffuse")[
+            "irradiance"
+        ]
 
-        # replace 0 by 1e-30 to avoid invalid operations
-        irradiance_normalized = irradiance_normalized.clip(min=1e-30)
+        # sum over wavelengths to get total
+        irradiance_total_sum = (irradiance_direct + irradiance_diffuse).sum(
+            dim="wavelength"
+        )
 
-        self.fs = irradiance_normalized.sel(irradiance_type="direct").values
-        self.fd = irradiance_normalized.sel(irradiance_type="diffuse").values
+        irradiance_direct_normalized = irradiance_direct / irradiance_total_sum
+        irradiance_diffuse_normalized = irradiance_diffuse / irradiance_total_sum
+
+        # replace 0s by 1e-30 to avoid invalid operations
+        self.fs = irradiance_direct_normalized.clip(min=1e-30).values
+        self.fd = irradiance_diffuse_normalized.clip(min=1e-30).values
 
         # solar flux is direct + diffuse
         self.flx_slr = self.fs + self.fd

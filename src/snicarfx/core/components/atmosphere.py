@@ -8,6 +8,7 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 import pandas as pd
 
+
 class AtmosphereColumn:
     """
     Properties of the atmosphere column.
@@ -39,26 +40,24 @@ class AtmosphereColumn:
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.surface_elevation = config.LAND.ALTITUDE
         self.wavelengths = np.arange(
-            config.SOLVER.WVL_START, 
-            config.SOLVER.WVL_END, 
-            config.SOLVER.RESOLUTION
+            config.SOLVER.WVL_START, config.SOLVER.WVL_END, config.SOLVER.RESOLUTION
         )
         self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
         self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
 
         # 1 - load atm profile with gas conc., P/T/density first
-        self.atmosphere_profile = self.set_atmospheric_profile()
+        # self.atmosphere_profile = self.set_atmospheric_profile()
 
-        # 2 - set nb of atm layers second depending on altitude
-        self.nbr_lyr = self.set_nb_atmospheric_layers()
+        # # 2 - set nb of atm layers second depending on altitude
+        # self.nbr_lyr = self.set_nb_atmospheric_layers()
 
-        # 3 - init the ssps third
-        self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
-        self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
-        self.rayleigh_legendre_moments = np.zeros(
-            (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
-        )
+        # # 3 - init the ssps third
+        # self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
+        # self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
+        # self.rayleigh_legendre_moments = np.zeros(
+        #     (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
+        # )
 
     def set_atmospheric_profile(self):
         profile = pd.read_csv(self.atmosphere_profile_type)
@@ -66,7 +65,7 @@ class AtmosphereColumn:
         return profile
 
     def set_nb_atmospheric_layers(self):
-        return len(self.atmosphere_profile.P) # select one column of the profile
+        return len(self.atmosphere_profile.P)  # select one column of the profile
 
     def load_gas_absorptions(self):
         # get absorption in (c)m2 / molecule for each gas
@@ -82,7 +81,7 @@ class AtmosphereColumn:
 
             # sum absorption * conc for all gas for given layer
             absorption = np.sum(gas_absorptions * gas_concentrations, axis=1)
-            
+
             # get gaseous optical thickness
             self.tau_gases[lyr, :] = absorption * self.atmosphere_profile.thickness
 
@@ -100,25 +99,30 @@ class AtmosphereColumn:
             # (cm2 / mol * mol / cm3 * cm) = no units
             # Nair is moleculair nb density (mol / cm3)
             # atmosphere_profile.thickness is layer depth (cm)
-            # molecular cross section is in cm / mol 
-            
-            kb = 1.380649 * 1e-23 # boltzman constant J/K
-            N = self.atmosphere_profile.pressure * kb /  self.atmosphere_profile.temperature # mol cm-3
+            # molecular cross section is in cm / mol
+
+            kb = 1.380649 * 1e-23  # boltzman constant J/K
+            N = (
+                self.atmosphere_profile.pressure
+                * kb
+                / self.atmosphere_profile.temperature
+            )  # mol cm-3
             n_air = None
             king_factor = None
-            
-            rayleigh_cross_section = ((24 * (np.pi**3)) 
-                                      / ((N**2) * (self.wavelengths**4))
-                                      * (n_air**2 - 1)**2
-                                      / (n_air**2 + 2)**2
-                                      * king_factor
-                                      )
-                                      
 
-            self.tau_molecular_scatter[lyr, :] = (rayleigh_cross_section
-                                          * self.atmosphere_profile.Nair 
-                                          * self.atmosphere_profile.thickness
-                                          )
+            rayleigh_cross_section = (
+                (24 * (np.pi**3))
+                / ((N**2) * (self.wavelengths**4))
+                * (n_air**2 - 1) ** 2
+                / (n_air**2 + 2) ** 2
+                * king_factor
+            )
+
+            self.tau_molecular_scatter[lyr, :] = (
+                rayleigh_cross_section
+                * self.atmosphere_profile.Nair
+                * self.atmosphere_profile.thickness
+            )
 
         # phase coeffs of order > 3 are null
         self.rayleigh_legendre_moments[:3, lyr, :] = np.array([1, 0, 1 / 10])[
@@ -130,9 +134,9 @@ class AtmosphereColumn:
     def set_atmospheric_properties_wout_aerosols(self):
 
         self.tau = self.tau_molecular_scatter + self.tau_gases
-        self.ss_alb = (self.tau_molecular_scatter 
-                       / (self.tau_gases + self.tau_molecular_scatter)
-                       )
+        self.ss_alb = self.tau_molecular_scatter / (
+            self.tau_gases + self.tau_molecular_scatter
+        )
         self.legendre_moments = self.rayleigh_legendre_moments
 
         return None

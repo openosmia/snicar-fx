@@ -164,7 +164,7 @@ def test_twostreams_outputs(
     )
 
     assert np.allclose(
-        outputs.abs_slr_tot,
+        np.nansum(outputs.absorbed_flux_fraction),
         benchmark_snicaradv4_absorbed_flux_data.sel(
             layer_type=layer_type + 1,
             density=density,

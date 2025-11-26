@@ -20,8 +20,12 @@ def test_landcolumn_shapes(land_column, expected_shapes):
     expected_shapes : array
         Expected shapes of the attributes of `column`
     """
-    for var in [land_column.asm_prm, land_column.ext_cff, 
-                land_column.tau, land_column.ss_alb]:
+    for var in [
+        land_column.asm_prm,
+        land_column.ext_cff,
+        land_column.tau,
+        land_column.ss_alb,
+    ]:
         assert isinstance(var, np.ndarray)
         assert var.shape == expected_shapes["2d_layers_wavelengths"]
 
@@ -87,3 +91,9 @@ def test_landcolumn_values(
     assert np.allclose(
         land_column.tau, expected_tau, atol=absolute_tolerance_internal_variables
     )
+
+
+def test_set_lap_properties(land_column):
+    return None
+    # land_column.set_lap_properties()
+    # assert
