@@ -12,6 +12,7 @@ import xarray as xr
 
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
+from snicarfx.core.components.atmosphere import AtmosphereColumn
 from snicarfx.core.session.config import Config
 from snicarfx.core.session.session import Session
 
@@ -34,14 +35,24 @@ def config():
     return Config.from_yaml(TEST_INPUT_FILE)
 
 @pytest.fixture(scope="module")
+def session():
+    """Provide a shared Session instance."""
+    return Session(TEST_INPUT_FILE)
+
+@pytest.fixture(scope="module")
 def root_dir():
-    """Provide a shared ackage root directory."""
+    """Provide a shared package root directory."""
     return Session.get_package_root()
 
 @pytest.fixture(scope="module")
 def land_column(config, root_dir):
     """Provide a shared LandColumn instance using shared Config."""
     return LandColumn(config, root_dir)
+
+@pytest.fixture(scope="module")
+def atmosphere_column(config, root_dir):
+    """Provide a shared AtmosphereColumn instance using shared Config."""
+    return AtmosphereColumn(config, root_dir)
 
 @pytest.fixture(scope="module")
 def irradiance(config, root_dir):
