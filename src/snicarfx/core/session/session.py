@@ -109,7 +109,7 @@ class Session:
 
         # update SZA and recompute irradiance
         if "SZA" in updates:
-            self.solar_irradiance.SZA = updates["SZA"]
+            self.solar_irradiance.sza = updates["SZA"]
             self.solar_irradiance.set_irradiance()
 
     def update_atmosphere(self, *, validate=True, **kwargs):
@@ -128,9 +128,12 @@ class Session:
         if validate:
             self.config.model_copy(update={"ATMOSPHERE": updates})
 
-        # add what should be modified in SolarIrradiance due to SZA update
+        # update SZA and sky conditions, reload irradiance file and recompute
+        # irradiance
         if "SKY_CONDITIONS" in updates:
-            pass
+            self.solar_irradiance.sky_conditions = updates["SKY_CONDITIONS"]
+            self.solar_irradiance.load_irradiance()
+            self.solar_irradiance.set_irradiance()
 
     def update_land(self, *, validate=True, **kwargs):
         """

@@ -57,12 +57,30 @@ class SolarIrradiance:
         )
         self.atmosphere_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
 
+        # load irradiance file with SZA range
+        self.irradiance_dataset = self.load_irradiance()
+
         # set irradiance based on user inputs
         self.set_irradiance()
 
+    def load_irradiance(self):
+        """
+        Load irradiance file containing arrays for a range of SZAs
+        """
+        # read libradtran surface irradiance
+        ds = xr.open_dataset(
+            str(
+                f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
+                + f"libradtranv206_surface_irradiance"
+                + f"_{self.atmosphere_type}_{self.sky_conditions}.nc"
+            )
+        )
+
+        return ds
+
     def set_irradiance(self):
         """
-        Load and compute the solar spectral irradiance.
+        Compute the solar spectral irradiance.
 
         Based on the `direct` flag, this method loads either a clear-sky or
         cloudy-sky flux file. It interpolates the solar flux to the spectral
@@ -78,21 +96,15 @@ class SolarIrradiance:
             Spectral diffuse irradiance.
         """
 
-        # read libradtran surface irradiance and index on given SZA
-        ds = xr.open_dataset(
-            str(
-                f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
-                + f"libradtranv206_surface_irradiance"
-                + f"_{self.atmosphere_type}_{self.sky_conditions}.nc"
-            )
-        ).sel(SZA=self.sza)
+        # index irradiance dataset on given SZA
+        ds_sza = self.irradiance_dataset.sel(SZA=self.sza)
 
         # wvl in these files are in um --> convert wvl from m to um
-        ds_interpolated = ds.interp(wavelength=self.wavelengths * 1e9)
+        ds_sza_interpolated = ds_sza.interp(wavelength=self.wavelengths * 1e9)
 
         # normalize each irradiance for the spectral sum to be equal to 1
-        irradiance_sum = ds_interpolated["irradiance"].sum(dim="wavelength")
-        irradiance_normalized = ds_interpolated["irradiance"] / irradiance_sum
+        irradiance_sum = ds_sza_interpolated["irradiance"].sum(dim="wavelength")
+        irradiance_normalized = ds_sza_interpolated["irradiance"] / irradiance_sum
 
         # replace 0 by 1e-30 to avoid invalid operations
         irradiance_normalized = irradiance_normalized.clip(min=1e-30)
