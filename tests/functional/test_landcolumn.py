@@ -10,12 +10,12 @@ import numpy as np
 
 def test_landcolumn_shapes(land_column, expected_shapes):
     """
-    Verify shapes of attributes of a ColumnProperties instance match expected
+    Verify shapes of attributes of a LandColumn instance match expected
     values in the layer and wavelength dimensions.
 
     Parameters
     ----------
-    column : ColumnProperties
+    land_column : LandColumn
         Instance of the ColumnProperties class
     expected_shapes : array
         Expected shapes of the attributes of `column`
@@ -43,8 +43,8 @@ def test_landcolumn_values(
 
     Parameters
     ----------
-    column : ColumnProperties
-        Instance of the ColumnProperties class
+    land_column : LandColumn
+        Instance of the LandColumn class
     expected_mean_ref_idx_re : float
         Expected mean value of the real refractive index of ice as sourced in
         the test input file.
