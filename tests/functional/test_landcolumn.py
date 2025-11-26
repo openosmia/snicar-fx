@@ -8,7 +8,7 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 
 
-def test_columnproperties_shapes(column, expected_shapes):
+def test_landcolumn_shapes(land_column, expected_shapes):
     """
     Verify shapes of attributes of a ColumnProperties instance match expected
     values in the layer and wavelength dimensions.
@@ -20,16 +20,17 @@ def test_columnproperties_shapes(column, expected_shapes):
     expected_shapes : array
         Expected shapes of the attributes of `column`
     """
-    for var in [column.asm_prm, column.ext_cff, column.tau, column.ss_alb]:
+    for var in [land_column.asm_prm, land_column.ext_cff, 
+                land_column.tau, land_column.ss_alb]:
         assert isinstance(var, np.ndarray)
         assert var.shape == expected_shapes["2d_layers_wavelengths"]
 
-    assert isinstance(column.layer_mass, np.ndarray)
-    assert column.layer_mass.shape == expected_shapes["1d_layers"]
+    assert isinstance(land_column.layer_mass, np.ndarray)
+    assert land_column.layer_mass.shape == expected_shapes["1d_layers"]
 
 
-def test_columnproperties_values(
-    column,
+def test_landcolumn_values(
+    land_column,
     expected_mean_ref_idx_re,
     expected_mean_ref_idx_im_water,
     expected_mean_fl_r_dif_a,
@@ -61,28 +62,28 @@ def test_columnproperties_values(
 
     """
 
-    assert np.all(~np.isnan(column.ref_idx_re))
-    assert np.all(~np.isnan(column.ref_idx_im_water))
-    assert np.all(~np.isnan(column.fl_r_dif_a))
+    assert np.all(~np.isnan(land_column.ref_idx_re))
+    assert np.all(~np.isnan(land_column.ref_idx_im_water))
+    assert np.all(~np.isnan(land_column.fl_r_dif_a))
 
     assert np.isclose(
-        np.nanmean(column.ref_idx_re),
+        np.nanmean(land_column.ref_idx_re),
         expected_mean_ref_idx_re,
         atol=absolute_tolerance_internal_variables,
     )
 
     assert np.isclose(
-        np.nanmean(column.ref_idx_im_water),
+        np.nanmean(land_column.ref_idx_im_water),
         expected_mean_ref_idx_im_water,
         atol=absolute_tolerance_internal_variables,
     )
 
     assert np.isclose(
-        np.nanmean(column.fl_r_dif_a),
+        np.nanmean(land_column.fl_r_dif_a),
         expected_mean_fl_r_dif_a,
         atol=absolute_tolerance_internal_variables,
     )
 
     assert np.allclose(
-        column.tau, expected_tau, atol=absolute_tolerance_internal_variables
+        land_column.tau, expected_tau, atol=absolute_tolerance_internal_variables
     )

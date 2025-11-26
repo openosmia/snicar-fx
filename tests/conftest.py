@@ -13,10 +13,15 @@ import xarray as xr
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
 from snicarfx.core.session.config import Config
+from snicarfx.core.session.session import Session
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
 CORE_INPUT_FILE = "./src/snicarfx/inputs.yaml"
 
+@pytest.fixture(scope="module")
+def core_input_file():
+    """Fetch path to the core input file."""
+    return CORE_INPUT_FILE
 
 @pytest.fixture(scope="module")
 def test_input_file():
@@ -24,30 +29,24 @@ def test_input_file():
     return TEST_INPUT_FILE
 
 @pytest.fixture(scope="module")
-def core_input_file():
-    """Fetch path to the core input file."""
-    return CORE_INPUT_FILE
-
-
-@pytest.fixture(scope="module")
-def expected_fd():
-    """Fetch mean diffuse solar beam from test input file."""
-    return 0.0
-
-@pytest.fixture(scope="module")
 def config():
-    """Provide a shared instance of ModelInputs."""
+    """Provide a shared instance of Config."""
     return Config.from_yaml(TEST_INPUT_FILE)
 
 @pytest.fixture(scope="module")
-def land_column(config):
-    """Provide a shared LandColumn instance using shared Config."""
-    return LandColumn(config)
+def root_dir():
+    """Provide a shared ackage root directory."""
+    return Session.get_package_root()
 
 @pytest.fixture(scope="module")
-def irradiance(config):
+def land_column(config, root_dir):
+    """Provide a shared LandColumn instance using shared Config."""
+    return LandColumn(config, root_dir)
+
+@pytest.fixture(scope="module")
+def irradiance(config, root_dir):
     """Provide a SolarIrradiance instance using shared Config."""
-    return SolarIrradiance(config)
+    return SolarIrradiance(config, root_dir)
 
 @pytest.fixture(scope="module")
 def expected_shapes(land_column):
@@ -93,12 +92,15 @@ def expected_mean_fs():
     """Fetch mean direct collimated solar beam from test input file."""
     return 0.0010316714047111436
 
+@pytest.fixture(scope="module")
+def expected_fd():
+    """Fetch mean diffuse solar beam from test input file."""
+    return 0.0
 
 @pytest.fixture(scope="module")
 def expected_mean_flx_slr():
     """Fetch mean solar flux from test input file."""
     return 0.0020833333333333324
-
 
 
 @pytest.fixture(scope="module")
