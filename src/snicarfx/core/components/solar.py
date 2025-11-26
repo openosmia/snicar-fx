@@ -45,7 +45,7 @@ class SolarIrradiance:
         # set module root path for data loading
         self.PACKAGE_ROOT = PACKAGE_ROOT
 
-        self.sky_conditions = config.ATMOSPHERE.SKY_CONDITIONS == "clear"
+        self.sky_conditions = config.ATMOSPHERE.SKY_CONDITIONS
         self.sza = config.SOLAR.SZA
         self.wavelengths = (
             np.arange(
@@ -55,22 +55,10 @@ class SolarIrradiance:
             )
             * 1e-9
         )
-
-        # hardcoded for tests for now
         self.atmosphere_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
+
+        # set irradiance based on user inputs
         self.set_irradiance()
-
-        # to do:
-        # read file from selected profile
-        # flux_file = xr.open_dataset(libradtran_file)
-        # select wavelength range:
-        # solar_irradiance = flux_file.interp(wvl_ctr=self.wavelengths * 1e6)
-        # calculate fs, fd and flx_slr
-        # fs = solar_irradiance.direct / (cos_sza *pi)
-        # fd = solar_irradiance.diffuse
-        # flx_slr = solar_irradiance.diffuse + solar_irradiance.direct
-
-        # the indexing in SZA will be in the solvers directly
 
     def set_irradiance(self):
         """
@@ -90,16 +78,17 @@ class SolarIrradiance:
             Spectral diffuse irradiance.
         """
 
+        # read libradtran surface irradiance and index on given SZA
         ds = xr.open_dataset(
             str(
                 f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
                 + f"libradtranv206_surface_irradiance"
-                + f"_{self.atmopshere_type}_{self.sky_conditions}.nc"
+                + f"_{self.atmosphere_type}_{self.sky_conditions}.nc"
             )
-        )
+        ).sel(SZA=self.sza)
 
         # wvl in these files are in um --> convert wvl from m to um
-        ds_interpolated = ds.interp(wvl_ctr=self.wavelengths * 1e9)
+        ds_interpolated = ds.interp(wavelength=self.wavelengths * 1e9)
 
         # normalize each irradiance for the spectral sum to be equal to 1
         irradiance_sum = ds_interpolated["irradiance"].sum(dim="wavelength")
@@ -108,8 +97,8 @@ class SolarIrradiance:
         # replace 0 by 1e-30 to avoid invalid operations
         irradiance_normalized = irradiance_normalized.clip(min=1e-30)
 
-        self.fs = irradiance_normalized.sel(irradiance_type="direct")
-        self.fd = irradiance_normalized.sel(irradiance_type="diffuse")
+        self.fs = irradiance_normalized.sel(irradiance_type="direct").values
+        self.fd = irradiance_normalized.sel(irradiance_type="diffuse").values
 
         # solar flux is direct + diffuse
         self.flx_slr = self.fs + self.fd

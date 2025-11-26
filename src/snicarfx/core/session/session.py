@@ -39,7 +39,7 @@ class Session:
         self.atmosphere_column = AtmosphereColumn(self.config, self.ROOT_PATH)
 
         # store history of updates
-        self._applied_updates = {
+        self._latest_updates = {
             "SOLVER": {},
             "SOLAR": {},
             "ATMOSPHERE": {},
@@ -67,7 +67,7 @@ class Session:
         current_state = self.config.dict()
 
         # merge applied updates on top of the static config
-        for section, section_updates in self._applied_updates.items():
+        for section, section_updates in self._latest_updates.items():
             current_state[section].update(section_updates)
 
         return current_state
@@ -82,17 +82,14 @@ class Session:
         updates = self._prepare_updates(kwargs, allowed_fields)
 
         # store applied updates
-        self._applied_updates["SOLVER"].update(updates)
+        self._latest_updates["SOLVER"].update(updates)
 
         # validate a copy of the config if requested (config is immutable)
         if validate:
             self.config.model_copy(update={"SOLVER": updates})
 
-        # add what should be modified in SolarIrradiance due to SZA update
         if "TYPE" in updates:
             pass
-            # self.solar_irradiance.SZA = updates["SZA"]
-            # self.solar_irradiance.X()
 
     def update_solar(self, *, validate=True, **kwargs):
         """
@@ -104,16 +101,16 @@ class Session:
         updates = self._prepare_updates(kwargs, allowed_fields)
 
         # store applied updates
-        self._applied_updates["SOLAR"].update(updates)
+        self._latest_updates["SOLAR"].update(updates)
 
         # validate a copy of the config if requested (config is immutable)
         if validate:
             self.config.model_copy(update={"SOLAR": updates})
 
-        # add what should be modified in SolarIrradiance due to SZA update
+        # update SZA and recompute irradiance
         if "SZA" in updates:
             self.solar_irradiance.SZA = updates["SZA"]
-            self.solar_irradiance.X()
+            self.solar_irradiance.set_irradiance()
 
     def update_atmosphere(self, *, validate=True, **kwargs):
         """
@@ -125,7 +122,7 @@ class Session:
         updates = self._prepare_updates(kwargs, allowed_fields)
 
         # store applied updates
-        self._applied_updates["ATMOSPHERE"].update(updates)
+        self._latest_updates["ATMOSPHERE"].update(updates)
 
         # validate a copy of the config if requested (config is immutable)
         if validate:
@@ -134,8 +131,6 @@ class Session:
         # add what should be modified in SolarIrradiance due to SZA update
         if "SKY_CONDITIONS" in updates:
             pass
-            # self.solar_irradiance.SZA = updates["SZA"]
-            # self.solar_irradiance.X()
 
     def update_land(self, *, validate=True, **kwargs):
         """
@@ -156,17 +151,14 @@ class Session:
         updates = self._prepare_updates(kwargs, allowed_fields)
 
         # store applied updates
-        self._applied_updates["LAND"].update(updates)
+        self._latest_updates["LAND"].update(updates)
 
         # validate a copy of the config if requested (config is immutable)
         if validate:
             self.config.model_copy(update={"LAND": updates})
 
-        # add what should be modified in SolarIrradiance due to SZA update
-        # if "SKY_CONDITIONS" in updates:
-        # pass
-        # self.solar_irradiance.SZA = updates["SZA"]
-        # self.solar_irradiance.X()
+        if "SKY_CONDITIONS" in updates:
+            pass
 
     def run(self):
         """Run the radiative transfer solver.

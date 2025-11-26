@@ -39,28 +39,25 @@ def use_data_snicaradv4(column, irradiance):
     column.fl_r_dif_a = xr.open_dataset(
         "./tests/test_data/fl_reflection_diffuse.nc"
     ).R_dif_fa_ice_Pic16.values
-    
-    
-    if irradiance.direct == 1: 
+
+    if irradiance.sky_conditions == "clear":
         irradiance.flx_slr = xr.open_dataset(
-            './tests/test_data/swnb_480bnd_'
-                + "mls_clr_"
-                + str("SZA" + str(irradiance.sza).rjust(2, "0"))
-                + ".nc"
-            )["flx_frc_sfc"].values 
+            "./tests/test_data/swnb_480bnd_"
+            + "mls_clr_"
+            + str("SZA" + str(irradiance.sza).rjust(2, "0"))
+            + ".nc"
+        )["flx_frc_sfc"].values
         irradiance.flx_slr[irradiance.flx_slr == 0] = 1e-30
 
-        irradiance.fs = irradiance.flx_slr 
+        irradiance.fs = irradiance.flx_slr
         irradiance.fd = np.zeros_like(irradiance.fs)
 
-        
-    else: 
+    elif irradiance.sky_conditions == "cloudy":
         irradiance.flx_slr = xr.open_dataset(
-            './tests/test_data/swnb_480bnd_mls_cld.nc'
-            )["flx_frc_sfc"].values
+            "./tests/test_data/swnb_480bnd_mls_cld.nc"
+        )["flx_frc_sfc"].values
         irradiance.flx_slr[irradiance.flx_slr == 0] = 1e-30
-        irradiance.fd = irradiance.flx_slr 
+        irradiance.fd = irradiance.flx_slr
         irradiance.fs = np.zeros_like(irradiance.fd)
-        
 
     return column, irradiance
