@@ -66,7 +66,6 @@ class _MultiStreamSolver:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
             self.t_od = np.vstack([atmosphere.tau, land.tau])
             self.w = np.vstack([atmosphere.ss_alb, land.ss_alb])
-            self.g = np.vstack([atmosphere.asm_prm, land.asm_prm])
             self.legendre_moments = np.vstack([atmosphere.legendre_moments, 
                                                land.legendre_moments])
             
@@ -74,7 +73,6 @@ class _MultiStreamSolver:
             self.nbr_lyr = land.nbr_lyr
             self.t_od = np.array(land.tau)
             self.w = np.array(land.ss_alb)
-            self.g = np.array(land.asm_prm)
             self.legendre_moments = np.array(land.legendre_moments)
         
         
