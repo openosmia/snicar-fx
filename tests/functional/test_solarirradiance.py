@@ -26,6 +26,10 @@ def test_solarirradiance_shapes(irradiance, expected_shapes):
 
 def test_solarirradiance_values(
     irradiance,
+    expected_mean_fs,
+    expected_mean_flx_slr,
+    expected_fd,
+    absolute_tolerance_internal_variables,
 ):
     """
     Assert that average values of attributes defined in the test input file
@@ -35,6 +39,17 @@ def test_solarirradiance_values(
     ----------
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class
+    expected_mean_fs : float
+        Expected mean value of the direct collimated beam as sourced in
+        the test input file.
+    expected_mean_flx_slr : float
+        Expected mean value of the total solar flux as sourced
+        in the test input file.
+    expected_fd : float
+        Expected mean value of the diffuse solar beam for light as sourced
+        in the test input file.
+    absolute_tolerance_internal_variables: float
+        Tolerance value for the error.
 
     """
 
