@@ -22,8 +22,8 @@ class SolarIrradiance:
         If True, use direct radiation; if False, use diffuse radiation.
     sza : int
         Solar zenith angle (SZA).
-    irradiance_type : str
-        The irradiance profile to use.
+    atmosphere_type : str
+        The atmopshere profile to use.
     """
 
     def __init__(self, config, PACKAGE_ROOT):
@@ -45,7 +45,7 @@ class SolarIrradiance:
         # set module root path for data loading
         self.PACKAGE_ROOT = PACKAGE_ROOT
 
-        self.direct = config.ATMOSPHERE.SKY_CONDITIONS == "clear"
+        self.sky_conditions = config.ATMOSPHERE.SKY_CONDITIONS == "clear"
         self.sza = config.SOLAR.SZA
         self.wavelengths = (
             np.arange(
@@ -57,22 +57,20 @@ class SolarIrradiance:
         )
 
         # hardcoded for tests for now
-        self.irradiance_type = "mls"
+        self.atmosphere_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
         self.set_irradiance()
-        
-        # to do: 
-        # self.irradiance_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
-        # read file from selected profile
-            # flux_file = xr.open_dataset(libradtran_file)
-        # select wavelength range: 
-            # solar_irradiance = flux_file.interp(wvl_ctr=self.wavelengths * 1e6) 
-        # calculate fs, fd and flx_slr
-            # fs = solar_irradiance.direct / (cos_sza *pi)
-            # fd = solar_irradiance.diffuse
-            # flx_slr = solar_irradiance.diffuse + solar_irradiance.direct
-            
-        # the indexing in SZA will be in the solvers directly
 
+        # to do:
+        # read file from selected profile
+        # flux_file = xr.open_dataset(libradtran_file)
+        # select wavelength range:
+        # solar_irradiance = flux_file.interp(wvl_ctr=self.wavelengths * 1e6)
+        # calculate fs, fd and flx_slr
+        # fs = solar_irradiance.direct / (cos_sza *pi)
+        # fd = solar_irradiance.diffuse
+        # flx_slr = solar_irradiance.diffuse + solar_irradiance.direct
+
+        # the indexing in SZA will be in the solvers directly
 
     def set_irradiance(self):
         """
@@ -92,43 +90,26 @@ class SolarIrradiance:
             Spectral diffuse irradiance.
         """
 
-        if self.direct:
-
-            flux_file = xr.open_dataset(
-                str(
-                    f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
-                    + "swnb_480bnd_"
-                    + self.irradiance_type
-                    + "_clr_"
-                    + str("SZA" + str(self.sza).rjust(2, "0"))
-                    + ".nc"
-                )
+        ds = xr.open_dataset(
+            str(
+                f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
+                + f"libradtranv206_surface_irradiance"
+                + f"_{self.atmopshere_type}_{self.sky_conditions}.nc"
             )
-        else:
-
-            flux_file = xr.open_dataset(
-                str(
-                    f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
-                    + "swnb_480bnd_"
-                    + self.irradiance_type
-                    + "_cld.nc"
-                )
-            )
+        )
 
         # wvl in these files are in um --> convert wvl from m to um
-        self.flx_slr = flux_file.interp(wvl_ctr=self.wavelengths * 1e6)[
-            "flx_frc_sfc"
-        ].values
+        ds_interpolated = ds.interp(wvl_ctr=self.wavelengths * 1e9)
 
-        # normalize
+        # normalize each irradiance for the spectral sum to be equal to 1
+        irradiance_sum = ds_interpolated["irradiance"].sum(dim="wavelength")
+        irradiance_normalized = ds_interpolated["irradiance"] / irradiance_sum
 
-        self.flx_slr = self.flx_slr / np.sum(self.flx_slr)
+        # replace 0 by 1e-30 to avoid invalid operations
+        irradiance_normalized = irradiance_normalized.clip(min=1e-30)
 
-        self.flx_slr[self.flx_slr == 0] = 1e-30
-        
-        if self.direct:
-            self.fs = self.flx_slr 
-            self.fd = np.zeros_like(self.fs)
-        else:
-            self.fd = self.flx_slr
-            self.fs = np.zeros_like(self.fd)
+        self.fs = irradiance_normalized.sel(irradiance_type="direct")
+        self.fd = irradiance_normalized.sel(irradiance_type="diffuse")
+
+        # solar flux is direct + diffuse
+        self.flx_slr = self.fs + self.fd
