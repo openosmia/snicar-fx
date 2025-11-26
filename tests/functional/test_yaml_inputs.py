@@ -5,7 +5,7 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from snicarfx.core.config_validator import Config
+from snicarfx.core.session.config import Config
 
 
 def test_test_yaml_input_file(test_input_file):
@@ -18,8 +18,9 @@ def test_test_yaml_input_file(test_input_file):
     test_input_file : str
         Path to test input file
     """
+    
     # validate configuration
-    Config.validate_yaml_file(test_input_file)
+    Config.from_yaml(test_input_file)
 
 
 def test_core_yaml_input_file(core_input_file):
@@ -34,4 +35,4 @@ def test_core_yaml_input_file(core_input_file):
     """
 
     # validate configuration
-    Config.validate_yaml_file(core_input_file)
+    Config.from_yaml(core_input_file)
