@@ -5,6 +5,7 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+import math
 import numpy as np
 import pandas as pd
 
@@ -58,6 +59,69 @@ class AtmosphereColumn:
         # self.rayleigh_legendre_moments = np.zeros(
         #     (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
         # )
+
+    def compute_rayleigh_cross_section(self, mixing_ratio_co2):
+        """
+        Compute Rayleigh scattering cross-section and
+        depolarization ratio using the wavelength array stored in the
+        class.
+
+        Translated (and vectorized) from the `crs_rayleigh_bodhaine` C
+        function of rayleigh.C in libradtran v2.0.6.
+
+        Parameters:
+        - mixing_ratio_co2: float, CO2 mixing ratio in ppmv
+
+        Returns:
+        - crs: numpy array of Rayleigh scattering cross-sections (cm^2)
+
+        """
+
+        # Conversion constants (as from libradtran code)
+        from_nm_to_cm = 1.0e-7  # wavelength from nm to cm
+        from_nm_to_um = 1.0e-3  # wavelength from nm to µm
+
+        # Number density of air at standard conditions
+        N_s = 2.546899e19  # molecules per cm^3
+
+        # Rayleigh scattering constant (from Bodhaine et al.)
+        ray_const = 32 * np.pi**3 / (3 * N_s**2)
+
+        # Convert CO2 mixing ratio from ppmv to volume fraction
+        co2 = mixing_ratio_co2 * 1.0e-4
+
+        # Convert wavelength array
+        lambda_cm = self.lambda_array * from_nm_to_cm
+        lambda_um = self.lambda_array * from_nm_to_um
+
+        # Refractive index of air at 300 ppm CO2 (Bodhaine et al., Eq. 18)
+        n_300 = (
+            8060.51
+            + 2480990 / (132.274 - lambda_um**-2)
+            + 17455.7 / (39.32957 - lambda_um**-2)
+        ) * 1e-8
+
+        # Adjust refractive index for actual CO2 concentration (Eq. 19)
+        n = (1 + 0.54 * (mixing_ratio_co2 * 1e-6 - 0.0003)) * n_300 + 1
+
+        # King factors for N2 and O2 (Eq. 5 & 6)
+        F_N2 = 1.034 + 3.17e-4 / lambda_um**2
+        F_O2 = 1.096 + 1.385e-3 / lambda_um**2 + 1.448e-4 / lambda_um**4
+
+        # Effective King factor for dry air (Eq. 23)
+        F_air = (78.084 * F_N2 + 20.946 * F_O2 + 0.934 + co2 * 1.15) / (
+            78.084 + 20.946 + 0.934 + co2
+        )
+
+        # Depolarization ratio (used in Rayleigh cross-section)
+        depol = 6 * (F_air - 1) / (3 + 7 * F_air)
+
+        # Rayleigh scattering cross-section (cm^2)
+        crs = (ray_const * (n - 1) ** 2 / lambda_cm**4) * (
+            (6 + 3 * depol) / (6 - 7 * depol)
+        )
+
+        return crs
 
     def set_atmospheric_profile(self):
         profile = pd.read_csv(self.atmosphere_profile_type)
