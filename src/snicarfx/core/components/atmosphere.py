@@ -62,59 +62,52 @@ class AtmosphereColumn:
 
     def compute_rayleigh_cross_section_bodhaine(self, mixing_ratio_co2):
         """
-        Compute Rayleigh scattering cross-section using the wavelength array
-        stored in the class, following Bodhaine et al. (1999).
+        Compute Rayleigh scattering cross-section as in Bodhaine et al. 1999,
+        (default in LibRadtran).
 
         Parameters:
-        - mixing_ratio_co2: float, CO2 mixing ratio in ppmv
+        - mixing_ratio_co2: float, CO2 mixing ratio in ppm
 
         Returns:
         - crs: numpy array of Rayleigh scattering cross-sections (cm^2)
         """
 
-        # Conversion constants
-        from_nm_to_cm = 1.0e-7  # wavelength from nm to cm
-        from_nm_to_um = 1.0e-3  # wavelength from nm to µm
+        # Convert wavelength array
+        lambda_cm = self.wavelengths * 1e-7
+        lambda_um = self.wavelengths * 1e-3
 
-        # Number density of air at standard conditions
-        N_s = 2.546899e19  # molecules per cm^3
+        # Number density of air at standard conditions (mol/cm3)
+        N_s = 2.546899e19 
 
-        # Rayleigh scattering constant (Bodhaine et al.)
         ray_const = 24 * np.pi**3 / N_s**2
 
-        # Convert CO2 mixing ratio from ppmv to volume fraction
+        # Convert CO2 mixing ratio from ppm to parts per volume by percent
         co2 = mixing_ratio_co2 * 1.0e-4
 
-        # Convert wavelength array
-        lambda_cm = self.wavelengths * from_nm_to_cm
-        lambda_um = self.wavelengths * from_nm_to_um
-
-        # Refractive index of air at 300 ppm CO2 (Bodhaine et al., Eq. 18)
+        # (n_air - 1) at 300 ppm CO2 (Eq. 18 in Bodhaine et al. 1999)
         n_300 = (
             8060.51
             + 2480990 / (132.274 - lambda_um**-2)
             + 17455.7 / (39.32957 - lambda_um**-2)
         ) * 1e-8
 
-        # Adjust refractive index for actual CO2 concentration (Eq. 19)
-        n = (1 + 0.54 * (mixing_ratio_co2 * 1e-6 - 0.0003)) * n_300 + 1
-
-        # Clausius-Mossotti factor (ref_ratio)
-        ref_ratio = ((n**2 - 1) ** 2) / ((n**2 + 2) ** 2)
-
-        # King factors for N2 and O2 (Eq. 5 & 6)
+        # n_air at given CO2 concentration (Eq. 19 in Bodhaine et al. 1999)
+        n_air = (1 + 0.54 * (mixing_ratio_co2 * 1e-6 - 0.0003)) * n_300 + 1
+        
+        ref_ratio = ((n_air**2 - 1) ** 2) / ((n_air**2 + 2) ** 2)
+        
+        # Depolarization factor of N2 (Eq. 5 in Bodhaine et al. 1999)
         F_N2 = 1.034 + 3.17e-4 / lambda_um**2
+        # Depolarization factor of O2 (Eq. 6 in Bodhaine et al. 1999)
         F_O2 = 1.096 + 1.385e-3 / lambda_um**2 + 1.448e-4 / lambda_um**4
-
-        # Effective King factor for dry air (Eq. 23)
+        # Depolarization factor of dry air (Eq. 23 in Bodhaine et al. 1999)
         F_air = (78.084 * F_N2 + 20.946 * F_O2 + 0.934 + co2 * 1.15) / (
             78.084 + 20.946 + 0.934 + co2
         )
-
-        # Depolarization ratio (used in Rayleigh cross-section)
-        depol = 6 * (F_air - 1) / (3 + 7 * F_air)
-
-        # Rayleigh scattering cross-section (cm^2)
+        
+        # Rayleigh scatt. cross-section (cm2(, Eq. 22 in Bodhaine et al. 1999)
+        # note that F_air can be calculated as (6+3*rho)/(6-7*rho) if the 
+        # depol. ratio (rho) is known/prescribed
         crs = (ray_const / lambda_cm**4) * ref_ratio * F_air
 
         return crs
@@ -155,33 +148,17 @@ class AtmosphereColumn:
 
         for lyr in range(self.nbr_lyr):
 
-            # equation from Bodhaine et al. (1999) as in Libradtran
-            # (cm2 / mol * mol / cm3 * cm) = no units
+            rayleigh_cross_section = self.compute_rayleigh_cross_section_bodhaine(
+                self.atmosphere_profile.co2_conc[lyr])
+            
+            # molecular cross section is in cm2 / mol
             # Nair is moleculair nb density (mol / cm3)
-            # atmosphere_profile.thickness is layer depth (cm)
-            # molecular cross section is in cm / mol
-
-            kb = 1.380649 * 1e-23  # boltzman constant J/K
-            N = (
-                self.atmosphere_profile.pressure
-                * kb
-                / self.atmosphere_profile.temperature
-            )  # mol cm-3
-            n_air = None
-            king_factor = None
-
-            rayleigh_cross_section = (
-                (24 * (np.pi**3))
-                / ((N**2) * (self.wavelengths**4))
-                * (n_air**2 - 1) ** 2
-                / (n_air**2 + 2) ** 2
-                * king_factor
-            )
+            # atmosphere_profile.thickness is layer depth (km to cm)
 
             self.tau_molecular_scatter[lyr, :] = (
                 rayleigh_cross_section
                 * self.atmosphere_profile.Nair
-                * self.atmosphere_profile.thickness
+                * self.atmosphere_profile.thickness * 1e5
             )
 
         # phase coeffs of order > 3 are null
