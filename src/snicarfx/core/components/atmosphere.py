@@ -169,7 +169,7 @@ class AtmosphereColumn:
             )
 
         # phase coeffs of order > 3 are null
-        self.rayleigh_legendre_moments[:3, :, :] = np.array([1, 0, 1 / 10])[
+        self.rayleigh_legendre_moments[:3, :, :] = np.array([1, 0, 0.5])[
             :, None, None
         ]
 
