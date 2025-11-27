@@ -5,7 +5,6 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import math
 import numpy as np
 import pandas as pd
 
@@ -37,7 +36,8 @@ class AtmosphereColumn:
     """
 
     def __init__(self, config, PACKAGE_ROOT):
-
+        
+        self.PACKAGE_ROOT = PACKAGE_ROOT
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.surface_elevation = config.LAND.ALTITUDE
         self.wavelengths = np.arange(
@@ -47,26 +47,53 @@ class AtmosphereColumn:
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
         self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
 
-        # 1 - load atm profile with gas conc., P/T/density first
-        # self.atmosphere_profile = self.set_atmospheric_profile()
+        # load atm profile with gas conc., P/T/density etc
+        self.atmosphere_profile = self.set_atmospheric_profile()
 
-        # # 2 - set nb of atm layers second depending on altitude
-        # self.nbr_lyr = self.set_nb_atmospheric_layers()
+        # set nb of atm layers (dep on altitude)
+        self.nbr_lyr = self.atmosphere_profile.shape[0]
+                
 
-        # # 3 - init the ssps third
-        # self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
-        # self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
-        # self.rayleigh_legendre_moments = np.zeros(
-        #     (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
-        # )
+        # init the ssps 
+        self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
+        self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
+        self.rayleigh_legendre_moments = np.zeros(
+            (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
+        )
+        self.tau_molecular_scatter = np.zeros((self.nbr_lyr, self.nbr_wvl))
+        
+        # compute rayleigh scattering (tau + legendre moments)
+        self.compute_rayleigh_scattering()
+    
+    def set_atmospheric_profile(self):
+        profile = pd.read_csv(f"{self.PACKAGE_ROOT}/data/atmospheric_profiles/" 
+                              + self.atmosphere_profile_type
+                              +".dat", 
+                              skiprows=1, sep=r'\s+', comment='#')
+        
+        profile.columns = ['z(km)', 'p(mb)', 'T(K)', 'air(cm-3)', 'o3(cm-3)',
+                           'o2(cm-3)','h2o(cm-3)', 'co2(cm-3)', 'no2(cm-3)']
+        
+        # calculate layer thicknesses
+        profile['dz(km)'] = [profile['z(km)'].iloc[-1+i] 
+                             - profile['z(km)'].iloc[i] 
+                             for i in range(profile.shape[0])]
+        # remove upper level (no layer)
+        profile = profile.iloc[1:, :]
+        profile.index = np.arange(0, profile.shape[0])
+        
+        # truncate dep. on altitude 
+        profile = profile[profile['z(km)'] >= self.surface_elevation]
+        
+        return profile
 
-    def compute_rayleigh_cross_section_bodhaine(self, mixing_ratio_co2):
+    def compute_rayleigh_cross_section_bodhaine(self, co2_ppm):
         """
         Compute Rayleigh scattering cross-section as in Bodhaine et al. 1999,
         (default in LibRadtran).
 
         Parameters:
-        - mixing_ratio_co2: float, CO2 mixing ratio in ppm
+        - co2_ppm: float, CO2 concentration in ppm
 
         Returns:
         - crs: numpy array of Rayleigh scattering cross-sections (cm^2)
@@ -82,7 +109,7 @@ class AtmosphereColumn:
         ray_const = 24 * np.pi**3 / N_s**2
 
         # Convert CO2 mixing ratio from ppm to parts per volume by percent
-        co2 = mixing_ratio_co2 * 1.0e-4
+        co2_vp = co2_ppm * 1.0e-4
 
         # (n_air - 1) at 300 ppm CO2 (Eq. 18 in Bodhaine et al. 1999)
         n_300 = (
@@ -92,7 +119,7 @@ class AtmosphereColumn:
         ) * 1e-8
 
         # n_air at given CO2 concentration (Eq. 19 in Bodhaine et al. 1999)
-        n_air = (1 + 0.54 * (mixing_ratio_co2 * 1e-6 - 0.0003)) * n_300 + 1
+        n_air = (1 + 0.54 * (co2_ppm * 1e-6 - 0.0003)) * n_300 + 1
         
         ref_ratio = ((n_air**2 - 1) ** 2) / ((n_air**2 + 2) ** 2)
         
@@ -101,25 +128,53 @@ class AtmosphereColumn:
         # Depolarization factor of O2 (Eq. 6 in Bodhaine et al. 1999)
         F_O2 = 1.096 + 1.385e-3 / lambda_um**2 + 1.448e-4 / lambda_um**4
         # Depolarization factor of dry air (Eq. 23 in Bodhaine et al. 1999)
-        F_air = (78.084 * F_N2 + 20.946 * F_O2 + 0.934 + co2 * 1.15) / (
-            78.084 + 20.946 + 0.934 + co2
+        F_air = (78.084 * F_N2 + 20.946 * F_O2 + 0.934 + co2_vp * 1.15) / (
+            78.084 + 20.946 + 0.934 + co2_vp
         )
         
-        # Rayleigh scatt. cross-section (cm2(, Eq. 22 in Bodhaine et al. 1999)
+        # Rayleigh scatt. cross-section (cm2, Eq. 22 in Bodhaine et al. 1999)
         # note that F_air can be calculated as (6+3*rho)/(6-7*rho) if the 
         # depol. ratio (rho) is known/prescribed
         crs = (ray_const / lambda_cm**4) * ref_ratio * F_air
 
         return crs
 
-    def set_atmospheric_profile(self):
-        profile = pd.read_csv(self.atmosphere_profile_type)
-        # !!!!!! truncates depending on altitude !!!!!!
-        return profile
 
-    def set_nb_atmospheric_layers(self):
-        return len(self.atmosphere_profile.P)  # select one column of the profile
+    def compute_rayleigh_scattering(self):
+        """
+        Compute wavelength-dependent optical thickness and rayleigh scattering
+        phase function of air molecules for each layer.
+        """
+        
+        for lyr in range(self.nbr_lyr):
+            
+            # convert co2 number density to ppm
+            
+            co2_ppm = (
+                self.atmosphere_profile['co2(cm-3)'][lyr] 
+                / self.atmosphere_profile['air(cm-3)'][lyr]
+                ) * 1e6
 
+            rayleigh_cross_section = self.compute_rayleigh_cross_section_bodhaine(
+                co2_ppm)
+            
+            # molecular cross section is in cm2 / mol
+            # molecular nb density from mol/cm3 to mol/m3
+            # layer depth from km to m)
+
+            self.tau_molecular_scatter[lyr, :] = (
+                rayleigh_cross_section * 1e-4
+                * self.atmosphere_profile['air(cm-3)'][lyr] * 1e6
+                * self.atmosphere_profile['dz(km)'][lyr] * 1e3
+            )
+
+        # phase coeffs of order > 3 are null
+        self.rayleigh_legendre_moments[:3, :, :] = np.array([1, 0, 1 / 10])[
+            :, None, None
+        ]
+
+        return None
+    
     def load_gas_absorptions(self):
         # get absorption in (c)m2 / molecule for each gas
         return None
@@ -137,34 +192,6 @@ class AtmosphereColumn:
 
             # get gaseous optical thickness
             self.tau_gases[lyr, :] = absorption * self.atmosphere_profile.thickness
-
-        return None
-
-    def compute_rayleigh_scattering(self):
-        """
-        Compute wavelength-dependent optical thickness and rayleigh scattering
-        phase function of air molecules for each layer.
-        """
-
-        for lyr in range(self.nbr_lyr):
-
-            rayleigh_cross_section = self.compute_rayleigh_cross_section_bodhaine(
-                self.atmosphere_profile.co2_conc[lyr])
-            
-            # molecular cross section is in cm2 / mol
-            # Nair is moleculair nb density (mol / cm3)
-            # atmosphere_profile.thickness is layer depth (km to cm)
-
-            self.tau_molecular_scatter[lyr, :] = (
-                rayleigh_cross_section
-                * self.atmosphere_profile.Nair
-                * self.atmosphere_profile.thickness * 1e5
-            )
-
-        # phase coeffs of order > 3 are null
-        self.rayleigh_legendre_moments[:3, lyr, :] = np.array([1, 0, 1 / 10])[
-            :, None, None
-        ]
 
         return None
 
