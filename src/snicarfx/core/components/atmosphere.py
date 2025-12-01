@@ -216,9 +216,11 @@ class AtmosphereColumn:
         hapi2libis_data = xr.open_dataset(
             f"{self.PACKAGE_ROOT}/data/atmospheric_profiles/uvspec_afglss_test_file.nc"
         )
+        hapi2libis_data['nwvl'] = hapi2libis_data.wvl
+        
         self.tau_gases = hapi2libis_data["tau"].interp(nwvl=self.wavelengths).values
-
-        self.tau_gases[:, :] = 0
+        
+        self.tau_gases[self.tau_gases < 2e-4] = 2e-4
 
         return None
 
