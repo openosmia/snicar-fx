@@ -49,7 +49,7 @@ class _MultiStreamSolver:
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
         self.DELTA_OPTICAL_DEPTH = 1e-8
         self.max_albedo = 0.999999
-        self.SCATTERING_ALBEDO_tHRESHOLD = 1e-10
+        self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
         self.cosmic_background = 0
         self.n_angles = 8
         self.nbr_wvl = land.nbr_wvl
