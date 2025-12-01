@@ -182,6 +182,10 @@ class Session:
                 self.land_column, self.atmosphere_column, self.solar_irradiance
             )
 
+            # return outputs as a metadata-rich xarray dataset
+            if to_xarray:
+                self.outputs = self.multi_stream_results_to_xarray()
+
         return self.outputs
 
     @staticmethod
@@ -221,6 +225,54 @@ class Session:
             coords={
                 "wavelength": self.outputs.wavelengths,
                 "layer": np.arange(len(self.outputs.absorbed_flux_fraction_per_layer)),
+            },
+        )
+
+        # add attributes
+        ds.attrs.update(attrs)
+
+        return ds
+
+    def multi_stream_results_to_xarray(self) -> xr.Dataset:
+        """
+        Save results to an xarray with rather extensive model and
+        session state metadata.
+        """
+
+        # build wavelength array here (as it is not needed in the solver)
+        wavelengths = np.arange(
+            self.config.SOLVER.WVL_START,
+            self.config.SOLVER.WVL_END,
+            self.config.SOLVER.RESOLUTION,
+        )
+
+        attrs = {
+            "model_name": "snicar-fx",
+            "model_version": version("snicarfx"),
+            "model_url": "https://github.com/openosmia/snicar-fx",
+            "creation_date": datetime.utcnow().isoformat(),
+            "session_state": self._write_current_state(),
+        }
+
+        ds = xr.Dataset(
+            data_vars={
+                "albedo": ("wavelength", self.outputs.albedo),
+                "gaussian_integration_angle": (
+                    "angle",
+                    self.outputs.cos_angle,
+                ),
+                "gaussian_integration_weight": (
+                    "angle",
+                    self.outputs.cos_weight,
+                ),
+                "directional_reflectance_top": (
+                    ("angle", "wavelength"),
+                    self.outputs.directional_reflectance_top,
+                ),
+            },
+            coords={
+                "wavelength": wavelengths,
+                "angle": np.arange(len(self.outputs.cos_weight)),
             },
         )
 
