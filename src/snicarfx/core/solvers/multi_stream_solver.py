@@ -5,8 +5,36 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+from dataclasses import dataclass
 import numpy as np
 from scipy.special import legendre
+
+
+@dataclass
+class _MultiStreamSolverResults:
+    """
+    Stores output data from radiative transfer calculations.
+
+    This class holds computed radiative properties of the snow or ice column,
+    such as albedo, integration angles and spectral reflectance.
+
+    Attributes
+    ----------
+    albedo : array
+        Spectrally resolved surface albedo [unitless].
+    cos_angle : array
+        Angle of the Gaussian integration  [unitless].
+    cos_weight : array
+        Weights of the Gaussian integration [unitless].
+    directional_reflectance_top: array
+        Spectral reflectance at the top of the atmosphere [].
+
+    """
+
+    albedo: np.ndarray
+    cos_angle: np.ndarray
+    cos_weight: np.ndarray
+    directional_reflectance_top: np.ndarray
 
 
 class _MultiStreamSolver:
@@ -391,7 +419,37 @@ class _MultiStreamSolver:
             self.s_layer_source_up[:, k, :] += source_up[:, 0, :]
             self.s_layer_source_down[:, k, :] += source_down[:, 0, :]
 
-        return None
+    def get_outputs(self):
+        """
+        Compile and return radiative transfer results as an
+        _MultiStreamSolverResults instance.
+
+        Returns
+        -------
+        xr.Dataset
+            Multi-stream solver results in an xarray Dataset.
+
+        """
+
+        # Angles Gaussiance integration
+        # aads.cos_angle
+
+        # Weights Gaussian integration
+        # aads.cos_weight
+
+        # directional reflectance at the top of the atmosphere
+        directional_reflectance_top = (self.s_level_rad_up[:, 0, :] * np.pi) / (
+            self.solar_irradiance * self.cos_sun
+        )
+
+        results = _MultiStreamSolverResults(
+            albedo=self.albedo,
+            cos_angle=self.cos_angle,
+            cos_weight=self.cos_weight,
+            directional_reflectance_top=directional_reflectance_top,
+        )
+
+        return results
 
 
 def solve_multi_stream_rt(land, atmosphere, irradiance):
@@ -522,7 +580,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                 np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
 
-    albedo = (
+    aads.albedo = (
         2
         * np.pi
         * np.sum(
@@ -534,4 +592,6 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
         / (aads.solar_irradiance[None, :] * aads.cos_sun)  # project solar beam
     ).flatten()
 
-    return albedo
+    outputs = aads.get_outputs()
+
+    return outputs

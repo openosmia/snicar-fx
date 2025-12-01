@@ -732,12 +732,14 @@ class _TwoStreamSolver:
 
     def get_outputs(self):
         """
-        Compile and return radiative transfer results as an xarray Dataset.
+        Compile and return radiative transfer results as an
+        _TwoStreamSolverResults instance.
 
         Returns
         -------
         xr.Dataset
             Two-stream solver results in an xarray Dataset.
+
         """
 
         # Radiative heating rate:
