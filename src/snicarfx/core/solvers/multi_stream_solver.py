@@ -53,7 +53,7 @@ class _MultiStreamSolver:
         self.cosmic_background = 0
         self.n_angles = 8
         self.nbr_wvl = land.nbr_wvl
-        
+
         # apply delta scaling to land column
         # Delta truncation: get highest Legendre term following
         # Wicombe 1977 Eq. (15) -  2M = n_expansion + 1
@@ -61,24 +61,24 @@ class _MultiStreamSolver:
         # Wiscombe 1977 Eq. 20(a, b)
         land.tau = (1.0 - land.ss_alb * f) * land.tau
         land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
-            
-        if atmosphere.use_atmosphere: 
+
+        if atmosphere.use_atmosphere:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
             self.t_od = np.vstack([atmosphere.tau, land.tau])
             self.w = np.vstack([atmosphere.ss_alb, land.ss_alb])
-            self.legendre_moments = np.vstack([atmosphere.legendre_moments, 
-                                               land.legendre_moments])
-            
-        else: 
+            self.legendre_moments = np.hstack(
+                [atmosphere.legendre_moments, land.legendre_moments]
+            )
+
+        else:
             self.nbr_lyr = land.nbr_lyr
             self.t_od = np.array(land.tau)
             self.w = np.array(land.ss_alb)
             self.legendre_moments = np.array(land.legendre_moments)
-        
-        
+
         # initialize arrays
         self.total_opt = np.zeros((self.nbr_lyr + 1, self.nbr_wvl))
-        
+
         self.ff = np.zeros(
             (self.n_angles, self.n_angles + 1, self.nbr_lyr, self.nbr_wvl)
         )
@@ -93,16 +93,10 @@ class _MultiStreamSolver:
         self.s_level_refl_up = np.zeros(
             (self.n_angles, self.n_angles, self.nbr_lyr + 1, self.nbr_wvl)
         )
-        self.s_level_rad_up = np.zeros(
-            (self.n_angles, self.nbr_lyr + 1, self.nbr_wvl)
-        )
+        self.s_level_rad_up = np.zeros((self.n_angles, self.nbr_lyr + 1, self.nbr_wvl))
 
-        self.s_layer_source_up = np.zeros(
-            (self.n_angles, self.nbr_lyr, self.nbr_wvl)
-        )
-        self.s_layer_source_down = np.zeros(
-            (self.n_angles, self.nbr_lyr, self.nbr_wvl)
-        )
+        self.s_layer_source_up = np.zeros((self.n_angles, self.nbr_lyr, self.nbr_wvl))
+        self.s_layer_source_down = np.zeros((self.n_angles, self.nbr_lyr, self.nbr_wvl))
 
         ######################################################################
         # SET GAUSSIAN QUADRATURE
@@ -112,23 +106,16 @@ class _MultiStreamSolver:
         self.cos_angle = nodes[self.n_angles :]  # only positive
         self.cos_weight = weights[self.n_angles :]
 
-
         ######################################################################
         # CALCULATE PHASE COEFFS & PHASE MATRICES
         ######################################################################
-        
+
         # Calculate scaled expansion coefficients
         # Wiscombe 1977 Eq. 14
         # Convention is 0.5 * (2l+1) * Bl for the expansion
         orders = np.arange(0, land.n_expansion)
-        
-        phase_coeffs = (
-            (2 * orders[:, None, None] + 1)
-            * 0.5
-            * (
-                self.legendre_moments
-            )
-        )
+
+        phase_coeffs = (2 * orders[:, None, None] + 1) * 0.5 * (self.legendre_moments)
 
         # Calculate Legendre polynomials
         leg_poly = np.zeros((land.n_expansion, self.n_angles + 1))
@@ -544,7 +531,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
             * np.array(aads.cos_weight)[:, None],
             axis=0,
         )
-        / (aads.solar_irradiance[None, :] * aads.cos_sun) # project solar beam
+        / (aads.solar_irradiance[None, :] * aads.cos_sun)  # project solar beam
     ).flatten()
 
     return albedo
