@@ -21,7 +21,7 @@ LAND:
   LWC: [0, 0, 0] # LWC content in snow/ice 
   SFC: 0.25 # reflectance of lower boundary  
   GRAIN_SHAPE: [0, 0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
-  ALTITUDE: 1.0 # surface altitude in km
+  ALTITUDE: 0.0 # surface altitude in km
   
   LIGHT_ABSORBING_PARTICLES:
     BC:

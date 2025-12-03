@@ -25,7 +25,7 @@ LAND:
   GRAIN_SHAPE: [0,0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023  
   RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21" # ice refractive index
   SFC: 0 # reflectance of lower boundary  
-  ALTITUDE: 1.0 # surface altitude in km
+  ALTITUDE: 0.0 # surface altitude in km
   
   LIGHT_ABSORBING_PARTICLES:
     BC:

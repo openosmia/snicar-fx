@@ -46,28 +46,32 @@ class AtmosphereColumn:
         )
         self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
-        self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
+        
 
-        # load atm profile with gas conc., P/T/density etc
-        self.atmosphere_profile = self.set_atmospheric_profile()
-
-        # set nb of atm layers (dep on altitude)
-        self.nbr_lyr = self.atmosphere_profile.shape[0]
-
-        # init the ssps
-        self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
-        self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
-        self.rayleigh_legendre_moments = np.zeros(
-            (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
-        )
-        self.tau_molecular_scatter = np.zeros((self.nbr_lyr, self.nbr_wvl))
-
-        # compute rayleigh scattering (tau + legendre moments)
-        self.compute_rayleigh_scattering()
-
-        self.compute_gas_optical_thickness()
-
-        self.set_atmospheric_properties_wout_aerosols()
+        if self.use_atmosphere: 
+            
+            self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
+            
+            # load atm profile with gas conc., P/T/density etc
+            self.atmosphere_profile = self.set_atmospheric_profile()
+    
+            # set nb of atm layers (dep on altitude)
+            self.nbr_lyr = self.atmosphere_profile.shape[0]
+    
+            # init the ssps
+            self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
+            self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
+            self.rayleigh_legendre_moments = np.zeros(
+                (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
+            )
+            self.tau_molecular_scatter = np.zeros((self.nbr_lyr, self.nbr_wvl))
+        
+            # compute rayleigh scattering (tau + legendre moments)
+            self.compute_rayleigh_scattering()
+    
+            self.compute_gas_optical_thickness()
+    
+            self.set_atmospheric_properties_wout_aerosols()
 
     def set_atmospheric_profile(self):
         profile = pd.read_csv(

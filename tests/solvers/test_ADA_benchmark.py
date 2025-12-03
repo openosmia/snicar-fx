@@ -40,6 +40,7 @@ def test_multistream_outputs(
         Tolerance value for the error.
 
     """
+    
     w, t_od, g, wvl_idx = params_ada
     
     package_root = Session.get_package_root()
@@ -66,11 +67,11 @@ def test_multistream_outputs(
         )
 
     # solve RTE
-    albedo = solve_multi_stream_rt(land_column, atmosphere, irradiance)
+    results = solve_multi_stream_rt(land_column, atmosphere, irradiance)
 
     # a given set of parameters (including a given wavelength)
     assert np.allclose(
-        albedo[wvl_idx],
+        results.albedo[wvl_idx],
         benchmark_ada_spectral_data.sel(w=w, t_od=t_od, g=g, wvl_idx=wvl_idx)[
             "albedo"
         ].values,
