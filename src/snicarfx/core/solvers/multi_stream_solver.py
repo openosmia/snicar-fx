@@ -224,8 +224,10 @@ class _MultiStreamSolver:
         # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
 
-        # take the square roots
-        eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
+        # take the square roots !!!!! must be fixed
+        # eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
+        eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 1e-12)
+
 
         # scale eigenvectors by square roots of eigen values
         eig_value_diag = np.eye(self.n_angles)[None, :, :] * eig_value[:, None, :]

@@ -224,7 +224,12 @@ class AtmosphereColumn:
         
         self.tau_gases = hapi2libis_data["tau"].interp(nwvl=self.wavelengths).values
         
-        self.tau_gases[self.tau_gases < 2e-4] = 2e-4
+        # if z = 1, remove layer 0 ie index at 1
+        # if z = 2, remove layer 0+1 ie index at 2, etc
+        
+        self.tau_gases = self.tau_gases[int(self.surface_elevation):, :]
+        
+        # self.tau_gases[self.tau_gases < 2e-4] = 2e-4
 
         return None
 
