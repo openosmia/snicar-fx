@@ -49,3 +49,4 @@ data/light_absorbing_particles/ice_algae_1nm_resolution.nc
 data/light_absorbing_particles/dark_cryoconite_1nm_resolution.nc
 
 data/atmospheric_profiles/uvspec_afglss_test_file.nc
+data/atmospheric_profiles/uvspec_afglss_test_file_cross_sections.nc

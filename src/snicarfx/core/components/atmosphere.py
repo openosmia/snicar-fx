@@ -46,18 +46,17 @@ class AtmosphereColumn:
         )
         self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
-        
 
-        if self.use_atmosphere: 
-            
+        if self.use_atmosphere:
+
             self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
-            
+
             # load atm profile with gas conc., P/T/density etc
             self.atmosphere_profile = self.set_atmospheric_profile()
-    
+
             # set nb of atm layers (dep on altitude)
             self.nbr_lyr = self.atmosphere_profile.shape[0]
-    
+
             # init the ssps
             self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
             self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
@@ -65,12 +64,15 @@ class AtmosphereColumn:
                 (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
             )
             self.tau_molecular_scatter = np.zeros((self.nbr_lyr, self.nbr_wvl))
-        
+
             # compute rayleigh scattering (tau + legendre moments)
             self.compute_rayleigh_scattering()
-    
+
+            # load gas cross sections
+            self.load_gas_absorption_cross_sections()
+
             self.compute_gas_optical_thickness()
-    
+
             self.set_atmospheric_properties_wout_aerosols()
 
     def set_atmospheric_profile(self):
@@ -199,8 +201,16 @@ class AtmosphereColumn:
 
         return None
 
-    def load_gas_absorptions(self):
+    def load_gas_absorption_cross_sections(self):
+
         # get absorption in (c)m2 / molecule for each gas
+        self.gas_cross_sections = xr.open_dataset(
+            f"{self.PACKAGE_ROOT}/data/atmospheric_profiles/uvspec_afglss_test_file_cross_sections.nc"
+        )
+        self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
+
+        self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self.wavelengths)
+
         return None
 
     def compute_gas_optical_thickness(self):
@@ -209,27 +219,44 @@ class AtmosphereColumn:
         for each layer based on their concentrations.
         """
 
-        # for lyr in range(self.nbr_lyr):
+        sigma_vars = [
+            var
+            for var in self.gas_cross_sections.data_vars
+            if var.startswith("sigma_") and "O2-O2" not in var
+        ]
 
-        #     # sum absorption * conc for all gas for given layer
-        #     absorption = np.sum(gas_absorptions * gas_concentrations, axis=1)
+        total_absorption = np.zeros_like(self.gas_cross_sections[sigma_vars[0]].values)
 
-        #     # get gaseous optical thickness
-        #     self.tau_gases[lyr, :] = absorption * self.atmosphere_profile.thickness
+        for sigma_var in sigma_vars:
 
-        hapi2libis_data = xr.open_dataset(
-            f"{self.PACKAGE_ROOT}/data/atmospheric_profiles/uvspec_afglss_test_file.nc"
+            # match profile gas tag
+            sigma_var_lower = sigma_var.split("_")[1].lower()
+            profile_tag = f"{sigma_var_lower}(cm-3)"
+
+            total_absorption += (
+                self.gas_cross_sections[sigma_var].values
+                * self.atmosphere_profile[profile_tag].values[:, None]
+            )
+
+        # as per hapi2libis
+        total_absorption += (
+            1e-46 * self.atmosphere_profile["o2(cm-3)"].values[:, None] ** 2
+        ) * self.gas_cross_sections["sigma_O2-O2"].values
+
+        self.tau_gases = (
+            total_absorption * self.atmosphere_profile["dz(km)"].values[:, None] * 1e5
         )
-        hapi2libis_data['nwvl'] = hapi2libis_data.wvl
-        
-        self.tau_gases = hapi2libis_data["tau"].interp(nwvl=self.wavelengths).values
-        
+
+        # hapi2libis_data = xr.open_dataset(
+        #     f"{self.PACKAGE_ROOT}/data/atmospheric_profiles/uvspec_afglss_test_file.nc"
+        # )
+        # hapi2libis_data["nwvl"] = hapi2libis_data.wvl
+        # self.tau_gases = hapi2libis_data["tau"].interp(nwvl=self.wavelengths).values
+
         # if z = 1, remove layer 0 ie index at 1
         # if z = 2, remove layer 0+1 ie index at 2, etc
-        
-        self.tau_gases = self.tau_gases[int(self.surface_elevation):, :]
-        
-        # self.tau_gases[self.tau_gases < 2e-4] = 2e-4
+
+        self.tau_gases = self.tau_gases[int(self.surface_elevation) :, :]
 
         return None
 
