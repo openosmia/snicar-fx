@@ -1,8 +1,6 @@
 SOLVER:
   TYPE: "two-stream" # two-stream, multi-stream # UPD
-  WVL_START: 205 
-  WVL_END: 5000
-  RESOLUTION: 10
+  SPECTRAL_RANGE: [205, 5000, 10] # [start, end, step] or satellite instrument
   ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
 
 SOLAR:

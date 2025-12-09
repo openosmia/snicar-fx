@@ -68,10 +68,12 @@ class LandColumn:
 
     """
 
-    def __init__(self, config, PACKAGE_ROOT):
+    def __init__(self, config):
 
         # set module root path for data loading
-        self.PACKAGE_ROOT = PACKAGE_ROOT
+        self.ROOT_PATH = config._ROOT_PATH
+
+        self.wavelengths = config._wavelengths
 
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
@@ -81,15 +83,6 @@ class LandColumn:
         self.grain_shape = config.LAND.GRAIN_SHAPE
         self.lwc = config.LAND.LWC
         self.ssa = config.LAND.SPECIFIC_SURFACE_AREA
-
-        self.wavelengths = (
-            np.arange(
-                config.SOLVER.WVL_START,
-                config.SOLVER.WVL_END,
-                config.SOLVER.RESOLUTION,
-            )
-            * 1e-9
-        )
 
         self.nbr_wvl = len(self.wavelengths)
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
@@ -120,10 +113,10 @@ class LandColumn:
         """
 
         refidx_file = xr.open_dataset(
-            f"{self.PACKAGE_ROOT}/data/refractive_indices.nc"
+            f"{self.ROOT_PATH}/data/refractive_indices.nc"
         ).sel(wvl=self.wavelengths)
         fresnel_diffuse_file = xr.open_dataset(
-            f"{self.PACKAGE_ROOT}/data/fresnel_diffuse_coefficients.nc"
+            f"{self.ROOT_PATH}/data/fresnel_diffuse_coefficients.nc"
         ).sel(wvl=self.wavelengths)
 
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values
@@ -274,7 +267,7 @@ class LandColumn:
         self.lap_ss_alb = np.stack(
             [
                 xr.open_dataset(
-                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                    f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
                 )
                 .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
                     "ss_alb"
@@ -288,7 +281,7 @@ class LandColumn:
         self.lap_asm_prm = np.stack(
             [
                 xr.open_dataset(
-                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                    f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
                 )
                 .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
                     "asm_prm"
@@ -302,7 +295,7 @@ class LandColumn:
         self.lap_ext_cff = np.stack(
             [
                 xr.open_dataset(
-                    f"{self.PACKAGE_ROOT}/data/light_absorbing_particles/" + cfg.FILE
+                    f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
                 )
                 .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
                     "ext_cff_mss"

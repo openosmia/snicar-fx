@@ -36,14 +36,14 @@ class AtmosphereColumn:
 
     """
 
-    def __init__(self, config, PACKAGE_ROOT):
+    def __init__(self, config):
 
-        self.PACKAGE_ROOT = PACKAGE_ROOT
+        self.ROOT_PATH = config._ROOT_PATH
+        self.wavelengths = config._wavelengths * 1e9
+
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.surface_elevation = config.LAND.ALTITUDE
-        self.wavelengths = np.arange(
-            config.SOLVER.WVL_START, config.SOLVER.WVL_END, config.SOLVER.RESOLUTION
-        )
+
         self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
 
@@ -77,7 +77,7 @@ class AtmosphereColumn:
 
     def set_atmospheric_profile(self):
         profile = pd.read_csv(
-            f"{self.PACKAGE_ROOT}/data/atmospheric_profiles/"
+            f"{self.ROOT_PATH}/data/atmospheric_profiles/"
             + self.atmosphere_profile_type
             + ".dat",
             skiprows=1,
@@ -205,7 +205,7 @@ class AtmosphereColumn:
 
         # get absorption in (c)m2 / molecule for each gas
         self.gas_cross_sections = xr.open_dataset(
-            f"{self.PACKAGE_ROOT}/data/atmospheric_profiles/uvspec_afglss_test_file_cross_sections.nc"
+            f"{self.ROOT_PATH}/data/atmospheric_profiles/uvspec_afglss_test_file_cross_sections.nc"
         )
         self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
 
@@ -248,7 +248,7 @@ class AtmosphereColumn:
         )
 
         # hapi2libis_data = xr.open_dataset(
-        #     f"{self.PACKAGE_ROOT}/data/atmospheric_profiles/uvspec_afglss_test_file.nc"
+        #     f"{self.ROOT_PATH}/data/atmospheric_profiles/uvspec_afglss_test_file.nc"
         # )
         # hapi2libis_data["nwvl"] = hapi2libis_data.wvl
         # self.tau_gases = hapi2libis_data["tau"].interp(nwvl=self.wavelengths).values

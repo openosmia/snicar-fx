@@ -26,7 +26,7 @@ class SolarIrradiance:
         The atmopshere profile to use.
     """
 
-    def __init__(self, config, PACKAGE_ROOT):
+    def __init__(self, config):
         """
         Initialize the SolarIrradiance class using model configuration inputs.
 
@@ -43,18 +43,13 @@ class SolarIrradiance:
         """
 
         # set module root path for data loading
-        self.PACKAGE_ROOT = PACKAGE_ROOT
+        self.ROOT_PATH = config._ROOT_PATH
+
+        self.wavelengths = config._wavelengths
 
         self.sky_conditions = config.ATMOSPHERE.SKY_CONDITIONS
         self.sza = config.SOLAR.SZA
-        self.wavelengths = (
-            np.arange(
-                config.SOLVER.WVL_START,
-                config.SOLVER.WVL_END,
-                config.SOLVER.RESOLUTION,
-            )
-            * 1e-9
-        )
+
         self.atmosphere_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
 
         # load irradiance file with SZA range
@@ -70,7 +65,7 @@ class SolarIrradiance:
         # read libradtran surface irradiance
         ds = xr.open_dataset(
             str(
-                f"{self.PACKAGE_ROOT}/data/solar_fluxes/"
+                f"{self.ROOT_PATH}/data/solar_fluxes/"
                 + f"libradtranv206_surface_irradiance"
                 + f"_{self.atmosphere_type}_{self.sky_conditions}.nc"
             )

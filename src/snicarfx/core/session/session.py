@@ -35,12 +35,15 @@ class Session:
         self.config = Config.from_yaml(input_file)
 
         # set module root path for data loading
-        self.ROOT_PATH = self.get_package_root()
+        self.config._ROOT_PATH = self.get_package_root()
+
+        # set spectral range arrays based on user inputs
+        self._set_spectral_range_arrays()
 
         # build components
-        self.land_column = LandColumn(self.config, self.ROOT_PATH)
-        self.solar_irradiance = SolarIrradiance(self.config, self.ROOT_PATH)
-        self.atmosphere_column = AtmosphereColumn(self.config, self.ROOT_PATH)
+        self.land_column = LandColumn(self.config)
+        self.solar_irradiance = SolarIrradiance(self.config)
+        self.atmosphere_column = AtmosphereColumn(self.config)
 
         # store history of updates
         self._latest_updates = {
@@ -52,6 +55,26 @@ class Session:
 
         # save outputs
         self.outputs = None
+
+    def _set_spectral_range_arrays(self):
+
+        if isinstance(self.config.SOLVER.SPECTRAL_RANGE, tuple):
+            self.config._wavelengths = (
+                np.arange(
+                    self.config.SOLVER.SPECTRAL_RANGE[0],
+                    self.config.SOLVER.SPECTRAL_RANGE[1],
+                    self.config.SOLVER.SPECTRAL_RANGE[2],
+                )
+                * 1e-9
+            )
+
+        elif self.config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
+
+            ds = xr.open_dataset(
+                f"{self.config._ROOT_PATH}/data/satellite_spectral_responses/S3A_OL_SRF_20160713_mean_rsr.nc4"
+            )
+
+        return None
 
     def _prepare_updates(self, kwargs, allowed_fields):
         forbidden = set(kwargs) - allowed_fields
@@ -241,9 +264,9 @@ class Session:
 
         # build wavelength array here (as it is not needed in the solver)
         wavelengths = np.arange(
-            self.config.SOLVER.WVL_START,
-            self.config.SOLVER.WVL_END,
-            self.config.SOLVER.RESOLUTION,
+            self.config.SOLVER.SPECTRAL_RANGE[0],
+            self.config.SOLVER.SPECTRAL_RANGE[1],
+            self.config.SOLVER.SPECTRAL_RANGE[2],
         )
 
         attrs = {

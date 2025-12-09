@@ -5,10 +5,20 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from typing import Literal
+from typing import Literal, Tuple, Union
+import numpy as np
 
 import yaml
-from pydantic import BaseModel, Field, RootModel, confloat, conlist, model_validator
+import pathlib
+from pydantic import (
+    BaseModel,
+    Field,
+    RootModel,
+    confloat,
+    conlist,
+    model_validator,
+    PrivateAttr,
+)
 
 
 class Solver(BaseModel):
@@ -24,14 +34,15 @@ class Solver(BaseModel):
     # radiative transfer solver to use
     TYPE: Literal["two-stream", "multi-stream"]
 
-    # first wavelength (unit: nm)
-    WVL_START: int = Field(..., ge=200, le=5000)
-
-    # last wavelength (unit: nm)
-    WVL_END: int = Field(..., ge=200, le=5000)
-
-    # spectral resolution (unit: nm)
-    RESOLUTION: int = Field(..., ge=1, le=100)
+    # spectral range (start, end, step) or satellite instrument
+    SPECTRAL_RANGE: Union[
+        Tuple[
+            confloat(ge=200, le=5000),
+            confloat(ge=200, le=5000),
+            confloat(ge=1, le=100),
+        ],
+        Literal["SENTINEL-3-OLCI"],
+    ]
 
     # explicit surface-atmosphere coupling
     ATMOSPHERE_COUPLING: bool
@@ -41,6 +52,22 @@ class Solver(BaseModel):
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def check_second_greater(self):
+        """
+        If SPECTRAL_RANGE is numeric (start, end, step), validate end > start.
+        Skip validation if it's a satellite platform string.
+        """
+        if isinstance(self.SPECTRAL_RANGE, tuple):
+            start, end, step = self.SPECTRAL_RANGE
+            if end <= start:
+                raise ValueError(
+                    f"SPECTRAL_RANGE second value ({end}) must be larger "
+                    f"than the first ({start})"
+                )
+
+        return self
 
 
 class Solar(BaseModel):
@@ -109,7 +136,6 @@ class LightAbsorbingParticles(RootModel[dict[str, Particle]]):
     """
 
 
-
 class Land(BaseModel):
     """
     Define the valid ranges and types of the land surface properties.
@@ -168,6 +194,11 @@ class Config(BaseModel):
     SOLAR: Solar
     ATMOSPHERE: Atmosphere
     LAND: Land
+
+    # Private runtime-only attribute
+    _wavelengths: np.ndarray | None = PrivateAttr(default=None)
+    _ROOT_PATH: pathlib.Path | None = PrivateAttr(default=None)
+    _spectral_response_function: np.ndarray | None = PrivateAttr(default=None)
 
     model_config = {"extra": "forbid"}
 
