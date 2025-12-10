@@ -38,7 +38,24 @@ class Session:
         self.config._ROOT_PATH = self.get_package_root()
 
         # set spectral range arrays based on user inputs
-        self._set_spectral_range_arrays()
+        if isinstance(self.config.SOLVER.SPECTRAL_RANGE, tuple):
+            self.config._wavelengths = (
+                np.arange(
+                    self.config.SOLVER.SPECTRAL_RANGE[0],
+                    self.config.SOLVER.SPECTRAL_RANGE[1],
+                    self.config.SOLVER.SPECTRAL_RANGE[2],
+                )
+                * 1e-9
+            )
+
+        elif self.config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
+
+            ds = xr.open_dataset(
+                f"{self.config._ROOT_PATH}/data/satellite_spectral_responses/S3A_OL_SRF_20160713_mean_rsr.nc4"
+            )
+            self.config._wavelengths = ds.mean_spectral_response_function_wavelength.values
+            self.config._spectral_response = ds.mean_spectral_response_function_wavelength.values
+            
 
         # build components
         self.land_column = LandColumn(self.config)
@@ -55,26 +72,6 @@ class Session:
 
         # save outputs
         self.outputs = None
-
-    def _set_spectral_range_arrays(self):
-
-        if isinstance(self.config.SOLVER.SPECTRAL_RANGE, tuple):
-            self.config._wavelengths = (
-                np.arange(
-                    self.config.SOLVER.SPECTRAL_RANGE[0],
-                    self.config.SOLVER.SPECTRAL_RANGE[1],
-                    self.config.SOLVER.SPECTRAL_RANGE[2],
-                )
-                * 1e-9
-            )
-
-        elif self.config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
-
-            ds = xr.open_dataset(
-                f"{self.config._ROOT_PATH}/data/satellite_spectral_responses/S3A_OL_SRF_20160713_mean_rsr.nc4"
-            )
-
-        return None
 
     def _prepare_updates(self, kwargs, allowed_fields):
         forbidden = set(kwargs) - allowed_fields

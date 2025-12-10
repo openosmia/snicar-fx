@@ -9,7 +9,6 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.special import legendre
 
-
 @dataclass
 class _MultiStreamSolverResults:
     """
@@ -219,14 +218,14 @@ class _MultiStreamSolver:
         # equation 10 L&W2013 [matrix H = (alpha - beta) * (alpha + beta)]
         # moveaxis required as matmul uses the last two axes
         hh = np.matmul(np.moveaxis(pp - pm, -1, 0), np.moveaxis(pp + pm, -1, 0))
-
+        
         # get eigen values & vectors
         # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
-
+        
         # take the square roots !!!!! must be fixed
-        # eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
-        eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 1e-12)
+        eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
+        eig_value = np.where(eig_vals > 1e-12, np.sqrt(eig_vals), 1e-12)
 
 
         # scale eigenvectors by square roots of eigen values
