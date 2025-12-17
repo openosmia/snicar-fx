@@ -17,6 +17,7 @@ from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
 
 
 def test_twostreams_outputs(
+    config,
     params_2str,
     benchmark_snicaradv4_spectral_data,
     benchmark_snicaradv4_bba_data,
@@ -55,12 +56,10 @@ def test_twostreams_outputs(
 
     layer_type, density, radius, sza, bc, thickness_profile, direct = params_2str
 
-    package_root = Session.get_package_root()
-
     # Setup inputs
-    config = Config.from_yaml("./tests/inputs_tests.yaml")
-    land_column = LandColumn(config, package_root)
-    irradiance = SolarIrradiance(config, package_root)
+    # config = Config.from_yaml("./tests/inputs_tests.yaml")
+    land_column = LandColumn(config)
+    irradiance = SolarIrradiance(config)
 
     # # calculate irradiance
     irradiance.sza = sza

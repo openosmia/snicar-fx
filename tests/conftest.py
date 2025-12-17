@@ -33,9 +33,9 @@ def test_input_file():
 
 
 @pytest.fixture(scope="module")
-def config():
+def config(session):
     """Provide a shared instance of Config."""
-    return Config.from_yaml(TEST_INPUT_FILE)
+    return session.config
 
 
 @pytest.fixture(scope="module")
@@ -45,27 +45,21 @@ def session():
 
 
 @pytest.fixture(scope="module")
-def root_dir():
-    """Provide a shared package root directory."""
-    return Session.get_package_root()
-
-
-@pytest.fixture(scope="module")
-def land_column(config, root_dir):
+def land_column(config):
     """Provide a shared LandColumn instance using shared Config."""
-    return LandColumn(config, root_dir)
+    return LandColumn(config)
 
 
 @pytest.fixture(scope="module")
-def atmosphere_column(config, root_dir):
+def atmosphere_column(config):
     """Provide a shared AtmosphereColumn instance using shared Config."""
-    return AtmosphereColumn(config, root_dir)
+    return AtmosphereColumn(config)
 
 
 @pytest.fixture(scope="module")
-def irradiance(config, root_dir):
+def irradiance(config):
     """Provide a SolarIrradiance instance using shared Config."""
-    return SolarIrradiance(config, root_dir)
+    return SolarIrradiance(config)
 
 
 @pytest.fixture(scope="module")

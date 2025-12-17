@@ -39,10 +39,13 @@ class Solver(BaseModel):
         Tuple[
             confloat(ge=200, le=5000),
             confloat(ge=200, le=5000),
-            confloat(ge=1, le=100),
+            confloat(ge=0.01, le=100),
         ],
         Literal["SENTINEL-3-OLCI"],
     ]
+
+    # spectral mode
+    SPECTRAL_MODE: Literal["monochromatic", "band"]
 
     # explicit surface-atmosphere coupling
     ATMOSPHERE_COUPLING: bool
@@ -197,6 +200,7 @@ class Config(BaseModel):
 
     # Private runtime-only attribute
     _wavelengths: np.ndarray | None = PrivateAttr(default=None)
+    _wavelengths_srf: np.ndarray | None = PrivateAttr(default=None)
     _ROOT_PATH: pathlib.Path | None = PrivateAttr(default=None)
     _spectral_response_function: np.ndarray | None = PrivateAttr(default=None)
 

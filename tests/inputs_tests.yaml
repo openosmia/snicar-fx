@@ -1,6 +1,7 @@
 SOLVER:
-  TYPE: "two-stream" # two-stream, multi-stream # UPD
+  TYPE: "two-stream" # two-stream, multi-stream 
   SPECTRAL_RANGE: [205, 5000, 10] # [start, end, step] or satellite instrument
+  SPECTRAL_MODE: "monochromatic"
   ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
 
 SOLAR:

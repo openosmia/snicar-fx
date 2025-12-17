@@ -39,13 +39,10 @@ class Session:
 
         # set spectral range arrays based on user inputs
         if isinstance(self.config.SOLVER.SPECTRAL_RANGE, tuple):
-            self.config._wavelengths = (
-                np.arange(
-                    self.config.SOLVER.SPECTRAL_RANGE[0],
-                    self.config.SOLVER.SPECTRAL_RANGE[1],
-                    self.config.SOLVER.SPECTRAL_RANGE[2],
-                )
-                * 1e-9
+            self.config._wavelengths = np.arange(
+                self.config.SOLVER.SPECTRAL_RANGE[0],
+                self.config.SOLVER.SPECTRAL_RANGE[1],
+                self.config.SOLVER.SPECTRAL_RANGE[2],
             )
 
         elif self.config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
@@ -53,9 +50,44 @@ class Session:
             ds = xr.open_dataset(
                 f"{self.config._ROOT_PATH}/data/satellite_spectral_responses/S3A_OL_SRF_20160713_mean_rsr.nc4"
             )
-            self.config._wavelengths = ds.mean_spectral_response_function_wavelength.values
-            self.config._spectral_response = ds.mean_spectral_response_function_wavelength.values
-            
+            self.config._wavelengths_srf = (
+                ds.mean_spectral_response_function_wavelength.values
+            )
+            self.config._spectral_response_function = (
+                ds.mean_spectral_response_function.values
+            )
+
+            if self.config.SOLVER.SPECTRAL_MODE == "monochromatic":
+
+                mins_per_band_wavelength = np.nanmin(
+                    ds.mean_spectral_response_function_wavelength.values, axis=1
+                )
+                maxs_per_band_wavelength = np.nanmax(
+                    ds.mean_spectral_response_function_wavelength.values, axis=1
+                )
+
+                min_global_wavelength = (
+                    np.nanmin(ds.mean_spectral_response_function_wavelength.values)
+                    * 1e-7
+                )
+                max_global_wavelength = (
+                    np.nanmax(ds.mean_spectral_response_function_wavelength.values)
+                    * 1e-7
+                )
+
+                wavelength_array = (
+                    1e7
+                    / np.arange(
+                        1 / max_global_wavelength, 1 / min_global_wavelength, 1
+                    )[::-1]
+                )
+
+                mask = (
+                    (wavelength_array[:, None] >= mins_per_band_wavelength)
+                    & (wavelength_array[:, None] <= maxs_per_band_wavelength)
+                ).any(axis=1)
+
+                self.config._wavelengths = wavelength_array[mask]
 
         # build components
         self.land_column = LandColumn(self.config)

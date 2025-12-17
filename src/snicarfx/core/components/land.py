@@ -73,7 +73,7 @@ class LandColumn:
         # set module root path for data loading
         self.ROOT_PATH = config._ROOT_PATH
 
-        self.wavelengths = config._wavelengths
+        self.wavelengths = config._wavelengths * 1e-9
 
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
@@ -114,10 +114,10 @@ class LandColumn:
 
         refidx_file = xr.open_dataset(
             f"{self.ROOT_PATH}/data/refractive_indices.nc"
-        ).sel(wvl=self.wavelengths)
+        ).interp(wvl=self.wavelengths)
         fresnel_diffuse_file = xr.open_dataset(
             f"{self.ROOT_PATH}/data/fresnel_diffuse_coefficients.nc"
-        ).sel(wvl=self.wavelengths)
+        ).interp(wvl=self.wavelengths)
 
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values
         self.ref_idx_im = refidx_file[str("im_" + self.rf_type)].values

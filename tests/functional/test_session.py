@@ -23,9 +23,6 @@ def test_session_attributes(session):
     assert hasattr(session, "config")
     assert isinstance(session.config, BaseModel)
 
-    assert hasattr(session, "ROOT_PATH")
-    assert isinstance(session.ROOT_PATH, pathlib.PosixPath)
-
 
 def test_get_package_root(session):
 

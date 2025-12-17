@@ -48,7 +48,7 @@ class SolarIrradiance:
         self.wavelengths = config._wavelengths
 
         self.sky_conditions = config.ATMOSPHERE.SKY_CONDITIONS
-        
+
         self.sza = config.SOLAR.SZA
 
         self.atmosphere_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
@@ -56,18 +56,18 @@ class SolarIrradiance:
         # set irradiance based on user inputs
         if config.SOLVER.ATMOSPHERE_COUPLING:
             self.irradiance_dataset = self.load_toa_irradiance()
-            self.set_toa_irradiance()
-        
+            self.set_toa_irradiance(config)
+
         elif not config.SOLVER.ATMOSPHERE_COUPLING:
             self.irradiance_dataset = self.load_surface_irradiance()
             self.set_surface_irradiance()
 
     def load_surface_irradiance(self):
         """
-        Load irradiance file: surface irradiance profiles modelled with 
+        Load irradiance file: surface irradiance profiles modelled with
         LibRadTran for a range of SZAs.
         """
-        
+
         # read libradtran surface irradiance
         ds = xr.open_dataset(
             str(
@@ -78,13 +78,13 @@ class SolarIrradiance:
         )
 
         return ds
-    
+
     def load_toa_irradiance(self):
         """
-        Load TOA irradiance profile: Version 2 of the TSIS-1 Hybrid Solar 
+        Load TOA irradiance profile: Version 2 of the TSIS-1 Hybrid Solar
         Reference Spectrum from Coddington et al. 2022.
         """
-        
+
         ds = xr.open_dataset(
             str(
                 f"{self.ROOT_PATH}/data/solar_fluxes/"
@@ -93,52 +93,56 @@ class SolarIrradiance:
         )
 
         return ds
-    
+
     def set_toa_irradiance(self, config):
         """
-        Compute solar spectral irradiance at top-of-atmosphere (TOA) on the 
+        Compute solar spectral irradiance at top-of-atmosphere (TOA) on the
         user-defined wavelength grid / satellite bands.
         """
-        
+
+        self.irradiance_dataset["wavelength"] = self.irradiance_dataset[
+            "Vacuum Wavelength"
+        ]
+
         # 1: if satellite bands
         if config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
-            
-            # interpolate s3 response on TOA wvls            
-            srf_on_toa_grid = np.vstack(
-                        [
-                            np.interp(
-                                self.irradiance_dataset["Vacuum Wavelength"].values,
-                                config._wavelengths[band_number, :],
-                                config._spectral_response_function[band_number, :],
-                            )
-                            for band_number in range(21)
-                        ]
-                    )
 
-            toa_irradiance = self.irradiance_dataset.SSI.values
-            
-            # collapse TOA irradiance on S3 bands 
-            irradiance_on_bands = np.nansum(
-                    (srf_on_toa_grid * toa_irradiance[None, :]), axis=1
-                ) / (np.nansum(srf_on_toa_grid, axis=1))
-            
-            self.flx_slr = irradiance_on_bands # W m-2 nm-1
-            
+            # interpolate SENTINEL-3-OLCI SRF on TOA irradiance wavelengths
+            # srf_on_toa_grid = np.vstack(
+            #     [
+            #         np.interp(
+            #             self.irradiance_dataset["Vacuum Wavelength"].values,
+            #             config._wavelengths_srf[band_number, :],
+            #             config._spectral_response_function[band_number, :],
+            #         )
+            #         for band_number in range(21)
+            #     ]
+            # )
+
+            # toa_irradiance = self.irradiance_dataset.SSI.values
+
+            # # collapse TOA irradiance on S3 bands
+            # irradiance_on_bands = np.nansum(
+            #     (srf_on_toa_grid * toa_irradiance[None, :]), axis=1
+            # ) / (np.nansum(srf_on_toa_grid, axis=1))
+
+            self.flx_slr = self.irradiance_dataset.interp(
+                wavelength=config._wavelengths
+            ).SSI.values  # irradiance_on_bands  # W m-2 nm-1
+
         else:
-            
-            self.irradiance_dataset['wavelength'] = self.irradiance_dataset['Vacuum Wavelength']
 
-            
-            # group into wavelength bins as per user-defined wvl grid
-            grouped = self.irradiance_dataset.SSI.groupby_bins(
-                    "wavelength", 
-                    config._wavelengths*1e9, 
-                    right=False)
-                    
-            # trapezoidal integration to get the flux in the bands
-            self.flx_slr = grouped.apply(
-                lambda x: x.integrate("wavelength"))
-            
+            # # group into wavelength bins as per user-defined wvl grid
+            # grouped = self.irradiance_dataset.SSI.groupby_bins(
+            #     "wavelength", config._wavelengths * 1e9, right=False
+            # )
+
+            # # trapezoidal integration to get the flux in the bands
+            # self.flx_slr = grouped.apply(lambda x: x.integrate("wavelength"))
+
+            self.flx_slr = self.irradiance_dataset.interp(
+                wavelength=config._wavelengths * 1e-9
+            ).SSI.values
 
         return None
 
@@ -146,7 +150,7 @@ class SolarIrradiance:
         """
         Compute the solar spectral irradiance at the surface.
 
-        This method interpolates the solar flux to the spectral resolution 
+        This method interpolates the solar flux to the spectral resolution
         defined in the input file and loads the direct (`fs`) and
         diffuse (`fd`) fluxes.
 
@@ -163,7 +167,7 @@ class SolarIrradiance:
         ds_sza = self.irradiance_dataset.sel(SZA=self.sza)
 
         # wvl in these files are in um --> convert wvl from m to um
-        ds_sza_interpolated = ds_sza.interp(wavelength=self.wavelengths * 1e9)
+        ds_sza_interpolated = ds_sza.interp(wavelength=self.wavelengths)
 
         irradiance_direct = ds_sza_interpolated.sel(irradiance_type="direct")[
             "irradiance"

@@ -10,12 +10,12 @@ import numpy as np
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.atmosphere import AtmosphereColumn
 from snicarfx.core.components.solar import SolarIrradiance
-from snicarfx.core.session.config import Config
 from snicarfx.core.session.session import Session
 from snicarfx.core.solvers.multi_stream_solver import solve_multi_stream_rt
 
 
 def test_multistream_outputs(
+    config,
     params_ada,
     benchmark_ada_spectral_data,
     absolute_tolerance_benchmark,
@@ -40,31 +40,28 @@ def test_multistream_outputs(
         Tolerance value for the error.
 
     """
-    
+
     w, t_od, g, wvl_idx = params_ada
-    
-    package_root = Session.get_package_root()
 
     # Setup inputs
-    config = Config.from_yaml("./tests/inputs_tests.yaml")
-    land_column = LandColumn(config, package_root)
-    irradiance = SolarIrradiance(config, package_root)
-    atmosphere = AtmosphereColumn(config, package_root)
+    land_column = LandColumn(config)
+    irradiance = SolarIrradiance(config)
+    atmosphere = AtmosphereColumn(config)
 
     land_column.ss_alb[:, wvl_idx] = w
     land_column.tau[:, wvl_idx] = t_od
     land_column.asm_prm[:, wvl_idx] = g
-    
+
     # legendre moments
     f = land_column.asm_prm[:, wvl_idx] ** (land_column.n_expansion + 1)
 
     # Calculate legendre moments
     # Wiscombe 1977 Eq. 14
     land_column.legendre_moments[:, :, wvl_idx] = (
-        (land_column.asm_prm[None, :, wvl_idx] ** np.arange(land_column.n_expansion)[:, None]
-        - f[None, :])
-        / (1 - f[None, :])
-        )
+        land_column.asm_prm[None, :, wvl_idx]
+        ** np.arange(land_column.n_expansion)[:, None]
+        - f[None, :]
+    ) / (1 - f[None, :])
 
     # solve RTE
     results = solve_multi_stream_rt(land_column, atmosphere, irradiance)
