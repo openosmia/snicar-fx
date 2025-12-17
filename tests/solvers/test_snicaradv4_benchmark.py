@@ -10,8 +10,6 @@ import xarray as xr
 
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
-from snicarfx.core.session.config import Config
-from snicarfx.core.session.session import Session
 from tests.solvers.utils import use_data_snicaradv4
 from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
 

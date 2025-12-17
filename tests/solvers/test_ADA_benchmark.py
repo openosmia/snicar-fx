@@ -10,7 +10,6 @@ import numpy as np
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.atmosphere import AtmosphereColumn
 from snicarfx.core.components.solar import SolarIrradiance
-from snicarfx.core.session.session import Session
 from snicarfx.core.solvers.multi_stream_solver import solve_multi_stream_rt
 
 
