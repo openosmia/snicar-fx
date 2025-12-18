@@ -75,8 +75,6 @@ class AtmosphereColumn:
 
             self.set_atmospheric_properties_wout_aerosols()
 
-            self.apply_spectral_response_function(config)
-
     def set_atmospheric_profile(self):
         profile = pd.read_csv(
             f"{self.ROOT_PATH}/data/atmospheric_profiles/"
@@ -271,19 +269,3 @@ class AtmosphereColumn:
         self.legendre_moments = self.rayleigh_legendre_moments
 
         return None
-
-    def apply_spectral_response_function(self, config):
-
-        if config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
-
-            # interpolate SENTINEL-3-OLCI response on cross-section wavelengths
-            srf_on_crs_grid = np.vstack(
-                [
-                    np.interp(
-                        self.gas_cross_sections.wvl,
-                        config._wavelengths_srf[band_number, :],
-                        config._spectral_response_function[band_number, :],
-                    )
-                    for band_number in range(21)
-                ]
-            )

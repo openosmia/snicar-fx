@@ -109,28 +109,30 @@ class SolarIrradiance:
                 wavelength=config._wavelengths
             ).SSI.values  # W m-2 nm-1
 
+        # elif config.SOLVER.SPECTRAL_MODE == "band":
+        #     self.flx_slr = compute_bin_average(
+        #         self.irradiance_dataset.SSI, config._wavelengths
+        #     )
         elif config.SOLVER.SPECTRAL_MODE == "band":
-            self.flx_slr = compute_bin_average(
-                self.irradiance_dataset.SSI, config._wavelengths
-            )
+
             # interpolate SENTINEL-3-OLCI SRF on TOA irradiance wavelengths
-            # srf_on_toa_grid = np.vstack(
-            #     [
-            #         np.interp(
-            #             self.irradiance_dataset["Vacuum Wavelength"].values,
-            #             config._wavelengths_srf[band_number, :],
-            #             config._spectral_response_function[band_number, :],
-            #         )
-            #         for band_number in range(21)
-            #     ]
-            # )
+            srf_on_toa_grid = np.vstack(
+                [
+                    np.interp(
+                        self.irradiance_dataset["Vacuum Wavelength"].values,
+                        config._wavelengths_srf[band_number, :],
+                        config._spectral_response_function[band_number, :],
+                    )
+                    for band_number in range(21)
+                ]
+            )
 
-            # toa_irradiance = self.irradiance_dataset.SSI.values
+            toa_irradiance = self.irradiance_dataset.SSI.values
 
-            # # collapse TOA irradiance on S3 bands
-            # irradiance_on_bands = np.nansum(
-            #     (srf_on_toa_grid * toa_irradiance[None, :]), axis=1
-            # ) / (np.nansum(srf_on_toa_grid, axis=1))
+            # collapse TOA irradiance on S3 bands
+            self.flx_slr = np.nansum(
+                (srf_on_toa_grid * toa_irradiance[None, :]), axis=1
+            ) / (np.nansum(srf_on_toa_grid, axis=1))
 
         return None
 

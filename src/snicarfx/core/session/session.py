@@ -38,15 +38,13 @@ class Session:
         self.config._ROOT_PATH = self.get_package_root()
 
         # set spectral range arrays based on user inputs
-        if isinstance(self.config.SOLVER.SPECTRAL_RANGE, tuple):
+        if isinstance(self.config.SOLVER.SPECTRAL_RESOLUTION, tuple):
 
             self.config._wavelengths = np.arange(
-                self.config.SOLVER.SPECTRAL_RANGE[0],
-                self.config.SOLVER.SPECTRAL_RANGE[1],
-                self.config.SOLVER.SPECTRAL_RANGE[2],
+                *self.config.SOLVER.SPECTRAL_RESOLUTION
             )
 
-        elif self.config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
+        elif self.config.SOLVER.SPECTRAL_RESOLUTION == "SENTINEL-3-OLCI":
 
             ds = xr.open_dataset(
                 f"{self.config._ROOT_PATH}/data/satellite_spectral_responses/S3A_OL_SRF_20160713_mean_rsr.nc4"
@@ -75,7 +73,7 @@ class Session:
             )
 
             # create a global array at 1cm-1 resolution
-            if self.config.SOLVER.SPECTRAL_MODE == "monochromatic":
+            if self.config.SOLVER.CALCULATION_MODE == "monochromatic":
                 wavelength_array = (
                     1e7
                     / np.arange(
@@ -86,13 +84,13 @@ class Session:
                 )
 
             # create a global array at 0.5nm resolution
-            elif self.config.SOLVER.SPECTRAL_MODE == "band":
-                band_resolution = 1.0
-                wavelength_array = np.arange(
-                    min_global_wavelength,
-                    max_global_wavelength + band_resolution,
-                    band_resolution,
-                )
+            # elif self.config.SOLVER.SPECTRAL_MODE == "band":
+            #     band_resolution = 1.0
+            #     wavelength_array = np.arange(
+            #         min_global_wavelength,
+            #         max_global_wavelength + band_resolution,
+            #         band_resolution,
+            #     )
 
             mask = (
                 (wavelength_array[:, None] >= mins_per_band_wavelength)

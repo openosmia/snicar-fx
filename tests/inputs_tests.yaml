@@ -1,14 +1,14 @@
 SOLVER:
-  TYPE: "two-stream" # two-stream, multi-stream 
-  SPECTRAL_RANGE: [205, 5000, 10] # [start, end, step] or satellite instrument
-  SPECTRAL_MODE: "monochromatic"
+  TYPE: "two-stream" # two-stream, multi-stream
+  CALCULATION_MODE: "monochromatic"
+  SPECTRAL_RESOLUTION: [205, 5000, 10] # [start, end, step] or satellite instrument
   ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
 
 SOLAR:
   SZA: 50 
 
 ATMOSPHERE:
-  SKY_CONDITIONS: "clear" # clear, cloudy # UPD
+  SKY_CONDITIONS: "clear" # clear, cloudy
   ATMOSPHERIC_PROFILE_TYPE: "afglss"
 
 LAND:

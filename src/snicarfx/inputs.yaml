@@ -3,8 +3,8 @@
 
 SOLVER:
   TYPE: "two-stream" # two-stream, multi-stream
-  SPECTRAL_RANGE: [360, 1000, 10] # "SENTINEL-3-OLCI" # [start, end, step] or satellite instrument
-  SPECTRAL_MODE: "monochromatic"
+  CALCULATION_MODE: "monochromatic"
+  SPECTRAL_RESOLUTION: [360, 1000, 10] # "SENTINEL-3-OLCI" # [start, end, step] or satellite instrument
   ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling
 
 SOLAR:

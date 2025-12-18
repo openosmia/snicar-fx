@@ -35,7 +35,7 @@ class Solver(BaseModel):
     TYPE: Literal["two-stream", "multi-stream"]
 
     # spectral range (start, end, step) or satellite instrument
-    SPECTRAL_RANGE: Union[
+    SPECTRAL_RESOLUTION: Union[
         Tuple[
             confloat(ge=200, le=5000),
             confloat(ge=200, le=5000),
@@ -45,7 +45,7 @@ class Solver(BaseModel):
     ]
 
     # spectral mode
-    SPECTRAL_MODE: Literal["monochromatic", "band"]
+    CALCULATION_MODE: Literal["monochromatic", "band"]
 
     # explicit surface-atmosphere coupling
     ATMOSPHERE_COUPLING: bool

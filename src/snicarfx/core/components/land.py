@@ -75,7 +75,7 @@ class LandColumn:
         self.ROOT_PATH = config._ROOT_PATH
 
         self._wavelengths = config._wavelengths * 1e-9
-        self._spectral_mode = config.SOLVER.SPECTRAL_MODE
+        self._calculation_mode = config.SOLVER.CALCULATION_MODE
 
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
@@ -105,7 +105,7 @@ class LandColumn:
             self.set_lap_properties()
             self.update_column_ops_with_laps()
 
-        if self._spectral_mode == "band":
+        if self._calculation_mode == "band":
             self.compute_ops_on_bands()
 
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
@@ -122,7 +122,7 @@ class LandColumn:
             f"{self.ROOT_PATH}/data/fresnel_diffuse_coefficients.nc"
         )
 
-        if self._spectral_mode == "monochromatic":
+        if self._calculation_mode == "monochromatic":
             refidx_file = refidx_file.interp(wvl=self._wavelengths)
             fresnel_diffuse_file = fresnel_diffuse_file.interp(wvl=self._wavelengths)
 
@@ -264,8 +264,8 @@ class LandColumn:
         on computation mode.
         """
 
-        # interpolate on _wavelengths if monochromatic mode
-        if self._spectral_mode == "monochromatic":
+        # interpolate on wavelength array if monochromatic mode
+        if self._spectral_mode in ["monochromatic", "band"]:
             data = np.stack(
                 [
                     xr.open_dataset(
@@ -275,18 +275,6 @@ class LandColumn:
                         wvl=self._wavelengths, kwargs={"fill_value": "extrapolate"}
                     )[var_name]
                     .values
-                    for lap, cfg in self.laps.items()
-                ],
-                axis=0,
-            )
-
-        # just load if band mode (band averaging happens at the end)
-        elif self._spectral_mode == "band":
-            data = np.stack(
-                [
-                    xr.open_dataset(
-                        f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
-                    )[var_name].values
                     for lap, cfg in self.laps.items()
                 ],
                 axis=0,
@@ -352,5 +340,3 @@ class LandColumn:
 
     def compute_ops_on_bands(self):
         pass
-
-        # self.tau = compute_bin_average(
