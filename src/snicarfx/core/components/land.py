@@ -7,6 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 import xarray as xr
+from ..utils import compute_bin_average
 
 
 class LandColumn:
@@ -73,7 +74,8 @@ class LandColumn:
         # set module root path for data loading
         self.ROOT_PATH = config._ROOT_PATH
 
-        self.wavelengths = config._wavelengths * 1e-9
+        self._wavelengths = config._wavelengths * 1e-9
+        self._spectral_mode = config.SOLVER.SPECTRAL_MODE
 
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
@@ -84,7 +86,7 @@ class LandColumn:
         self.lwc = config.LAND.LWC
         self.ssa = config.LAND.SPECIFIC_SURFACE_AREA
 
-        self.nbr_wvl = len(self.wavelengths)
+        self.nbr_wvl = len(self._wavelengths)
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
 
         # ssps
@@ -103,6 +105,9 @@ class LandColumn:
             self.set_lap_properties()
             self.update_column_ops_with_laps()
 
+        if self._spectral_mode == "band":
+            self.compute_ops_on_bands()
+
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
         """
         Load and set refractive indices and diffuse Fresnel coefficients.
@@ -112,12 +117,14 @@ class LandColumn:
         to the model's spectral resolution.
         """
 
-        refidx_file = xr.open_dataset(
-            f"{self.ROOT_PATH}/data/refractive_indices.nc"
-        ).interp(wvl=self.wavelengths)
+        refidx_file = xr.open_dataset(f"{self.ROOT_PATH}/data/refractive_indices.nc")
         fresnel_diffuse_file = xr.open_dataset(
             f"{self.ROOT_PATH}/data/fresnel_diffuse_coefficients.nc"
-        ).interp(wvl=self.wavelengths)
+        )
+
+        if self._spectral_mode == "monochromatic":
+            refidx_file = refidx_file.interp(wvl=self._wavelengths)
+            fresnel_diffuse_file = fresnel_diffuse_file.interp(wvl=self._wavelengths)
 
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values
         self.ref_idx_im = refidx_file[str("im_" + self.rf_type)].values
@@ -158,7 +165,7 @@ class LandColumn:
                 abs_cff = (
                     4
                     * np.pi
-                    / (self.wavelengths)
+                    / (self._wavelengths)
                     / self.density[lyr]
                     * (
                         vlm_frac_ice * self.ref_idx_im
@@ -204,7 +211,7 @@ class LandColumn:
                     4
                     * np.pi
                     * k_eq
-                    / (self.wavelengths)
+                    / (self._wavelengths)
                     * 3
                     / 2
                     * 4
@@ -251,9 +258,45 @@ class LandColumn:
                 - f[None, lyr, :]
             ) / (1 - f[None, lyr, :])
 
+    def load_lap_properties(self, var_name):
+        """
+        Load optical properties of light-absorbing particles (LAPs) depending
+        on computation mode.
+        """
+
+        # interpolate on _wavelengths if monochromatic mode
+        if self._spectral_mode == "monochromatic":
+            data = np.stack(
+                [
+                    xr.open_dataset(
+                        f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
+                    )
+                    .interp(
+                        wvl=self._wavelengths, kwargs={"fill_value": "extrapolate"}
+                    )[var_name]
+                    .values
+                    for lap, cfg in self.laps.items()
+                ],
+                axis=0,
+            )
+
+        # just load if band mode (band averaging happens at the end)
+        elif self._spectral_mode == "band":
+            data = np.stack(
+                [
+                    xr.open_dataset(
+                        f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
+                    )[var_name].values
+                    for lap, cfg in self.laps.items()
+                ],
+                axis=0,
+            )
+
+        return data
+
     def set_lap_properties(self):
         """
-        Load and set optical properties of light-absorbing particles (LAPs).
+        Set optical properties of light-absorbing particles (LAPs).
 
         This method sets the properties of each LAP defined in the input
         configuration, converting their concentrations to consistent units,
@@ -264,47 +307,9 @@ class LandColumn:
             np.array([obj.CONC for obj in self.laps.values()]) * 1e-9
         ).T
 
-        self.lap_ss_alb = np.stack(
-            [
-                xr.open_dataset(
-                    f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
-                )
-                .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
-                    "ss_alb"
-                ]
-                .values
-                for lap, cfg in self.laps.items()
-            ],
-            axis=0,
-        )
-
-        self.lap_asm_prm = np.stack(
-            [
-                xr.open_dataset(
-                    f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
-                )
-                .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
-                    "asm_prm"
-                ]
-                .values
-                for lap, cfg in self.laps.items()
-            ],
-            axis=0,
-        )
-
-        self.lap_ext_cff = np.stack(
-            [
-                xr.open_dataset(
-                    f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
-                )
-                .interp(wvl=self.wavelengths, kwargs={"fill_value": "extrapolate"})[
-                    "ext_cff_mss"
-                ]
-                .values
-                for lap, cfg in self.laps.items()
-            ],
-            axis=0,
-        )
+        self.lap_ss_alb = self.load_lap_properties("ss_alb")
+        self.lap_asm_prm = self.load_lap_properties("asm_prm")
+        self.lap_ext_cff = self.load_lap_properties("ext_cff_mss")
 
     def update_column_ops_with_laps(self):
         """
@@ -344,3 +349,8 @@ class LandColumn:
         self.asm_prm = (1 / (self.tau * (self.ss_alb))) * (
             asm_prm_all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
+
+    def compute_ops_on_bands(self):
+        pass
+
+        # self.tau = compute_bin_average(

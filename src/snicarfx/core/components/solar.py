@@ -132,18 +132,6 @@ class SolarIrradiance:
             #     (srf_on_toa_grid * toa_irradiance[None, :]), axis=1
             # ) / (np.nansum(srf_on_toa_grid, axis=1))
 
-            # group into wavelength bins as per user-defined wvl grid
-            # grouped = self.irradiance_dataset.SSI.groupby_bins(
-            #     "wavelength", config._wavelengths, right=False
-            # )
-
-            # # trapezoidal integration to get the mean flux per bin
-            # # TODO: will have to be weighted by SRF somehow
-            # self.flx_slr = grouped.apply(
-            #     lambda x: x.integrate("wavelength")
-            #     / (x.wavelength.max() - x.wavelength.min())
-            # )
-
         return None
 
     def set_surface_irradiance(self, config):
@@ -171,19 +159,6 @@ class SolarIrradiance:
 
         elif config.SOLVER.SPECTRAL_MODE == "band":
             ds_sza = compute_bin_average(ds_sza, config._wavelengths)
-
-            # # group into wavelength bins as per user-defined wvl grid
-            # grouped = ds_sza.groupby_bins(
-            #     "wavelength", config._wavelengths, right=False
-            # )
-
-            # # trapezoidal integration to get the mean flux per bin
-            # # TODO: will have to be weighted by SRF somehow
-            # ds_sza = grouped.apply(
-            #     lambda x: x.integrate("wavelength")
-            #     / (x.wavelength.max() - x.wavelength.min())
-            # )
-            # ds_sza = ds_sza.rename({"wavelength_bins": "wavelength"})
 
         irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"]
         irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"]

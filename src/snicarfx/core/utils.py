@@ -9,7 +9,7 @@ import xarray as xr
 
 
 def compute_bin_average(
-    ds: xr.DataArray | xr.Dataset, wavelength_bins, weights: xr.DataArray = None
+    ds: xr.DataArray | xr.Dataset, wavelength_bins
 ) -> xr.DataArray | xr.Dataset:
     """
     Bin a high-resolution DataArray or Dataset along 'wavelength'
@@ -20,20 +20,10 @@ def compute_bin_average(
     # group into bins
     grouped = ds.groupby_bins("wavelength", wavelength_bins, right=False)
 
-    # compute mean per bin
-    if weights is not None:
+    def simple_mean(x):
+        return x.integrate("wavelength") / (x.wavelength.max() - x.wavelength.min())
 
-        def weighted_mean(x):
-            w = weights.sel(wavelength=x.wavelength)
-            return (x * w).integrate("wavelength") / w.integrate("wavelength")
-
-        resampled = grouped.apply(weighted_mean)
-    else:
-
-        def simple_mean(x):
-            return x.integrate("wavelength") / (x.wavelength.max() - x.wavelength.min())
-
-        resampled = grouped.apply(simple_mean)
+    resampled = grouped.apply(simple_mean)
 
     # rename dimension to 'wavelength'
     # resampled = resampled.rename({"wavelength_bins": "wavelength"})
