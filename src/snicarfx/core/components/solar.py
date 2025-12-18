@@ -7,6 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 import xarray as xr
+from ..utils import compute_bin_average
 
 
 class SolarIrradiance:
@@ -45,8 +46,6 @@ class SolarIrradiance:
         # set module root path for data loading
         self.ROOT_PATH = config._ROOT_PATH
 
-        self.wavelengths = config._wavelengths
-
         self.sky_conditions = config.ATMOSPHERE.SKY_CONDITIONS
 
         self.sza = config.SOLAR.SZA
@@ -60,7 +59,7 @@ class SolarIrradiance:
 
         elif not config.SOLVER.ATMOSPHERE_COUPLING:
             self.irradiance_dataset = self.load_surface_irradiance()
-            self.set_surface_irradiance()
+            self.set_surface_irradiance(config)
 
     def load_surface_irradiance(self):
         """
@@ -104,9 +103,16 @@ class SolarIrradiance:
             "Vacuum Wavelength"
         ]
 
-        # 1: if satellite bands
-        if config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
+        if config.SOLVER.SPECTRAL_MODE == "monochromatic":
 
+            self.flx_slr = self.irradiance_dataset.interp(
+                wavelength=config._wavelengths
+            ).SSI.values  # W m-2 nm-1
+
+        elif config.SOLVER.SPECTRAL_MODE == "band":
+            self.flx_slr = compute_bin_average(
+                self.irradiance_dataset.SSI, config._wavelengths
+            )
             # interpolate SENTINEL-3-OLCI SRF on TOA irradiance wavelengths
             # srf_on_toa_grid = np.vstack(
             #     [
@@ -126,27 +132,21 @@ class SolarIrradiance:
             #     (srf_on_toa_grid * toa_irradiance[None, :]), axis=1
             # ) / (np.nansum(srf_on_toa_grid, axis=1))
 
-            self.flx_slr = self.irradiance_dataset.interp(
-                wavelength=config._wavelengths
-            ).SSI.values  # irradiance_on_bands  # W m-2 nm-1
-
-        else:
-
-            # # group into wavelength bins as per user-defined wvl grid
+            # group into wavelength bins as per user-defined wvl grid
             # grouped = self.irradiance_dataset.SSI.groupby_bins(
-            #     "wavelength", config._wavelengths * 1e9, right=False
+            #     "wavelength", config._wavelengths, right=False
             # )
 
-            # # trapezoidal integration to get the flux in the bands
-            # self.flx_slr = grouped.apply(lambda x: x.integrate("wavelength"))
-
-            self.flx_slr = self.irradiance_dataset.interp(
-                wavelength=config._wavelengths * 1e-9
-            ).SSI.values
+            # # trapezoidal integration to get the mean flux per bin
+            # # TODO: will have to be weighted by SRF somehow
+            # self.flx_slr = grouped.apply(
+            #     lambda x: x.integrate("wavelength")
+            #     / (x.wavelength.max() - x.wavelength.min())
+            # )
 
         return None
 
-    def set_surface_irradiance(self):
+    def set_surface_irradiance(self, config):
         """
         Compute the solar spectral irradiance at the surface.
 
@@ -166,15 +166,27 @@ class SolarIrradiance:
         # index irradiance dataset on given SZA
         ds_sza = self.irradiance_dataset.sel(SZA=self.sza)
 
-        # wvl in these files are in um --> convert wvl from m to um
-        ds_sza_interpolated = ds_sza.interp(wavelength=self.wavelengths)
+        if config.SOLVER.SPECTRAL_MODE == "monochromatic":
+            ds_sza = ds_sza.interp(wavelength=config._wavelengths)
 
-        irradiance_direct = ds_sza_interpolated.sel(irradiance_type="direct")[
-            "irradiance"
-        ]
-        irradiance_diffuse = ds_sza_interpolated.sel(irradiance_type="diffuse")[
-            "irradiance"
-        ]
+        elif config.SOLVER.SPECTRAL_MODE == "band":
+            ds_sza = compute_bin_average(ds_sza, config._wavelengths)
+
+            # # group into wavelength bins as per user-defined wvl grid
+            # grouped = ds_sza.groupby_bins(
+            #     "wavelength", config._wavelengths, right=False
+            # )
+
+            # # trapezoidal integration to get the mean flux per bin
+            # # TODO: will have to be weighted by SRF somehow
+            # ds_sza = grouped.apply(
+            #     lambda x: x.integrate("wavelength")
+            #     / (x.wavelength.max() - x.wavelength.min())
+            # )
+            # ds_sza = ds_sza.rename({"wavelength_bins": "wavelength"})
+
+        irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"]
+        irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"]
 
         # sum over wavelengths to get total
         irradiance_total_sum = (irradiance_direct + irradiance_diffuse).sum(

@@ -39,6 +39,7 @@ class Session:
 
         # set spectral range arrays based on user inputs
         if isinstance(self.config.SOLVER.SPECTRAL_RANGE, tuple):
+
             self.config._wavelengths = np.arange(
                 self.config.SOLVER.SPECTRAL_RANGE[0],
                 self.config.SOLVER.SPECTRAL_RANGE[1],
@@ -58,37 +59,47 @@ class Session:
             )
             self.config._wavelengths_ctr = ds.nominal_centre_wavelength.values
 
+            # create a global wavelength array
+            mins_per_band_wavelength = np.nanmin(
+                ds.mean_spectral_response_function_wavelength.values, axis=1
+            )
+            maxs_per_band_wavelength = np.nanmax(
+                ds.mean_spectral_response_function_wavelength.values, axis=1
+            )
+
+            min_global_wavelength = np.nanmin(
+                ds.mean_spectral_response_function_wavelength.values
+            )
+            max_global_wavelength = np.nanmax(
+                ds.mean_spectral_response_function_wavelength.values
+            )
+
+            # create a global array at 1cm-1 resolution
             if self.config.SOLVER.SPECTRAL_MODE == "monochromatic":
-
-                mins_per_band_wavelength = np.nanmin(
-                    ds.mean_spectral_response_function_wavelength.values, axis=1
-                )
-                maxs_per_band_wavelength = np.nanmax(
-                    ds.mean_spectral_response_function_wavelength.values, axis=1
-                )
-
-                min_global_wavelength = (
-                    np.nanmin(ds.mean_spectral_response_function_wavelength.values)
-                    * 1e-7
-                )
-                max_global_wavelength = (
-                    np.nanmax(ds.mean_spectral_response_function_wavelength.values)
-                    * 1e-7
-                )
-
                 wavelength_array = (
                     1e7
                     / np.arange(
-                        1 / max_global_wavelength, 1 / min_global_wavelength, 1
+                        1 / (max_global_wavelength * 1e-7),
+                        1 / (min_global_wavelength * 1e-7),
+                        1,
                     )[::-1]
                 )
 
-                mask = (
-                    (wavelength_array[:, None] >= mins_per_band_wavelength)
-                    & (wavelength_array[:, None] <= maxs_per_band_wavelength)
-                ).any(axis=1)
+            # create a global array at 0.5nm resolution
+            elif self.config.SOLVER.SPECTRAL_MODE == "band":
+                band_resolution = 1.0
+                wavelength_array = np.arange(
+                    min_global_wavelength,
+                    max_global_wavelength + band_resolution,
+                    band_resolution,
+                )
 
-                self.config._wavelengths = wavelength_array[mask]
+            mask = (
+                (wavelength_array[:, None] >= mins_per_band_wavelength)
+                & (wavelength_array[:, None] <= maxs_per_band_wavelength)
+            ).any(axis=1)
+
+            self.config._wavelengths = wavelength_array[mask]
 
         # build components
         self.land_column = LandColumn(self.config)
