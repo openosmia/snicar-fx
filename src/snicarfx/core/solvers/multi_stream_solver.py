@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.special import legendre
 
+
 @dataclass
 class _MultiStreamSolverResults:
     """
@@ -218,15 +219,14 @@ class _MultiStreamSolver:
         # equation 10 L&W2013 [matrix H = (alpha - beta) * (alpha + beta)]
         # moveaxis required as matmul uses the last two axes
         hh = np.matmul(np.moveaxis(pp - pm, -1, 0), np.moveaxis(pp + pm, -1, 0))
-        
+
         # get eigen values & vectors
         # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
-        
+
         # take the square roots !!!!! must be fixed
         eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
         eig_value = np.where(eig_vals > 1e-12, np.sqrt(eig_vals), 1e-12)
-
 
         # scale eigenvectors by square roots of eigen values
         eig_value_diag = np.eye(self.n_angles)[None, :, :] * eig_value[:, None, :]
@@ -432,22 +432,11 @@ class _MultiStreamSolver:
 
         """
 
-        # Angles Gaussiance integration
-        # aads.cos_angle
-
-        # Weights Gaussian integration
-        # aads.cos_weight
-
-        # directional reflectance at the top of the atmosphere
-        directional_reflectance_top = (self.s_level_rad_up[:, 0, :] * np.pi) / (
-            self.solar_irradiance * self.cos_sun
-        )
-
         results = _MultiStreamSolverResults(
             albedo=self.albedo,
             cos_angle=self.cos_angle,
             cos_weight=self.cos_weight,
-            directional_reflectance_top=directional_reflectance_top,
+            directional_reflectance_top=self.directional_reflectance_top,
         )
 
         return results
@@ -592,6 +581,11 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
         )
         / (aads.solar_irradiance[None, :] * aads.cos_sun)  # project solar beam
     ).flatten()
+
+    # directional reflectance at the top of the atmosphere
+    aads.directional_reflectance_top = (aads.s_level_rad_up[:, 0, :] * np.pi) / (
+        aads.solar_irradiance * aads.cos_sun
+    )
 
     outputs = aads.get_outputs()
 

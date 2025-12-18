@@ -201,8 +201,9 @@ class Config(BaseModel):
     # Private runtime-only attribute
     _wavelengths: np.ndarray | None = PrivateAttr(default=None)
     _wavelengths_srf: np.ndarray | None = PrivateAttr(default=None)
-    _ROOT_PATH: pathlib.Path | None = PrivateAttr(default=None)
+    _wavelengths_ctr: np.ndarray | None = PrivateAttr(default=None)
     _spectral_response_function: np.ndarray | None = PrivateAttr(default=None)
+    _ROOT_PATH: pathlib.Path | None = PrivateAttr(default=None)
 
     model_config = {"extra": "forbid"}
 

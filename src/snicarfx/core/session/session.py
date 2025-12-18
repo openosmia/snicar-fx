@@ -56,6 +56,7 @@ class Session:
             self.config._spectral_response_function = (
                 ds.mean_spectral_response_function.values
             )
+            self.config._wavelengths_ctr = ds.nominal_centre_wavelength.values
 
             if self.config.SOLVER.SPECTRAL_MODE == "monochromatic":
 
@@ -230,9 +231,13 @@ class Session:
                 self.outputs = self.two_stream_results_to_xarray()
 
         elif self.config.SOLVER.TYPE == "multi-stream":
+
             self.outputs = solve_multi_stream_rt(
                 self.land_column, self.atmosphere_column, self.solar_irradiance
             )
+
+            if self.config.SOLVER.SPECTRAL_RANGE == "SENTINEL-3-OLCI":
+                self.apply_spectral_response_function()
 
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
@@ -291,13 +296,6 @@ class Session:
         session state metadata.
         """
 
-        # build wavelength array here (as it is not needed in the solver)
-        wavelengths = np.arange(
-            self.config.SOLVER.SPECTRAL_RANGE[0],
-            self.config.SOLVER.SPECTRAL_RANGE[1],
-            self.config.SOLVER.SPECTRAL_RANGE[2],
-        )
-
         attrs = {
             "model_name": "snicar-fx",
             "model_version": version("snicarfx"),
@@ -323,7 +321,7 @@ class Session:
                 ),
             },
             coords={
-                "wavelength": wavelengths,
+                "wavelength": self.config._wavelengths,
                 "angle": np.arange(len(self.outputs.cos_weight)),
             },
         )
@@ -332,3 +330,33 @@ class Session:
         ds.attrs.update(attrs)
 
         return ds
+
+    def apply_spectral_response_function(self) -> None:
+
+        # interpolate SENTINEL-3-OLCI SRF on monochromatic grid
+        srf_on_grid = np.vstack(
+            [
+                np.interp(
+                    self.config._wavelengths,
+                    self.config._wavelengths_srf[band_number, :],
+                    self.config._spectral_response_function[band_number, :],
+                )
+                for band_number in range(21)
+            ]
+        )
+
+        self.outputs.directional_reflectance_top = (
+            np.nansum(
+                self.outputs.directional_reflectance_top[:, None, :]
+                * srf_on_grid[None, :, :],
+                axis=-1,
+            )
+            / np.nansum(srf_on_grid, axis=1)[None, :]
+        )
+
+        self.outputs.albedo = np.nansum(
+            self.outputs.albedo[None, :] * srf_on_grid,
+            axis=-1,
+        ) / np.nansum(srf_on_grid, axis=1)
+
+        self.config._wavelengths = self.config._wavelengths_ctr
