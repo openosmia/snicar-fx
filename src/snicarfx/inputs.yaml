@@ -3,9 +3,12 @@
 
 SOLVER:
   TYPE: "two-stream" # two-stream, multi-stream
-  CALCULATION_MODE: "monochromatic"
-  SPECTRAL_RESOLUTION: [360, 1000, 10] # "SENTINEL-3-OLCI" # [start, end, step] or satellite instrument
-  ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling
+  ATMOSPHERE_COUPLING: false # explicit surface-atmosphere coupling
+
+SPECTRAL:
+  MODE: "monochromatic" # band | monochromatic
+  RESOLUTION: [360, 1000, 10] # [start, end, step] or satellite instrument
+  BAND_METHOD: null # srf-integration | center-wavelength | chandrasekhar-mean | 
 
 SOLAR:
   SZA: 50

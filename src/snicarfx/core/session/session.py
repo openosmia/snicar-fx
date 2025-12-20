@@ -84,7 +84,16 @@ class Session:
                 )
 
             # create a global array at 0.5nm resolution
-            # elif self.config.SOLVER.SPECTRAL_MODE == "band":
+            elif self.config.SOLVER.SPECTRAL_MODE == "band":
+                band_resolution = 1.0
+                wavelength_array = np.arange(
+                    min_global_wavelength,
+                    max_global_wavelength + band_resolution,
+                    band_resolution,
+                )
+
+            # create a global array at 0.5nm resolution
+            # elif self.config.SOLVER.SPECTRAL_MODE == "binned":
             #     band_resolution = 1.0
             #     wavelength_array = np.arange(
             #         min_global_wavelength,
