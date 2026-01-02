@@ -82,7 +82,7 @@ class Spectral(BaseModel):
 
     # Computation method for band mode
     BAND_METHOD: (
-        Literal["srf-integration", "center-wavelength", "chandrasekhar-mean"] | None
+        Literal["srf-integration", "snicar-default", "chandrasekhar-mean"] | None
     ) = Field(
         description="The computation method to apply in case MODE is band. srf-integration solves at a high 1cm-1 resolution within each band before being integrated using the Spectral Response Functions (SRF) of the specified satellite platform. center-wavelength only solves on the nominal center wavelength of the satellite platform. chandrasekhar-mean computes mean optical properties within sub-bands of each bands before solve."
     )
@@ -262,8 +262,8 @@ class Config(BaseModel):
     # Private runtime-only attribute
     _wavelengths: np.ndarray | None = PrivateAttr(default=None)
     _wavelengths_srf: np.ndarray | None = PrivateAttr(default=None)
-    _wavelengths_ctr: np.ndarray | None = PrivateAttr(default=None)
     _spectral_response_function: np.ndarray | None = PrivateAttr(default=None)
+    _band_ranges: np.ndarray | None = PrivateAttr(default=None)
     _ROOT_PATH: pathlib.Path | None = PrivateAttr(default=None)
 
     model_config = {"extra": "forbid"}

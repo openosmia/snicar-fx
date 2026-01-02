@@ -38,3 +38,116 @@ def compute_bin_average(
         return xr.Dataset(out_vars, coords=coords, attrs=ds.attrs)
     else:
         raise TypeError("Input must be an xarray DataArray or Dataset")
+
+
+def compute_band_average(
+    ds: xr.DataArray | xr.Dataset, band_ranges: np.ndarray, wavelength_dim="nwvl"
+):
+
+    band_limits = np.asarray(band_ranges)
+    wl_min = band_ranges[:, 0]
+    wl_max = band_ranges[:, 1]
+    wvl_band = band_ranges[:, 2]
+
+    nband = band_ranges.shape[0]
+
+    def _bandmean_da(da: xr.DataArray) -> xr.DataArray:
+        band_means = []
+        for lo, hi in zip(wl_min, wl_max):
+            da_sel = da.sel({wavelength_dim: slice(lo, hi)})
+            band_mean = da_sel.mean(dim=wavelength_dim)
+            band_means.append(band_mean)
+
+        out = xr.concat(band_means, dim=wavelength_dim)
+        out = out.assign_coords({wavelength_dim: wvl_band})
+
+        # Preserve the original order of dimensions
+        # Move the wavelength_dim to its original axis
+        original_axes = list(da.dims)
+        if wavelength_dim in original_axes:
+            axis = original_axes.index(wavelength_dim)
+            out = out.transpose(*original_axes)
+        return out
+
+    if isinstance(ds, xr.DataArray):
+        return _bandmean_da(ds)
+
+    elif isinstance(ds, xr.Dataset):
+        out_vars = {}
+        for name, da in ds.data_vars.items():
+            if wavelength_dim in da.dims:
+                out_vars[name] = _bandmean_da(da)
+            else:
+                out_vars[name] = da
+
+        coords = {k: v for k, v in ds.coords.items() if k != wavelength_dim}
+        coords[wavelength_dim] = wvl_band
+
+        return xr.Dataset(out_vars, coords=coords, attrs=ds.attrs)
+
+    else:
+        raise TypeError("Input must be an xarray DataArray or Dataset")
+
+
+def compute_band_average_old(
+    ds: xr.DataArray | xr.Dataset, band_ranges: np.ndarray, wavelength_dim="nwvl"
+):
+    """
+    Compute band-averaged values using integration along the wavelength dimension
+    (trapezoidal rule), for irregular wavelength grids.
+
+    band_ranges: np.ndarray with shape (nband, 3)
+        Columns: [wl_min, wl_max, wl_center]
+    """
+    band_limits = np.asarray(band_ranges)
+    wl_min = band_limits[:, 0]
+    wl_max = band_limits[:, 1]
+    wvl_band = band_limits[:, 2]
+
+    nband = band_ranges.shape[0]
+
+    def _bandmean_da(da: xr.DataArray) -> xr.DataArray:
+        band_means = []
+
+        for lo, hi in zip(wl_min, wl_max):
+            da_sel = da.sel({wavelength_dim: slice(lo, hi)})
+            wvl_sel = da_sel[wavelength_dim]
+
+            axis = da_sel.get_axis_num(wavelength_dim)
+            integrated = np.trapz(da_sel.values, x=wvl_sel.values, axis=axis)
+
+            band_mean = integrated / float(hi - lo)
+
+            dims = [d for d in da_sel.dims if d != wavelength_dim]
+            coords = {d: da_sel[d] for d in dims}
+            band_mean_da = xr.DataArray(band_mean, dims=dims, coords=coords)
+
+            band_means.append(band_mean_da)
+
+        out = xr.concat(band_means, dim=wavelength_dim)
+        out = out.assign_coords({wavelength_dim: wvl_band})
+
+        original_axes = list(da.dims)
+        if wavelength_dim in original_axes:
+            out = out.transpose(*original_axes)
+
+        return out
+
+    if isinstance(ds, xr.DataArray):
+        return _bandmean_da(ds)
+
+    elif isinstance(ds, xr.Dataset):
+        out_vars = {}
+        for name, da in ds.data_vars.items():
+            if wavelength_dim in da.dims:
+                out_vars[name] = _bandmean_da(da)
+            else:
+                out_vars[name] = da
+
+        coords = {k: v for k, v in ds.coords.items() if k != wavelength_dim}
+        coords[wavelength_dim] = wvl_band
+
+        return xr.Dataset(out_vars, coords=coords, attrs=ds.attrs)
+
+    else:
+        raise TypeError("Input must be an xarray DataArray or Dataset")

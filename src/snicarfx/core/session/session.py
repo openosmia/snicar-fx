@@ -40,33 +40,56 @@ class Session:
         # set spectral range arrays based on user inputs
         if isinstance(self.config.SPECTRAL.RESOLUTION, tuple):
 
-            self.config._wavelengths = np.arange(*self.config.SPECTRAL.RESOLUTION)
+            wavelengths = np.arange(*self.config.SPECTRAL.RESOLUTION)
 
-        if self.config.SPECTRAL.BAND_METHOD in [
-            "srf-integration",
-            "chandrasekhar-mean",
-        ]:
+            if self.config.SPECTRAL.MODE == "monochromatic":
 
-            if self.config.SPECTRAL.RESOLUTION == "SENTINEL-3-OLCI":
+                self.config._wavelengths = wavelengths
 
-                ds = xr.open_dataset(
-                    f"{self.config._ROOT_PATH}/data/satellite_spectral_responses/S3A_OL_SRF_20160713_mean_rsr.nc4"
-                )
-                self.config._wavelengths_srf = (
-                    ds.mean_spectral_response_function_wavelength.values
-                )
-                self.config._spectral_response_function = (
-                    ds.mean_spectral_response_function.values
-                )
-                self.config._wavelengths_ctr = ds.nominal_centre_wavelength.values
+            elif self.config.SPECTRAL.MODE == "band":
 
-                # create a global wavelength array
-                mins_per_band_wavelength = np.nanmin(
-                    ds.mean_spectral_response_function_wavelength.values, axis=1
+                self.config._wavelengths = wavelengths[:-1] + np.diff(wavelengths) / 2
+
+                self.config._band_ranges = np.column_stack(
+                    (
+                        wavelengths[:-1],
+                        wavelengths[1:],
+                        self.config._wavelengths,
+                    )
                 )
-                maxs_per_band_wavelength = np.nanmax(
-                    ds.mean_spectral_response_function_wavelength.values, axis=1
+
+        if self.config.SPECTRAL.RESOLUTION == "SENTINEL-3-OLCI":
+
+            ds = xr.open_dataset(
+                f"{self.config._ROOT_PATH}/data/satellite_spectral_responses/S3A_OL_SRF_20160713_mean_rsr.nc4"
+            )
+            self.config._wavelengths_srf = (
+                ds.mean_spectral_response_function_wavelength.values
+            )
+            self.config._spectral_response_function = (
+                ds.mean_spectral_response_function.values
+            )
+
+            # create a global wavelength array
+            mins_per_band_wavelength = np.nanmin(
+                ds.mean_spectral_response_function_wavelength.values, axis=1
+            )
+            maxs_per_band_wavelength = np.nanmax(
+                ds.mean_spectral_response_function_wavelength.values, axis=1
+            )
+
+            self.config._band_ranges = np.column_stack(
+                (
+                    mins_per_band_wavelength,
+                    maxs_per_band_wavelength,
+                    ds.nominal_centre_wavelength.values,
                 )
+            )
+
+            if self.config.SPECTRAL.BAND_METHOD in [
+                "srf-integration",
+                "chandrasekhar-mean",
+            ]:
 
                 min_global_wavelength = np.nanmin(
                     ds.mean_spectral_response_function_wavelength.values
@@ -86,21 +109,24 @@ class Session:
                     )[::-1]
                 )
 
-            # create a global array at 0.5nm resolution
-            # elif self.config.SOLVER.SPECTRAL_MODE == "binned":
-            #     band_resolution = 1.0
-            #     wavelength_array = np.arange(
-            #         min_global_wavelength,
-            #         max_global_wavelength + band_resolution,
-            #         band_resolution,
-            #     )
+                mask = (
+                    (wavelength_array[:, None] >= mins_per_band_wavelength)
+                    & (wavelength_array[:, None] <= maxs_per_band_wavelength)
+                ).any(axis=1)
 
-            mask = (
-                (wavelength_array[:, None] >= mins_per_band_wavelength)
-                & (wavelength_array[:, None] <= maxs_per_band_wavelength)
-            ).any(axis=1)
+                self.config._wavelengths = wavelength_array[mask]
 
-            self.config._wavelengths = wavelength_array[mask]
+            elif self.config.SPECTRAL.BAND_METHOD == "snicar-default":
+                self.config._wavelengths = ds.nominal_centre_wavelength.values
+
+        # create a global array at 0.5nm resolution
+        # elif self.config.SOLVER.SPECTRAL_MODE == "binned":
+        #     band_resolution = 1.0
+        #     wavelength_array = np.arange(
+        #         min_global_wavelength,
+        #         max_global_wavelength + band_resolution,
+        #         band_resolution,
+        #     )
 
         # build components
         self.land_column = LandColumn(self.config)
@@ -248,8 +274,8 @@ class Session:
                 self.land_column, self.atmosphere_column, self.solar_irradiance
             )
 
-            # if self.config.SPECTRAL.BAND_METHOD == "srf-integration":
-            #     self.apply_spectral_response_function()
+            if self.config.SPECTRAL.BAND_METHOD == "srf-integration":
+                self.apply_spectral_response_function()
 
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
@@ -373,4 +399,4 @@ class Session:
 
         # overwrite high-resolution wavelength array (used for
         # computation) with center wavelengths
-        self.config._wavelengths = self.config._wavelengths_ctr
+        self.config._wavelengths = self.config._band_ranges[:, -1]

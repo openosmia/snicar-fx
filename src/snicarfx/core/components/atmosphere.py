@@ -8,6 +8,7 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 import pandas as pd
 import xarray as xr
+from ..utils import compute_bin_average, compute_band_average
 
 
 class AtmosphereColumn:
@@ -69,7 +70,7 @@ class AtmosphereColumn:
             self.compute_rayleigh_scattering()
 
             # load gas cross sections
-            self.load_gas_absorption_cross_sections()
+            self.load_gas_absorption_cross_sections(config)
 
             self.compute_gas_optical_thickness()
 
@@ -201,7 +202,7 @@ class AtmosphereColumn:
 
         return None
 
-    def load_gas_absorption_cross_sections(self):
+    def load_gas_absorption_cross_sections(self, config):
 
         # get absorption in (c)m2 / molecule for each gas
         self.gas_cross_sections = xr.open_dataset(
@@ -209,7 +210,21 @@ class AtmosphereColumn:
         )
         self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
 
-        self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self.wavelengths)
+        if (
+            config.SPECTRAL.MODE == "monochromatic"
+            or config.SPECTRAL.BAND_METHOD == "srf-integration"
+        ):
+            self.gas_cross_sections = self.gas_cross_sections.interp(
+                nwvl=self.wavelengths
+            )
+            print(self.gas_cross_sections)
+
+        elif config.SPECTRAL.BAND_METHOD == "snicar-default":
+            self.gas_cross_sections = compute_band_average(
+                self.gas_cross_sections, config._band_ranges, wavelength_dim="nwvl"
+            )
+
+            print(self.gas_cross_sections)
 
         return None
 
