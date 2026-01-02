@@ -75,7 +75,7 @@ class LandColumn:
         self.ROOT_PATH = config._ROOT_PATH
 
         self._wavelengths = config._wavelengths * 1e-9
-        self._calculation_mode = config.SOLVER.CALCULATION_MODE
+        # self._calculation_mode = config.SOLVER.CALCULATION_MODE
 
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
@@ -105,8 +105,8 @@ class LandColumn:
             self.set_lap_properties()
             self.update_column_ops_with_laps()
 
-        if self._calculation_mode == "band":
-            self.compute_ops_on_bands()
+        # if self._calculation_mode == "band":
+        #     self.compute_ops_on_bands()
 
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
         """
@@ -122,9 +122,8 @@ class LandColumn:
             f"{self.ROOT_PATH}/data/fresnel_diffuse_coefficients.nc"
         )
 
-        if self._calculation_mode == "monochromatic":
-            refidx_file = refidx_file.interp(wvl=self._wavelengths)
-            fresnel_diffuse_file = fresnel_diffuse_file.interp(wvl=self._wavelengths)
+        refidx_file = refidx_file.interp(wvl=self._wavelengths)
+        fresnel_diffuse_file = fresnel_diffuse_file.interp(wvl=self._wavelengths)
 
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values
         self.ref_idx_im = refidx_file[str("im_" + self.rf_type)].values
@@ -264,21 +263,19 @@ class LandColumn:
         on computation mode.
         """
 
-        # interpolate on wavelength array if monochromatic mode
-        if self._spectral_mode in ["monochromatic", "band"]:
-            data = np.stack(
-                [
-                    xr.open_dataset(
-                        f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
-                    )
-                    .interp(
-                        wvl=self._wavelengths, kwargs={"fill_value": "extrapolate"}
-                    )[var_name]
-                    .values
-                    for lap, cfg in self.laps.items()
-                ],
-                axis=0,
-            )
+        data = np.stack(
+            [
+                xr.open_dataset(
+                    f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
+                )
+                .interp(wvl=self._wavelengths, kwargs={"fill_value": "extrapolate"})[
+                    var_name
+                ]
+                .values
+                for lap, cfg in self.laps.items()
+            ],
+            axis=0,
+        )
 
         return data
 
@@ -338,5 +335,5 @@ class LandColumn:
             asm_prm_all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
 
-    def compute_ops_on_bands(self):
-        pass
+    # def compute_ops_on_bands(self):
+    #     pass

@@ -247,15 +247,8 @@ class AtmosphereColumn:
             total_absorption * self.atmosphere_profile["dz(km)"].values[:, None] * 1e5
         )
 
-        # hapi2libis_data = xr.open_dataset(
-        #     f"{self.ROOT_PATH}/data/atmospheric_profiles/uvspec_afglss_test_file.nc"
-        # )
-        # hapi2libis_data["nwvl"] = hapi2libis_data.wvl
-        # self.tau_gases = hapi2libis_data["tau"].interp(nwvl=self.wavelengths).values
-
         # if z = 1, remove layer 0 ie index at 1
         # if z = 2, remove layer 0+1 ie index at 2, etc
-
         self.tau_gases = self.tau_gases[int(self.surface_elevation) :, :]
 
         return None

@@ -103,7 +103,10 @@ class SolarIrradiance:
             "Vacuum Wavelength"
         ]
 
-        if config.SOLVER.SPECTRAL_MODE == "monochromatic":
+        if (
+            config.SPECTRAL.MODE == "monochromatic"
+            or config.SPECTRAL.BAND_METHOD == "srf-integration"
+        ):
 
             self.flx_slr = self.irradiance_dataset.interp(
                 wavelength=config._wavelengths
@@ -113,26 +116,27 @@ class SolarIrradiance:
         #     self.flx_slr = compute_bin_average(
         #         self.irradiance_dataset.SSI, config._wavelengths
         #     )
-        elif config.SOLVER.SPECTRAL_MODE == "band":
 
-            # interpolate SENTINEL-3-OLCI SRF on TOA irradiance wavelengths
-            srf_on_toa_grid = np.vstack(
-                [
-                    np.interp(
-                        self.irradiance_dataset["Vacuum Wavelength"].values,
-                        config._wavelengths_srf[band_number, :],
-                        config._spectral_response_function[band_number, :],
-                    )
-                    for band_number in range(21)
-                ]
-            )
+        # elif config.SOLVER.SPECTRAL_MODE == "band":
 
-            toa_irradiance = self.irradiance_dataset.SSI.values
+        #     # interpolate SENTINEL-3-OLCI SRF on TOA irradiance wavelengths
+        #     srf_on_toa_grid = np.vstack(
+        #         [
+        #             np.interp(
+        #                 self.irradiance_dataset["Vacuum Wavelength"].values,
+        #                 config._wavelengths_srf[band_number, :],
+        #                 config._spectral_response_function[band_number, :],
+        #             )
+        #             for band_number in range(21)
+        #         ]
+        #     )
 
-            # collapse TOA irradiance on S3 bands
-            self.flx_slr = np.nansum(
-                (srf_on_toa_grid * toa_irradiance[None, :]), axis=1
-            ) / (np.nansum(srf_on_toa_grid, axis=1))
+        #     toa_irradiance = self.irradiance_dataset.SSI.values
+
+        #     # collapse TOA irradiance on S3 bands
+        #     self.flx_slr = np.nansum(
+        #         (srf_on_toa_grid * toa_irradiance[None, :]), axis=1
+        #     ) / (np.nansum(srf_on_toa_grid, axis=1))
 
         return None
 
@@ -156,11 +160,14 @@ class SolarIrradiance:
         # index irradiance dataset on given SZA
         ds_sza = self.irradiance_dataset.sel(SZA=self.sza)
 
-        if config.SOLVER.SPECTRAL_MODE == "monochromatic":
+        if (
+            config.SPECTRAL.MODE == "monochromatic"
+            or config.SPECTRAL.BAND_METHOD == "srf-integration"
+        ):
             ds_sza = ds_sza.interp(wavelength=config._wavelengths)
 
-        elif config.SOLVER.SPECTRAL_MODE == "band":
-            ds_sza = compute_bin_average(ds_sza, config._wavelengths)
+        # elif config.SOLVER.SPECTRAL_MODE == "band":
+        #     ds_sza = compute_bin_average(ds_sza, config._wavelengths)
 
         irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"]
         irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"]
