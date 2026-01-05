@@ -7,7 +7,6 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 import xarray as xr
-from ..utils import compute_bin_average
 
 
 class LandColumn:
@@ -74,8 +73,7 @@ class LandColumn:
         # set module root path for data loading
         self.ROOT_PATH = config._ROOT_PATH
 
-        self._wavelengths = config._wavelengths * 1e-9
-        # self._calculation_mode = config.SOLVER.CALCULATION_MODE
+        self._wavelengths = config._wavelengths_land * 1e-9
 
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
@@ -104,9 +102,6 @@ class LandColumn:
             self.laps = config.LAND.LIGHT_ABSORBING_PARTICLES.root
             self.set_lap_properties()
             self.update_column_ops_with_laps()
-
-        # if self._calculation_mode == "band":
-        #     self.compute_ops_on_bands()
 
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
         """
@@ -334,6 +329,3 @@ class LandColumn:
         self.asm_prm = (1 / (self.tau * (self.ss_alb))) * (
             asm_prm_all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
-
-    # def compute_ops_on_bands(self):
-    #     pass

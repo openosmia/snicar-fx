@@ -7,7 +7,6 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 import xarray as xr
-from ..utils import compute_bin_average, compute_band_average
 
 
 class SolarIrradiance:
@@ -103,20 +102,20 @@ class SolarIrradiance:
             "Vacuum Wavelength"
         ]
 
-        if (
-            config.SPECTRAL.MODE == "monochromatic"
-            or config.SPECTRAL.BAND_METHOD == "srf-integration"
-        ):
-            self.flx_slr = self.irradiance_dataset.interp(
-                wavelength=config._wavelengths
-            ).SSI.values  # W m-2 nm-1
+        # if (
+        #     config.SPECTRAL.MODE == "monochromatic"
+        #     or config.SPECTRAL.BAND_METHOD == "srf-integration"
+        # ):
+        self.flx_slr = self.irradiance_dataset.interp(
+            wavelength=config._wavelengths_solar
+        ).SSI.values  # W m-2 nm-1
 
-        elif config.SPECTRAL.BAND_METHOD == "snicar-default":
-            self.flx_slr = compute_band_average(
-                self.irradiance_dataset.SSI,
-                config._band_ranges,
-                wavelength_dim="wavelength",
-            )
+        # elif config.SPECTRAL.BAND_METHOD == "snicar-default":
+        #     self.flx_slr = compute_band_average(
+        #         self.irradiance_dataset.SSI,
+        #         config._band_ranges,
+        #         wavelength_dim="wavelength",
+        #     )
 
         # elif config.SOLVER.SPECTRAL_MODE == "band":
         #     self.flx_slr = compute_bin_average(
@@ -166,18 +165,18 @@ class SolarIrradiance:
         # index irradiance dataset on given SZA
         ds_sza = self.irradiance_dataset.sel(SZA=self.sza)
 
-        if (
-            config.SPECTRAL.MODE == "monochromatic"
-            or config.SPECTRAL.BAND_METHOD == "srf-integration"
-        ):
-            ds_sza = ds_sza.interp(wavelength=config._wavelengths)
+        # if (
+        #     config.SPECTRAL.MODE == "monochromatic"
+        #     or config.SPECTRAL.BAND_METHOD == "srf-integration"
+        # ):
+        ds_sza = ds_sza.interp(wavelength=config._wavelengths_solar)
 
-        elif config.SPECTRAL.BAND_METHOD == "snicar-default":
-            ds_sza = compute_band_average(
-                ds_sza,
-                config._band_ranges,
-                wavelength_dim="wavelength",
-            )
+        # elif config.SPECTRAL.BAND_METHOD == "snicar-default":
+        #     ds_sza = compute_band_average(
+        #         ds_sza,
+        #         config._band_ranges,
+        #         wavelength_dim="wavelength",
+        #     )
 
         irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"]
         irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"]

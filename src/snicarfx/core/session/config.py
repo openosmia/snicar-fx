@@ -260,10 +260,12 @@ class Config(BaseModel):
     LAND: Land
 
     # Private runtime-only attribute
-    _wavelengths: np.ndarray | None = PrivateAttr(default=None)
-    _wavelengths_srf: np.ndarray | None = PrivateAttr(default=None)
-    _spectral_response_function: np.ndarray | None = PrivateAttr(default=None)
-    _band_ranges: np.ndarray | None = PrivateAttr(default=None)
+    _wavelengths_land: np.ndarray | None = PrivateAttr(default=None)
+    _wavelengths_solar: np.ndarray | None = PrivateAttr(default=None)
+    _wavelengths_atmosphere: np.ndarray | None = PrivateAttr(default=None)
+    # _wavelengths_srf: np.ndarray | None = PrivateAttr(default=None)
+    # _spectral_response_function: np.ndarray | None = PrivateAttr(default=None)
+    # _band_ranges: np.ndarray | None = PrivateAttr(default=None)
     _ROOT_PATH: pathlib.Path | None = PrivateAttr(default=None)
 
     model_config = {"extra": "forbid"}

@@ -8,7 +8,6 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 import pandas as pd
 import xarray as xr
-from ..utils import compute_bin_average, compute_band_average
 
 
 class AtmosphereColumn:
@@ -40,7 +39,7 @@ class AtmosphereColumn:
     def __init__(self, config):
 
         self.ROOT_PATH = config._ROOT_PATH
-        self.wavelengths = config._wavelengths
+        self.wavelengths = config._wavelengths_atmosphere
 
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.surface_elevation = config.LAND.ALTITUDE
@@ -210,21 +209,18 @@ class AtmosphereColumn:
         )
         self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
 
-        if (
-            config.SPECTRAL.MODE == "monochromatic"
-            or config.SPECTRAL.BAND_METHOD == "srf-integration"
-        ):
-            self.gas_cross_sections = self.gas_cross_sections.interp(
-                nwvl=self.wavelengths
-            )
-            print(self.gas_cross_sections)
+        # if (
+        #     config.SPECTRAL.MODE == "monochromatic"
+        #     or config.SPECTRAL.BAND_METHOD == "srf-integration"
+        # ):
+        self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self.wavelengths)
 
-        elif config.SPECTRAL.BAND_METHOD == "snicar-default":
-            self.gas_cross_sections = compute_band_average(
-                self.gas_cross_sections, config._band_ranges, wavelength_dim="nwvl"
-            )
+        # elif config.SPECTRAL.BAND_METHOD == "snicar-default":
+        #     self.gas_cross_sections = compute_band_average(
+        #         self.gas_cross_sections, config._band_ranges, wavelength_dim="nwvl"
+        #     )
 
-            print(self.gas_cross_sections)
+        #     print(self.gas_cross_sections)
 
         return None
 
