@@ -131,10 +131,12 @@ class _TwoStreamSolver:
         # exp(-500)  # min value > 0 to avoid error
         self.exp_min = 1e-5
 
-        self.nr = np.zeros(shape=column.nbr_wvl)
+        self.nbr_wvl = len(irradiance.flx_slr.flatten())
+
+        self.nr = np.zeros(shape=self.nbr_wvl)
 
         # cos beam angle = incident beam
-        self.mu0 = self.cos_sza * np.ones(column.nbr_wvl)
+        self.mu0 = self.cos_sza * np.ones(self.nbr_wvl)
 
         # ice-adjusted real refractive index
         temp1 = (
@@ -155,7 +157,7 @@ class _TwoStreamSolver:
         self.mu0n = np.cos(np.arcsin(np.sin(np.arccos(self.mu0)) / self.nr))
 
         # solar beam transmission for layer (direct beam only)
-        self.trnlay = np.zeros(shape=[column.nbr_wvl, column.nbr_lyr + 1])
+        self.trnlay = np.zeros(shape=[self.nbr_wvl, column.nbr_lyr + 1])
 
         # layer reflectivity to diffuse radiation from above
         self.rdif_a = np.zeros_like(self.trnlay)
@@ -218,7 +220,7 @@ class _TwoStreamSolver:
         self.F_dwn = np.zeros_like(self.trnlay)
 
         # absorbed flux
-        self.F_abs = np.zeros(shape=[column.nbr_wvl, column.nbr_lyr])
+        self.F_abs = np.zeros(shape=[self.nbr_wvl, column.nbr_lyr])
 
         # find interface with Fresnel boundary (i.e. layer type > 0)
         if np.sum(np.array(column.layer_type) == 1) > 0:
@@ -290,7 +292,7 @@ class _TwoStreamSolver:
         # extinction, MAX function lyr keeps from getting an error
         # if the exp(-lm*ts) is < 1e-5
         extins = np.maximum(
-            np.full((self.column.nbr_wvl,), self.exp_min), np.exp(-lm * self.ts)
+            np.full((self.nbr_wvl,), self.exp_min), np.exp(-lm * self.ts)
         )
 
         # N, term in diffuse reflectivity and transmissivity
@@ -306,7 +308,7 @@ class _TwoStreamSolver:
         # evaluate rdir, tdir for direct beam
         # transmission from TOA to interface
         self.trnlay[:, lyr] = np.maximum(
-            np.full((self.column.nbr_wvl,), self.exp_min), np.exp(-self.ts / self.mu0n)
+            np.full((self.nbr_wvl,), self.exp_min), np.exp(-self.ts / self.mu0n)
         )
 
         #  Eq. 50: Briegleb and Light 2007  alpha and gamma for direct radiation
@@ -377,7 +379,7 @@ class _TwoStreamSolver:
 
             # transmission
             trn = np.maximum(
-                np.full((self.column.nbr_wvl,), self.exp_min), np.exp(-self.ts / mu)
+                np.full((self.nbr_wvl,), self.exp_min), np.exp(-self.ts / mu)
             )
             lm = np.sqrt(3 * (1 - self.ws) * (1 - self.ws * self.gs))
 
@@ -660,12 +662,12 @@ class _TwoStreamSolver:
 
         if np.max(self.dfdir[:, lyr]) < puny:
             # dfdif = fdifdn - fdifup
-            self.dfdir[:, lyr] = np.zeros((self.column.nbr_wvl,), dtype=int)
+            self.dfdir[:, lyr] = np.zeros((self.nbr_wvl,), dtype=int)
 
         self.dfdif[:, lyr] = self.trndif[:, lyr] * (1 - self.rupdif[:, lyr]) * refk
 
         if np.max(self.dfdif[:, lyr]) < puny:
-            self.dfdif[:, lyr] = np.zeros((self.column.nbr_wvl,), dtype=int)
+            self.dfdif[:, lyr] = np.zeros((self.nbr_wvl,), dtype=int)
 
         return None
 
@@ -754,7 +756,7 @@ class _TwoStreamSolver:
         abs_slr_btm = np.sum(self.F_btm_net, axis=0)
 
         results = _TwoStreamSolverResults(
-            wavelengths=self.column.wavelengths,
+            wavelengths=self.column._wavelengths,
             albedo=self.albedo,
             BBA=BBA,
             absorbed_flux_fraction_per_layer=f_abs_slr,

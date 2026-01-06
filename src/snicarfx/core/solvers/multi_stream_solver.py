@@ -80,7 +80,7 @@ class _MultiStreamSolver:
         self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
         self.cosmic_background = 0
         self.n_angles = 8
-        self.nbr_wvl = land.nbr_wvl
+        self.nbr_wvl = len(irradiance.flx_slr.flatten())
 
         # apply delta scaling to land column
         # Delta truncation: get highest Legendre term following
