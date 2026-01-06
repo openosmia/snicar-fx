@@ -45,10 +45,9 @@ class Session:
         self.solar_irradiance = SolarIrradiance(self.config)
         self.atmosphere_column = AtmosphereColumn(self.config)
 
-        if self.config.SPECTRAL.MODE == "band":
+        if "band-" in self.config.SPECTRAL.MODE:
             self.compute_band_average()
 
-        # elif self.config.SPECTRAL.BAND_METHOD == "snicar-default":
         # store history of updates
         self._latest_updates = {
             "SOLVER": {},
@@ -95,14 +94,14 @@ class Session:
                 self.config._wavelengths_land = wavelength_homogeneous
                 self.config._wavelengths_atmosphere = wavelength_homogeneous
 
-            elif self.config.SPECTRAL.MODE == "band":
+            elif "band-" in self.config.SPECTRAL.MODE:
                 self.config._wavelengths_solar = wavelength_1cm_m1
                 self.config._wavelengths_land = wavelength_1cm_m1
                 self.config._wavelengths_atmosphere = wavelength_1cm_m1
 
                 self._band_ranges = band_ranges_homogeneous
 
-                if self.config.SPECTRAL.BAND_METHOD == "snicar-default":
+                if self.config.SPECTRAL.MODE == "band-snicar-default":
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
         if self.config.SPECTRAL.RESOLUTION == "SENTINEL-3-OLCI":
@@ -153,7 +152,7 @@ class Session:
                 )
             )
 
-            if self.config.SPECTRAL.BAND_METHOD == "snicar-default":
+            if self.config.SPECTRAL.MODE == "band-snicar-default":
                 self.config._wavelengths_land = ds.nominal_centre_wavelength.values
 
             # interpolate SENTINEL-3-OLCI SRF on homogeneous grid
@@ -301,7 +300,7 @@ class Session:
                 self.land_column, self.atmosphere_column, self.solar_irradiance
             )
 
-            if self.config.SPECTRAL.BAND_METHOD == "srf-integration":
+            if self.config.SPECTRAL.MODE == "band-srf-integration":
                 self.apply_spectral_response_function()
 
             # return outputs as a metadata-rich xarray dataset
@@ -347,7 +346,7 @@ class Session:
             coords={
                 "wavelength": (
                     self._band_ranges[:, -1]
-                    if self.config.SPECTRAL.MODE == "band"
+                    if "band-" in self.config.SPECTRAL.MODE
                     else self.config._wavelengths_land
                 ),
                 "layer": np.arange(len(self.outputs.absorbed_flux_fraction_per_layer)),
@@ -392,7 +391,7 @@ class Session:
             coords={
                 "wavelength": (
                     self._band_ranges[:, -1]
-                    if self.config.SPECTRAL.MODE == "band"
+                    if "band-" in self.config.SPECTRAL.MODE
                     else self.config._wavelengths_land
                 ),
                 "angle": np.arange(len(self.outputs.cos_weight)),
@@ -514,7 +513,7 @@ class Session:
 
     def compute_band_average(self) -> None:
 
-        if self.config.SPECTRAL.BAND_METHOD == "snicar-default":
+        if self.config.SPECTRAL.MODE == "band-snicar-default":
 
             # average solar variables
             solar_flat_means = self.compute_flat_band_average(
@@ -549,7 +548,7 @@ class Session:
                     "legendre_moments"
                 ]
 
-        elif self.config.SPECTRAL.BAND_METHOD == "solar-weighted-mean":
+        elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
 
             # average atmosphere variables
             if self.config.SOLVER.ATMOSPHERE_COUPLING == True:

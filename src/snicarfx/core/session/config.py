@@ -53,6 +53,14 @@ class Solver(BaseModel):
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
+    @model_validator(mode="after")
+    def check_atmosphere_coupling(self):
+        if self.TYPE == "two-stream" and self.ATMOSPHERE_COUPLING:
+            raise ValueError(
+                "SOLVER.ATMOSPHERE_COUPLING is not supported when SOLVER.TYPE='two-stream'."
+            )
+        return self
+
 
 class Spectral(BaseModel):
     """
@@ -64,8 +72,13 @@ class Spectral(BaseModel):
     """
 
     # Mode for spectral calculations
-    MODE: Literal["monochromatic", "band"] = Field(
-        description="Mode to use for spectral calculations. monochromatic solves for discrete wavelengths with virtually no band widths. band solves for bands that are combined using the specified BAND_METHOD."
+    MODE: Literal[
+        "monochromatic",
+        "band-srf-integration",
+        "band-snicar-default",
+        "band-solar-weighted-mean",
+    ] = Field(
+        description="Mode to use for spectral calculations. `monochromatic` solves for discrete wavelengths with virtually infinitesimal band widths. `band-srf-integration` solves at a high 1cm-1 resolution within each band before integrating using the Spectral Response Functions (SRF) of the specified satellite platform. `band-snicar-default` applies an unweighted band average to high-resolution (1cm-1) optical properties of the atmosphere and solar components, and selects the center wavelength of the high-resolution (1cm-1) optical properties of the land component, before solve. `band-solar-weighted-mean` applies an solar-weighted band average to high-resolution (1cm-1) optical properties of all components before solve."
     )
 
     # spectral range (start, end, step) or satellite instrument
@@ -78,13 +91,6 @@ class Spectral(BaseModel):
         Literal["SENTINEL-3-OLCI"],
     ] = Field(
         description="The spectral resolution to cover. If a satellite platform is passed, then all bands are solved for."
-    )
-
-    # Computation method for band mode
-    BAND_METHOD: (
-        Literal["srf-integration", "snicar-default", "solar-weighted-mean"] | None
-    ) = Field(
-        description="The computation method to apply in case MODE is band. srf-integration solves at a high 1cm-1 resolution within each band before being integrated using the Spectral Response Functions (SRF) of the specified satellite platform. center-wavelength only solves on the nominal center wavelength of the satellite platform. chandrasekhar-mean computes mean optical properties within sub-bands of each bands before solve."
     )
 
     # only fields validated here are allowed
@@ -263,12 +269,29 @@ class Config(BaseModel):
     _wavelengths_land: np.ndarray | None = PrivateAttr(default=None)
     _wavelengths_solar: np.ndarray | None = PrivateAttr(default=None)
     _wavelengths_atmosphere: np.ndarray | None = PrivateAttr(default=None)
-    # _wavelengths_srf: np.ndarray | None = PrivateAttr(default=None)
-    # _spectral_response_function: np.ndarray | None = PrivateAttr(default=None)
-    # _band_ranges: np.ndarray | None = PrivateAttr(default=None)
     _ROOT_PATH: pathlib.Path | None = PrivateAttr(default=None)
 
     model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def check_solver_atmosphere_compatibility(self):
+        if (
+            self.SOLVER.TYPE == "multi-stream"
+            and self.ATMOSPHERE.SKY_CONDITIONS == "cloudy"
+        ):
+            raise ValueError(
+                "ATMOSPHERE.SKY_CONDITIONS='cloudy' is not supported when "
+                "SOLVER.TYPE='multi-stream'."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_solver_layer_type_compatibility(self):
+        if self.SOLVER.TYPE == "multi-stream" and 1 in self.LAND.LAYER_TYPE:
+            raise ValueError(
+                "LAND.LAYER_TYPE=1 is not supported when " "SOLVER.TYPE='multi-stream'."
+            )
+        return self
 
     @model_validator(mode="after")
     def check_lengths(self):

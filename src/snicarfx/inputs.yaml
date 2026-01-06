@@ -6,9 +6,8 @@ SOLVER:
   ATMOSPHERE_COUPLING: false # explicit surface-atmosphere coupling
 
 SPECTRAL:
-  MODE: "monochromatic" # band | monochromatic
+  MODE: "monochromatic" # monochromatic | band-srf-integration | band-snicar-default | band-solar-weighted-mean
   RESOLUTION: [360, 1000, 10] # [start, end, step] or satellite instrument
-  BAND_METHOD: null # srf-integration | center-wavelength | chandrasekhar-mean | 
 
 SOLAR:
   SZA: 50
