@@ -68,8 +68,11 @@ class Session:
             # wavelength_homogeneous = np.arange(
             #     *self.config.SPECTRAL.RESOLUTION)
             wavelength_homogeneous = np.concatenate(
-                [np.arange(*self.config.SPECTRAL.RESOLUTION),  
-                 [self.config.SPECTRAL.RESOLUTION[-2]]])
+                [
+                    np.arange(*self.config.SPECTRAL.RESOLUTION),
+                    [self.config.SPECTRAL.RESOLUTION[-2]],
+                ]
+            )
             center_wavelength_homogeneous = (
                 wavelength_homogeneous[:-1] + self.config.SPECTRAL.RESOLUTION[-1] / 2
             )
@@ -392,6 +395,10 @@ class Session:
                     ("angle", "wavelength"),
                     self.outputs.directional_reflectance_top,
                 ),
+                "directional_radiance_top": (
+                    ("angle", "wavelength"),
+                    self.outputs.directional_radiance_top,
+                ),
             },
             coords={
                 "wavelength": (
@@ -413,6 +420,15 @@ class Session:
         self.outputs.directional_reflectance_top = (
             np.nansum(
                 self.outputs.directional_reflectance_top[:, None, :]
+                * self._spectral_response_function[None, :, :],
+                axis=-1,
+            )
+            / np.nansum(self._spectral_response_function, axis=1)[None, :]
+        )
+
+        self.outputs.directional_radiance_top = (
+            np.nansum(
+                self.outputs.directional_radiance_top[:, None, :]
                 * self._spectral_response_function[None, :, :],
                 axis=-1,
             )

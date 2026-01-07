@@ -28,6 +28,8 @@ class _MultiStreamSolverResults:
         Weights of the Gaussian integration [unitless].
     directional_reflectance_top: array
         Spectral reflectance at the top of the atmosphere [].
+    directional_radiance_top: array
+        Spectral reflectance at the top of the atmosphere [W/m2(/sr)].
 
     """
 
@@ -35,6 +37,7 @@ class _MultiStreamSolverResults:
     cos_angle: np.ndarray
     cos_weight: np.ndarray
     directional_reflectance_top: np.ndarray
+    directional_radiance_top: np.ndarray
 
 
 class _MultiStreamSolver:
@@ -72,7 +75,7 @@ class _MultiStreamSolver:
         """
 
         self.mth_azi = 0
-        self.solar_irradiance = np.ones_like(irradiance.flx_slr) * 2
+        self.solar_irradiance = irradiance.flx_slr
         self.solar_flag = True
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
         self.DELTA_OPTICAL_DEPTH = 1e-8
@@ -86,7 +89,7 @@ class _MultiStreamSolver:
         # Delta truncation: get highest Legendre term following
         # Wicombe 1977 Eq. (15) -  2M = n_expansion + 1
         f = np.array(land.asm_prm ** (land.n_expansion + 1))
-        
+
         # Wiscombe 1977 Eq. 20(a, b) + 14
         land.tau = (1.0 - land.ss_alb * f) * land.tau
         land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
@@ -438,6 +441,7 @@ class _MultiStreamSolver:
             cos_angle=self.cos_angle,
             cos_weight=self.cos_weight,
             directional_reflectance_top=self.directional_reflectance_top,
+            directional_radiance_top=self.directional_radiance_top,
         )
 
         return results
@@ -587,6 +591,9 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
     aads.directional_reflectance_top = (aads.s_level_rad_up[:, 0, :] * np.pi) / (
         aads.solar_irradiance * aads.cos_sun
     )
+
+    # directional radiance at the top of the atmosphere
+    aads.directional_radiance_top = aads.s_level_rad_up[:, 0, :] * np.pi
 
     outputs = aads.get_outputs()
 
