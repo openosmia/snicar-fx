@@ -102,6 +102,8 @@ class LandColumn:
             self.laps = config.LAND.LIGHT_ABSORBING_PARTICLES.root
             self.set_lap_properties()
             self.update_column_ops_with_laps()
+            
+        self.set_legendre_moments()
 
     def set_refractive_index_and_diffuse_fresnel_coeffs(self):
         """
@@ -241,17 +243,6 @@ class LandColumn:
                 # Eq. 7 in Kokhanovsky and Macke 1997 (ss_alb = (1-Cabs)/Cext)
                 self.ss_alb[lyr, :] = 1 - 0.5 * (1 - rho) * (1 - np.exp(-z * phi))
 
-            # Delta truncation: Legendre term of HG function at 2M = 16
-            # Wicombe 1977 Eq. 15
-            f = self.asm_prm ** (self.n_expansion + 1)
-
-            # Calculate legendre moments
-            # Wiscombe 1977 Eq. 14
-            self.legendre_moments[:, lyr, :] = (
-                self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
-                - f[None, lyr, :]
-            ) / (1 - f[None, lyr, :])
-
     def load_lap_properties(self, var_name):
         """
         Load optical properties of light-absorbing particles (LAPs) depending
@@ -329,3 +320,23 @@ class LandColumn:
         self.asm_prm = (1 / (self.tau * (self.ss_alb))) * (
             asm_prm_all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
+        
+    def set_legendre_moments(self):
+        
+        # Delta truncation: Legendre term of HG function at 2M = 16
+        # Wicombe 1977 Eq. 15
+        f = self.asm_prm ** (self.n_expansion + 1)
+        
+        for lyr in range(self.nbr_lyr):
+            
+            self.legendre_moments[:, lyr, :] = self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
+            
+            # Calculate legendre moments (Delta truncated)
+            # Wiscombe 1977 Eq. 14
+            self.legendre_moments[:, lyr, :] = (
+                self.legendre_moments[:, lyr, :]
+                - f[None, lyr, :]
+            ) / (1 - f[None, lyr, :])
+    
+            
+            

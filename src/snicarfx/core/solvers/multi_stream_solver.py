@@ -86,7 +86,8 @@ class _MultiStreamSolver:
         # Delta truncation: get highest Legendre term following
         # Wicombe 1977 Eq. (15) -  2M = n_expansion + 1
         f = np.array(land.asm_prm ** (land.n_expansion + 1))
-        # Wiscombe 1977 Eq. 20(a, b)
+        
+        # Wiscombe 1977 Eq. 20(a, b) + 14
         land.tau = (1.0 - land.ss_alb * f) * land.tau
         land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
 
