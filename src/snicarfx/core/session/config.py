@@ -5,7 +5,7 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from typing import Literal, Tuple, Union, get_args
+from typing import Literal, Tuple, Union, get_args, Optional
 import numpy as np
 
 import yaml
@@ -129,6 +129,64 @@ class Solar(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class GasConcentrations(BaseModel):
+    """
+    Define an object for the configuration of all gas concentrations.
+
+    Inherits from the Pydantic BaseModel class, which enables automatic type
+    validation and parsing of yaml files.
+
+    """
+
+    # O3 concentration used to scale the atmospheric profile
+    O3: Optional[confloat(ge=0.0)] = Field(
+        default=None,
+        description=(
+            "Ozone concentration used to scale the atmospheric profile."
+            "If a numeric value is provided (in kg.m-2), it is used to scale the O3 profile. "
+        ),
+    )
+
+    # # O2 concentration used to scale the atmospheric profile
+    O2: Optional[confloat(ge=0.0)] = Field(
+        default=None,
+        description=(
+            "Oxygen concentration used to scale the atmospheric profile."
+            "If a numeric value is provided (in kg.m-2), it is used to scale the O2 profile. "
+        ),
+    )
+
+    # H2O concentration used to scale the atmospheric profile
+    H2O: Optional[confloat(ge=0.0)] = Field(
+        default=None,
+        description=(
+            "Water wapor concentration used to scale the atmospheric profile."
+            "If a numeric value is provided (in kg.m-2), it is used to scale the H2O profile. "
+        ),
+    )
+
+    # CO2 concentration used to scale the atmospheric profile
+    CO2: Optional[confloat(ge=0.0)] = Field(
+        default=None,
+        description=(
+            "Carbon dioxide concentration used to scale the atmospheric profile."
+            "If a numeric value is provided (in kg.m-2), it is used to scale the CO2 profile. "
+        ),
+    )
+
+    # NO2 concentration used to scale the atmospheric profile
+    NO2: Optional[confloat(ge=0.0)] = Field(
+        default=None,
+        description=(
+            "Nitrogen dioxide concentration used to scale the atmospheric profile."
+            "If a numeric value is provided (in kg.m-2), it is used to scale the NO2 profile. "
+        ),
+    )
+
+    # only fields validated here are allowed
+    model_config = {"extra": "forbid"}
+
+
 class Atmosphere(BaseModel):
     """
 
@@ -147,6 +205,9 @@ class Atmosphere(BaseModel):
     ATMOSPHERIC_PROFILE_TYPE: Literal["afglss"] = Field(
         description="Type of atmospheric profile to use. It includes elevation, pressure, temperature, air density, as well as O3, H2O, CO2 and NO2 concentrations."
     )
+
+    # all provided gas concentrations
+    GAS_CONCENTRATIONS: GasConcentrations | None = None
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
