@@ -169,7 +169,8 @@ class SolarIrradiance:
         #     config.SPECTRAL.MODE == "monochromatic"
         #     or config.SPECTRAL.BAND_METHOD == "srf-integration"
         # ):
-        ds_sza = ds_sza.interp(wavelength=config._wavelengths_solar)
+        ds_sza = ds_sza.interp(wavelength=config._wavelengths_solar,
+                               kwargs={"fill_value": "extrapolate"})
 
         # elif config.SPECTRAL.BAND_METHOD == "snicar-default":
         #     ds_sza = compute_band_average(
@@ -186,8 +187,8 @@ class SolarIrradiance:
             dim="wavelength"
         )
 
-        irradiance_direct_normalized = irradiance_direct / irradiance_total_sum
-        irradiance_diffuse_normalized = irradiance_diffuse / irradiance_total_sum
+        irradiance_direct_normalized = irradiance_direct #/ irradiance_total_sum
+        irradiance_diffuse_normalized = irradiance_diffuse #/ irradiance_total_sum
 
         # replace 0s by 1e-30 to avoid invalid operations
         self.fs = irradiance_direct_normalized.clip(min=1e-30).values

@@ -1,8 +1,10 @@
 SOLVER:
   TYPE: "two-stream" # two-stream, multi-stream
-  CALCULATION_MODE: "monochromatic"
-  SPECTRAL_RESOLUTION: [205, 5000, 10] # [start, end, step] or satellite instrument
   ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
+
+SPECTRAL:
+  MODE: "band-snicar-default"
+  RESOLUTION: [200, 5000, 10] # [start, end, step] or satellite instrument
 
 SOLAR:
   SZA: 50 
@@ -27,5 +29,3 @@ LAND:
       FILE: "bc_ChCB_rn40_dns1270.nc"
       CONC: [0, 0, 0]
 
-  
-  
