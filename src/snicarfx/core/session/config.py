@@ -129,7 +129,7 @@ class Solar(BaseModel):
     model_config = {"extra": "forbid"}
 
 
-class GasConcentrations(BaseModel):
+class IntegratedGasConcentrations(BaseModel):
     """
     Define an object for the configuration of all gas concentrations.
 
@@ -207,7 +207,7 @@ class Atmosphere(BaseModel):
     )
 
     # all provided gas concentrations
-    GAS_CONCENTRATIONS: GasConcentrations | None = None
+    INTEGRATED_GAS_CONCENTRATIONS: IntegratedGasConcentrations | None = None
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}

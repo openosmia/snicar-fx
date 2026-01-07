@@ -47,6 +47,10 @@ class AtmosphereColumn:
         self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
 
+        self.integrated_gas_concentrations = (
+            config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS
+        )
+
         if self.use_atmosphere:
 
             self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
@@ -54,7 +58,11 @@ class AtmosphereColumn:
             # load atm profile with gas conc., P/T/density etc
             self.atmosphere_profile = self.set_atmospheric_profile()
 
-            # set nb of atm layers (dep on altitude)
+            # scale atmospheric profile by integrated gas concentrations if passed
+            if self.integrated_gas_concentrations is not None:
+                self.scale_atmospheric_profile()
+
+            # set nb of atm layers (dependent on altitude)
             self.nbr_lyr = self.atmosphere_profile.shape[0]
 
             # init the ssps
@@ -111,6 +119,48 @@ class AtmosphereColumn:
         profile = profile[profile["z(km)"] >= self.surface_elevation]
 
         return profile
+
+    def scale_atmospheric_profile(self):
+        """
+        Scale atmospheric profile by given integrated gas concentrations.
+        """
+
+        # Avogadro number
+        AVOGADRO_NUMBER = 6.02214076e23
+
+        # molecular masses of gases of interest (kg/mol)
+        MOLECULAR_MASSES = {
+            "O3": 0.048,  # Ozone
+            "O2": 0.032,  # Oxygen
+            "H2O": 0.018015,  # Water vapor
+            "CO2": 0.04401,  # Carbon dioxide
+            "NO2": 0.04601,  # Nitrogen dioxide
+        }
+
+        # keep only passed gases
+        gases_to_scale = self.integrated_gas_concentrations.model_dump(
+            exclude_none=True
+        )
+
+        for gas_name, integrated_gas_column in gases_to_scale.items():
+
+            # match profile column name
+            profile_key = f"{gas_name.lower()}(cm-3)"
+
+            # convert profile to molecules/m3
+            n = self.atmosphere_profile[profile_key].values * 1e6
+            dz = self.atmosphere_profile["dz(km)"].values * 1e3
+
+            # initial column in kg/m²
+            current_column = (
+                np.sum(n * dz) * MOLECULAR_MASSES[gas_name] / AVOGADRO_NUMBER
+            )
+
+            # scale factor
+            scale_factor = integrated_gas_column / current_column
+
+            # apply scaling (back to cm⁻³)
+            self.atmosphere_profile[profile_key] *= scale_factor
 
     def compute_rayleigh_cross_section_bodhaine(self, co2_ppm):
         """
