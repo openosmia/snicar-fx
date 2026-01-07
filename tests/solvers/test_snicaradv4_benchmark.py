@@ -8,14 +8,12 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 import xarray as xr
 
-from snicarfx.core.components.land import LandColumn
-from snicarfx.core.components.solar import SolarIrradiance
 from tests.solvers.utils import use_data_snicaradv4
 from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
 
 
 def test_twostreams_outputs(
-    config,
+    session,
     params_2str,
     benchmark_snicaradv4_spectral_data,
     benchmark_snicaradv4_bba_data,
@@ -55,9 +53,8 @@ def test_twostreams_outputs(
     layer_type, density, radius, sza, bc, thickness_profile, direct = params_2str
 
     # Setup inputs
-    # config = Config.from_yaml("./tests/inputs_tests.yaml")
-    land_column = LandColumn(config)
-    irradiance = SolarIrradiance(config)
+    land_column = session.land_column
+    irradiance = session.solar_irradiance
 
     # # calculate irradiance
     irradiance.sza = sza
@@ -107,7 +104,7 @@ def test_twostreams_outputs(
             vlm_frac_air = 1 - land_column.density[i] / 917
             scattering_cff = sca_cff_vlm_air_bbl * vlm_frac_air / land_column.density[i]
             abs_cff = (
-                (4 * np.pi * land_column.ref_idx_im) / (land_column.wavelengths) / 917
+                (4 * np.pi * land_column.ref_idx_im) / (land_column._wavelengths) / 917
             )
             land_column.ss_alb[i, :] = scattering_cff / (scattering_cff + abs_cff)
             land_column.asm_prm[i, :] = ssps["asm_prm"].values
@@ -159,7 +156,7 @@ def test_twostreams_outputs(
         )["BBA"].values,
         atol=absolute_tolerance_benchmark,
     )
-
+    
     assert np.allclose(
         np.nansum(outputs.absorbed_flux_fraction_per_layer),
         benchmark_snicaradv4_absorbed_flux_data.sel(

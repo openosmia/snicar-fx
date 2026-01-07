@@ -65,10 +65,15 @@ class Session:
         if isinstance(self.config.SPECTRAL.RESOLUTION, tuple):
 
             # create a homogeneous array based on user input
-            wavelength_homogeneous = np.arange(*self.config.SPECTRAL.RESOLUTION)
+            # wavelength_homogeneous = np.arange(
+            #     *self.config.SPECTRAL.RESOLUTION)
+            wavelength_homogeneous = np.concatenate(
+                [np.arange(*self.config.SPECTRAL.RESOLUTION),  
+                 [self.config.SPECTRAL.RESOLUTION[-2]]])
             center_wavelength_homogeneous = (
-                wavelength_homogeneous[:-1] + np.diff(wavelength_homogeneous) / 2
+                wavelength_homogeneous[:-1] + self.config.SPECTRAL.RESOLUTION[-1] / 2
             )
+
             band_ranges_homogeneous = np.column_stack(
                 (
                     wavelength_homogeneous[:-1],

@@ -63,14 +63,14 @@ def irradiance(config):
 
 
 @pytest.fixture(scope="module")
-def expected_shapes(land_column):
+def expected_shapes(session):
     """Fetch expected shapes in the layer and wavelength dimensions."""
     return {
-        "1d_layers": (land_column.nbr_lyr,),
-        "1d_wavelengths": (land_column.nbr_wvl,),
+        "1d_layers": (session.land_column.nbr_lyr,),
+        "1d_wavelengths_solar": (len(session.config._wavelengths_solar),),
         "2d_layers_wavelengths": (
-            land_column.nbr_lyr,
-            land_column.nbr_wvl,
+            session.land_column.nbr_lyr,
+            session.land_column.nbr_wvl,
         ),
     }
 

@@ -7,14 +7,11 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 
-from snicarfx.core.components.land import LandColumn
-from snicarfx.core.components.atmosphere import AtmosphereColumn
-from snicarfx.core.components.solar import SolarIrradiance
 from snicarfx.core.solvers.multi_stream_solver import solve_multi_stream_rt
 
 
 def test_multistream_outputs(
-    config,
+    session,
     params_ada,
     benchmark_ada_spectral_data,
     absolute_tolerance_benchmark,
@@ -43,9 +40,9 @@ def test_multistream_outputs(
     w, t_od, g, wvl_idx = params_ada
 
     # Setup inputs
-    land_column = LandColumn(config)
-    irradiance = SolarIrradiance(config)
-    atmosphere = AtmosphereColumn(config)
+    land_column = session.land_column
+    irradiance = session.solar_irradiance
+    atmosphere = session.atmosphere_column
 
     land_column.ss_alb[:, wvl_idx] = w
     land_column.tau[:, wvl_idx] = t_od
