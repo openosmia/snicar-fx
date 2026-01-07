@@ -29,7 +29,7 @@ class _MultiStreamSolverResults:
     directional_reflectance_top: array
         Spectral reflectance at the top of the atmosphere [].
     directional_radiance_top: array
-        Spectral reflectance at the top of the atmosphere [W/m2(/sr)].
+        Spectral reflectance at the top of the atmosphere [Wm-2sr-1].
 
     """
 
@@ -593,7 +593,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
     )
 
     # directional radiance at the top of the atmosphere
-    aads.directional_radiance_top = aads.s_level_rad_up[:, 0, :] * np.pi
+    aads.directional_radiance_top = aads.s_level_rad_up[:, 0, :]
 
     outputs = aads.get_outputs()
 
