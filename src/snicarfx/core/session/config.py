@@ -97,17 +97,23 @@ class Spectral(BaseModel):
     model_config = {"extra": "forbid"}
 
     @model_validator(mode="after")
-    def check_second_greater(self):
+    def check_spectral_range(self):
         """
-        If SPECTRAL_RANGE is numeric (start, end, step), validate end > start.
+        If SPECTRAL_RANGE is numeric (start, end, step), validate
+        end > start and step < end - start.
         Skip validation if it's a satellite platform string.
         """
+
         if isinstance(self.RESOLUTION, tuple):
             start, end, step = self.RESOLUTION
             if end <= start:
                 raise ValueError(
-                    f"SPECTRAL_RANGE second value ({end}) must be larger "
-                    f"than the first ({start})"
+                    f"SPECTRAL_RANGE must be a valid spectral range ([start, end, step]), with end ({end}) larger than start ({start})."
+                )
+
+            if step > (end - start):
+                raise ValueError(
+                    f"SPECTRAL_RANGE must be a valid spectral range ([start, end, step]), with step ({step}) smaller than the difference between start and end ({end-start})."
                 )
 
         return self
