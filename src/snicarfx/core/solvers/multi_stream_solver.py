@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.special import legendre
 
-downward_loop = False
+downward_loop = True
 
 
 @dataclass
@@ -696,8 +696,6 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
             # finalize upward and downward radiances
             if np.max(np.abs(aads.s_level_refl_down[:, :, k + 1, :])) > 0:
                 
-                print('enter')
-                
                 infinite_scattering = -np.matmul(
                     np.moveaxis(
                         aads.s_level_refl_down[:, :, k + 1, :],
@@ -839,12 +837,9 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     + np.moveaxis(aads.s_level_rad_up[:, k, :],
                                 -1, 0)[:, :, None]
                     )
-                
-            aads.s_level_rad_down[:, k, :] = aads.s_level_rad_downt[:, k + 1, :]
-            aads.s_level_rad_up[:, k + 1, :] = aads.s_level_rad_upt[:, k, :]  
             
-        # aads.s_level_rad_down = aads.s_level_rad_downt 
-        # aads.s_level_rad_up = aads.s_level_rad_upt   
+        aads.s_level_rad_down = aads.s_level_rad_downt.copy()
+        aads.s_level_rad_up[:, 1:, :] = aads.s_level_rad_upt[:, :1, :]   
     
     ###########################################################################
         
