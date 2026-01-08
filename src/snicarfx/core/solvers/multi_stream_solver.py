@@ -596,7 +596,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
     
     ###########################################################################
     if downward_loop: 
-        aads.s_level_rad_upt[:, 0, :] = aads.s_level_rad_up[:, 0, :]
+        aads.s_level_rad_upt[:, 0, :] = aads.s_level_rad_up[:, 0, :].copy()
         if aads.mth_azi == 0:
             for i in range(len(aads.cos_angle)):
                 aads.s_level_rad_down[i, 0, :] = (
@@ -628,9 +628,20 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                 2,
             )
             
+            # refl_down = np.matmul(
+            #     np.moveaxis(
+            #         aads.s_level_refl_down[:, :, k, :],
+            #         source=[0, 1, 2],
+            #         destination=[1, 2, 0],
+            #     ),
+            #     np.moveaxis(
+            #         aads.s_layer_source_up[:, k, :], source=[0, 1], destination=[1, 0]
+            #     )[:, :, None],
+            # ).reshape(aads.nbr_wvl, aads.n_angles)
+            
             refl_down = np.matmul(
                 np.moveaxis(
-                    aads.s_level_refl_down[:, :, k, :],
+                    aads.s_level_refl_down[:, :, k - 1, :],
                     source=[0, 1, 2],
                     destination=[1, 2, 0],
                 ),
@@ -639,12 +650,26 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                 )[:, :, None],
             ).reshape(aads.nbr_wvl, aads.n_angles)
         
+            # aads.s_level_rad_down[:, k, :] = (
+            #     aads.s_layer_source_down[:, k, :]
+            #     + np.moveaxis(
+            #         np.matmul(
+            #             inv_gamma_t,
+            #             (refl_down + np.moveaxis(aads.s_level_rad_down[:, k, :], -1, 0))[
+            #                 :, :, None
+            #             ],
+            #         ),
+            #         source=[0, 1, 2],
+            #         destination=[2, 0, 1],
+            #     )[:, 0, :]
+            # )
+            
             aads.s_level_rad_down[:, k, :] = (
                 aads.s_layer_source_down[:, k, :]
                 + np.moveaxis(
                     np.matmul(
                         inv_gamma_t,
-                        (refl_down + np.moveaxis(aads.s_level_rad_down[:, k, :], -1, 0))[
+                        (refl_down + np.moveaxis(aads.s_level_rad_down[:, k - 1, :], -1, 0))[
                             :, :, None
                         ],
                     ),
@@ -719,6 +744,19 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     )[:, 0, :]
                 )
                 
+                # aads.s_level_rad_downt[:, k, :] = (
+                #     np.moveaxis(
+                #         np.matmul(
+                #             inv_gamma,
+                #             (refl_down + np.moveaxis(aads.s_level_rad_down[:, k, :], -1, 0))[
+                #                 :, :, None
+                #             ],
+                #         ),
+                #         source=[0, 1, 2],
+                #         destination=[2, 0, 1],
+                #     )[:, 0, :]
+                # )
+                
                 temporal_vector = np.matmul(
                     inv_gamma,
                     (np.moveaxis(aads.s_level_rad_down[:, k + 1, :], -1, 0))[
@@ -748,24 +786,65 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     )[:, 0, :]
                 )
                 
+                # aads.s_level_rad_upt[:, k, :] = (
+                #     np.moveaxis(
+                #     np.matmul(
+                #         np.moveaxis(
+                #             aads.s_level_refl_up[:, :, k, :],
+                #             source=[0, 1, 2],
+                #             destination=[1, 2, 0],
+                #         ),
+                #         temporal_vector
+                #         )
+                #     +
+                #     np.matmul(
+                #         inv_gamma,
+                #         (np.moveaxis(aads.s_level_rad_up[:, k, :], -1, 0))[
+                #             :, :, None
+                #         ]
+                #         ),
+                #         source=[0, 1, 2],
+                #         destination=[2, 0, 1],
+                #     )[:, 0, :]
+                # )
+                
                 
             else:
-                aads.s_level_rad_downt[:, k, :] = aads.s_level_rad_down[:, k + 1, :]
+                # aads.s_level_rad_downt[:, k, :] = aads.s_level_rad_down[:, k + 1, :]
+                aads.s_level_rad_downt[:, k, :] = aads.s_level_rad_down[:, k, :]
+
+                # aads.s_level_rad_upt[:, k, :] = (
+                #     np.matmul(
+                #         np.moveaxis(
+                #             aads.s_level_refl_up[:, :, k + 1, :],
+                #             source=[0, 1, 2],
+                #             destination=[1, 2, 0]),
+                #         np.moveaxis(aads.s_level_rad_down[:, k + 1, :],
+                #                     -1, 0)[:, :, None]
+                #     )
+                #     + np.moveaxis(aads.s_level_rad_up[:, k + 1, :],
+                #                 -1, 0)[:, :, None]
+                #     )
+                
+                
                 aads.s_level_rad_upt[:, k, :] = (
                     np.matmul(
                         np.moveaxis(
-                            aads.s_level_refl_up[:, :, k + 1, :],
+                            aads.s_level_refl_up[:, :, k, :],
                             source=[0, 1, 2],
                             destination=[1, 2, 0]),
-                        np.moveaxis(aads.s_level_rad_down[:, k + 1, :],
+                        np.moveaxis(aads.s_level_rad_down[:, k, :],
                                     -1, 0)[:, :, None]
                     )
-                    + np.moveaxis(aads.s_level_rad_up[:, k + 1, :],
+                    + np.moveaxis(aads.s_level_rad_up[:, k, :],
                                 -1, 0)[:, :, None]
                     )
                 
-        aads.s_level_rad_down = aads.s_level_rad_downt   
-        aads.s_level_rad_up = aads.s_level_rad_upt   
+            aads.s_level_rad_down[:, k, :] = aads.s_level_rad_downt[:, k + 1, :]
+            aads.s_level_rad_up[:, k + 1, :] = aads.s_level_rad_upt[:, k, :]  
+            
+        # aads.s_level_rad_down = aads.s_level_rad_downt 
+        # aads.s_level_rad_up = aads.s_level_rad_upt   
     
     ###########################################################################
         
