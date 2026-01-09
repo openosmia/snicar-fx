@@ -51,6 +51,10 @@ MODULE CRTM_Shared
   REAL(fp) :: Planck_Surface = 0.
   REAL(fp) :: cosmic_background = 0.
 
+  ! Whether to run the downward loop in addition to the
+  ! upward loop (to get TOA+BOA radiance/reflectance)
+  INTEGER :: run_downward_loop = 0
+  
   ! Input arrays
   REAL(fp), ALLOCATABLE :: w(:), T_OD(:)
   REAL(fp), ALLOCATABLE :: emissivity(:), direct_reflectivity(:)
@@ -64,6 +68,10 @@ MODULE CRTM_Shared
   REAL(fp), ALLOCATABLE :: s_Level_Refl_UP(:,:,:), s_Level_Rad_UP(:,:)
   REAL(fp), ALLOCATABLE :: s_Layer_Source_UP(:,:), s_Layer_Source_DOWN(:,:)
 
+  ! downward loop
+  REAL(fp), ALLOCATABLE :: s_Level_Rad_UPT(:,:), s_Level_Rad_DOWNT(:,:), s_Level_Rad_DOWN(:,:)
+  REAL(fp), ALLOCATABLE :: s_Level_Refl_DOWN(:,:,:), s_Level_Refl_DOWNT(:,:,:)
+
   ! Phase function variables
   REAL(fp), ALLOCATABLE :: Pff(:,:,:), Pbb(:,:,:)
   REAL(fp), ALLOCATABLE :: Pff2d(:,:), Pbb2d(:,:)
@@ -74,6 +82,12 @@ MODULE CRTM_Shared
   ! Adding-Doubling model
   REAL(fp), ALLOCATABLE :: Inv_Gamma(:,:,:), Inv_GammaT(:,:,:), Refl_Trans(:,:,:)
 
+  ! downward loop
+  REAL(fp), ALLOCATABLE :: Inv_Gamma2(:,:,:), Inv_Gamma2T(:,:,:)
+  REAL(fp), ALLOCATABLE :: Inv_Gamma3(:,:,:)
+  REAL(fp), ALLOCATABLE :: Refl_Trans_DOWN(:,:,:)
+  REAL(fp), ALLOCATABLE :: temporal_vector(:)
+  
   ! AMOM-specific matrices
   REAL(fp), ALLOCATABLE :: Thermal_C(:,:), EigVa(:,:), Exp_x(:,:), EigValue(:,:)
   REAL(fp), ALLOCATABLE :: HH(:,:,:), PM(:,:,:), PP(:,:,:), PPM(:,:,:), PPP(:,:,:)
@@ -92,6 +106,7 @@ CONTAINS
     REAL(fp) :: norm_bb = 0.
 
     REAL(fp) :: w_val, T_OD_val, g_val, COS_SUN
+    INTEGER :: run_downward_loop
     CHARACTER(LEN=32) :: arg
     INTEGER :: ios
     integer :: unit_ff, unit_bb
@@ -138,7 +153,13 @@ CONTAINS
     CALL GET_COMMAND_ARGUMENT(5, arg)
     READ(arg, *, IOSTAT=ios) Solar_irradiance
 
-   
+    ! Sixth argument is whether to run the downward loop or not
+    CALL GET_COMMAND_ARGUMENT(6, arg)
+    READ(arg, *, IOSTAT=ios) run_downward_loop
+    IF (ios /= 0) THEN
+       run_downward_loop = 0
+    END IF
+
     ! -----------------------
     ! Allocate arrays and set values
     ! -----------------------
@@ -182,6 +203,13 @@ CONTAINS
     ALLOCATE(s_Layer_Source_UP(nA,nL));    s_Layer_Source_UP = ZERO
     ALLOCATE(s_Layer_Source_DOWN(nA,nL));  s_Layer_Source_DOWN = ZERO
 
+    ! downward loop
+    ALLOCATE(s_Level_Refl_DOWN(nA,nA,0:nL)); s_Level_Refl_DOWN = ZERO
+    ALLOCATE(s_Level_Rad_DOWN(nA,0:nL)); s_Level_Rad_DOWN = ZERO
+    ALLOCATE(s_Level_Refl_DOWNT(nA,nA,0:nL)); s_Level_Refl_DOWNT = ZERO
+    ALLOCATE(s_Level_Rad_DOWNT(nA,0:nL));     s_Level_Rad_DOWNT = ZERO
+    ALLOCATE(s_Level_Rad_UPT(nA,0:nL));     s_Level_Rad_UPT = ZERO
+    
 
     ALLOCATE(Pff(nA,nA+1,nL))
     ALLOCATE(Pbb(nA,nA+1,nL))
@@ -274,9 +302,12 @@ CONTAINS
     ALLOCATE(n_Factor(nA,nL));             n_Factor = ZERO
     ALLOCATE(sum_fac(0:nA,nL));            sum_fac = ZERO
 
-    ALLOCATE(Inv_Gamma(nA,nA,nL));         Inv_Gamma = ZERO
-    ALLOCATE(Inv_GammaT(nA,nA,nL));        Inv_GammaT = ZERO
-    ALLOCATE(Refl_Trans(nA,nA,nL));        Refl_Trans = ZERO
+    ! downward loop
+    ALLOCATE(Inv_Gamma2(nA,nA,nL));        Inv_Gamma2 = ZERO
+    ALLOCATE(Inv_Gamma2T(nA,nA,nL));       Inv_Gamma2T = ZERO
+    ALLOCATE(Inv_Gamma3(nA,nA,nL));        Inv_Gamma3 = ZERO
+    ALLOCATE(Refl_Trans_DOWN(nA,nA,nL));   Refl_Trans_DOWN = ZERO
+    ALLOCATE(temporal_vector(nA));         temporal_vector = ZERO
 
     ALLOCATE(Thermal_C(nA,nL));            Thermal_C = ZERO
     ALLOCATE(EigVa(nA,nL));                EigVa = ZERO
@@ -972,7 +1003,8 @@ SUBROUTINE CRTM_ADA()
   INTEGER :: i, j, k
   CHARACTER(*), PARAMETER :: ROUTINE_NAME = 'CRTM_ADA'
   CHARACTER(256) :: Message
-
+  REAL(fp) :: tmp_vec(nA)
+  
   ! CALL Initialize_CRTM_Shared()
     
     total_opt(0) = ZERO
@@ -1070,7 +1102,100 @@ SUBROUTINE CRTM_ADA()
     
     ! print *, "s_Level_Refl_UP", s_Level_Refl_UP(:, :, 0)
 
+    IF (run_downward_loop /= 0) THEN
 
+       ! -------------------------------
+       ! Initialize first "layer 0" values
+       ! -------------------------------
+       s_Level_Rad_UPT(:,0) = s_Level_Rad_UP(:,0)
+       IF (mth_Azi == 0) THEN
+          DO i = 1, nA
+             s_Level_Rad_DOWN(i,0)  = cosmic_background
+             s_Level_Rad_DOWNT(i,0) = cosmic_background
+          END DO
+       END IF
+       s_Level_Refl_DOWN(:,:,0) = ZERO
+
+       ! -------------------------------
+       ! Main downward loop over layers
+       ! -------------------------------
+       DO k = 1, nL
+
+          IF (w(k) > SCATTERING_ALBEDO_THRESHOLD) THEN
+
+             ! Compute adding matrix for scattering
+             temporal_matrix = -matmul(s_Level_Refl_DOWN(:,:,k-1), s_Layer_Refl(:,:,k))
+             DO i = 1, nA
+                temporal_matrix(i,i) = ONE + temporal_matrix(i,i)
+             END DO
+
+             Inv_Gamma2(:,:,k)  = matinv(temporal_matrix)
+             Inv_Gamma2T(:,:,k) = matmul(s_Layer_Trans(:,:,k), Inv_Gamma2(:,:,k))
+
+             ! Downward source contribution from reflection above
+             refl_down(:,k) = matmul(s_Level_Refl_DOWN(:,:,k-1), s_Layer_Source_UP(:,k))
+
+             ! Compute downward radiance at level k
+             tmp_vec = refl_down(:,k) + s_Level_Rad_DOWN(:,k-1)
+             s_Level_Rad_DOWN(:,k) = s_Layer_Source_DOWN(:,k) + matmul(Inv_Gamma2T(:,:,k), tmp_vec)
+
+             ! Update downward reflection for level k
+             tmp_vec = reshape(matmul(s_Level_Refl_DOWN(:,:,k-1), s_Layer_Trans(:,:,k)), [nA])
+             s_Level_Refl_DOWN(:,:,k) = s_Layer_Refl(:,:,k) + matmul(Inv_Gamma2T(:,:,k), reshape(tmp_vec, [nA,1]))
+
+          ELSE
+             ! Absorption-only layer (no scattering)
+             DO i = 1, nA
+                s_Level_Rad_DOWN(i,k) = s_Layer_Source_DOWN(i,k) + &
+                     s_Layer_Trans(i,i,k) * (sum(s_Level_Refl_DOWN(i,1:nA,k-1) * s_Layer_Source_UP(1:nA,k)) + &
+                     s_Level_Rad_DOWN(i,k-1))
+             END DO
+
+             DO i = 1, nA
+                DO j = 1, nA
+                   s_Level_Refl_DOWN(i,j,k) = s_Layer_Trans(i,i,k) * s_Level_Refl_DOWN(i,j,k-1) * s_Layer_Trans(j,j,k)
+                END DO
+             END DO
+
+             ! Update upward radiance contributions
+             tmp_vec = matmul(s_Level_Refl_DOWN(:,:,k-1), s_Level_Rad_UP(:,k))
+             s_Level_Rad_UPT(:,k) = tmp_vec + s_Level_Rad_UP(:,k)
+
+             tmp_vec = matmul(s_Level_Refl_UP(:,:,k), s_Level_Rad_DOWN(:,k))
+             s_Level_Rad_UPT(:,k) = tmp_vec + s_Level_Rad_UP(:,k)
+
+          END IF
+
+          ! Finalize upward and downward radiance
+          IF (maxval(abs(s_Level_Refl_DOWN(:,:,k))) > ZERO) THEN
+             temporal_matrix = -matmul(s_Level_Refl_DOWN(:,:,k), s_Level_Refl_UP(:,:,k))
+             DO i = 1, nA
+                temporal_matrix(i,i) = ONE + temporal_matrix(i,i)
+             END DO
+
+             Inv_Gamma3(:,:,k) = matinv(temporal_matrix)
+
+             s_Level_Rad_DOWNT(:,k) = matmul(Inv_Gamma3(:,:,k), &
+                  matmul(s_Level_Refl_DOWN(:,:,k), s_Level_Rad_UP(:,k)) + s_Level_Rad_DOWN(:,k))
+
+             tmp_vec = matmul(Inv_Gamma3(:,:,k), s_Level_Rad_DOWN(:,k))
+             s_Level_Rad_UPT(:,k) = matmul(s_Level_Refl_UP(:,:,k), tmp_vec) + &
+                  matmul(Inv_Gamma3(:,:,k), s_Level_Rad_UP(:,k))
+
+          ELSE
+             s_Level_Rad_DOWNT(:,k) = s_Level_Rad_DOWN(:,k)
+             s_Level_Rad_UPT(:,k) = matmul(s_Level_Refl_UP(:,:,k), s_Level_Rad_DOWN(:,k)) + s_Level_Rad_UP(:,k)
+          END IF
+
+       END DO
+
+       ! -------------------------------
+       ! Copy final results back
+       ! -------------------------------
+       s_Level_Rad_DOWN = s_Level_Rad_DOWNT
+       s_Level_Rad_UP   = s_Level_Rad_UPT
+    END IF
+    
     RETURN
 
   END SUBROUTINE CRTM_ADA 
@@ -1321,7 +1446,8 @@ PROGRAM main
   CALL Initialize_CRTM_Shared()
   CALL CRTM_ADA()
 
-  write(filename,'(A,G0.2,A,G0.2,A)') './data/test_data/s_Level_Rad_UP_temp.csv'
+  ! write(filename,'(A,G0.2,A,G0.2,A)') './data/test_data/s_Level_Rad_UP_temp.csv'
+  write(filename,'(A,G0.2,A,G0.2,A)') './data/test_data/s_Level_Rad_UP_temp_twoway.csv'
   
   open(unit=10, file=filename, status='replace')
   write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
