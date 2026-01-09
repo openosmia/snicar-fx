@@ -53,12 +53,16 @@ MODULE CRTM_Shared
 
   ! Whether to run the downward loop in addition to the
   ! upward loop (to get TOA+BOA radiance/reflectance)
-  INTEGER :: run_downward_loop = 0
-  
+  INTEGER :: run_downward_loop
+
   ! Input arrays
   REAL(fp), ALLOCATABLE :: w(:), T_OD(:)
   REAL(fp), ALLOCATABLE :: emissivity(:), direct_reflectivity(:)
   REAL(fp), ALLOCATABLE :: reflectivity(:,:)
+
+  ! downward loop
+  REAL(fp), ALLOCATABLE :: s_Level_Rad_UPT(:,:), s_Level_Rad_DOWNT(:,:), s_Level_Rad_DOWN(:,:)
+  REAL(fp), ALLOCATABLE :: s_Level_Refl_DOWN(:,:,:), s_Level_Refl_DOWNT(:,:,:)
 
   ! RT variables
   REAL(fp), ALLOCATABLE :: Planck_Atmosphere(:), total_opt(:)
@@ -67,10 +71,6 @@ MODULE CRTM_Shared
   REAL(fp), ALLOCATABLE :: s_Layer_Trans(:,:,:), s_Layer_Refl(:,:,:)
   REAL(fp), ALLOCATABLE :: s_Level_Refl_UP(:,:,:), s_Level_Rad_UP(:,:)
   REAL(fp), ALLOCATABLE :: s_Layer_Source_UP(:,:), s_Layer_Source_DOWN(:,:)
-
-  ! downward loop
-  REAL(fp), ALLOCATABLE :: s_Level_Rad_UPT(:,:), s_Level_Rad_DOWNT(:,:), s_Level_Rad_DOWN(:,:)
-  REAL(fp), ALLOCATABLE :: s_Level_Refl_DOWN(:,:,:), s_Level_Refl_DOWNT(:,:,:)
 
   ! Phase function variables
   REAL(fp), ALLOCATABLE :: Pff(:,:,:), Pbb(:,:,:)
@@ -87,7 +87,7 @@ MODULE CRTM_Shared
   REAL(fp), ALLOCATABLE :: Inv_Gamma3(:,:,:)
   REAL(fp), ALLOCATABLE :: Refl_Trans_DOWN(:,:,:)
   REAL(fp), ALLOCATABLE :: temporal_vector(:)
-  
+
   ! AMOM-specific matrices
   REAL(fp), ALLOCATABLE :: Thermal_C(:,:), EigVa(:,:), Exp_x(:,:), EigValue(:,:)
   REAL(fp), ALLOCATABLE :: HH(:,:,:), PM(:,:,:), PP(:,:,:), PPM(:,:,:), PPP(:,:,:)
@@ -106,7 +106,6 @@ CONTAINS
     REAL(fp) :: norm_bb = 0.
 
     REAL(fp) :: w_val, T_OD_val, g_val, COS_SUN
-    INTEGER :: run_downward_loop
     CHARACTER(LEN=32) :: arg
     INTEGER :: ios
     integer :: unit_ff, unit_bb
@@ -160,6 +159,7 @@ CONTAINS
        run_downward_loop = 0
     END IF
 
+   
     ! -----------------------
     ! Allocate arrays and set values
     ! -----------------------
@@ -210,6 +210,7 @@ CONTAINS
     ALLOCATE(s_Level_Rad_DOWNT(nA,0:nL));     s_Level_Rad_DOWNT = ZERO
     ALLOCATE(s_Level_Rad_UPT(nA,0:nL));     s_Level_Rad_UPT = ZERO
     
+
 
     ALLOCATE(Pff(nA,nA+1,nL))
     ALLOCATE(Pbb(nA,nA+1,nL))
@@ -301,6 +302,10 @@ CONTAINS
     ALLOCATE(Obb(nA,nA+1,nL));             Obb = ZERO
     ALLOCATE(n_Factor(nA,nL));             n_Factor = ZERO
     ALLOCATE(sum_fac(0:nA,nL));            sum_fac = ZERO
+
+    ALLOCATE(Inv_Gamma(nA,nA,nL));         Inv_Gamma = ZERO
+    ALLOCATE(Inv_GammaT(nA,nA,nL));        Inv_GammaT = ZERO
+    ALLOCATE(Refl_Trans(nA,nA,nL));        Refl_Trans = ZERO
 
     ! downward loop
     ALLOCATE(Inv_Gamma2(nA,nA,nL));        Inv_Gamma2 = ZERO
@@ -1004,7 +1009,7 @@ SUBROUTINE CRTM_ADA()
   CHARACTER(*), PARAMETER :: ROUTINE_NAME = 'CRTM_ADA'
   CHARACTER(256) :: Message
   REAL(fp) :: tmp_vec(nA)
-  
+
   ! CALL Initialize_CRTM_Shared()
     
     total_opt(0) = ZERO
@@ -1099,11 +1104,12 @@ SUBROUTINE CRTM_ADA()
          s_Level_Rad_UP(i,0)=s_Level_Rad_UP(i,0)+sum(s_Level_Refl_UP(i,1:nA,0))*cosmic_background
        ENDDO
     END IF
-    
-    ! print *, "s_Level_Refl_UP", s_Level_Refl_UP(:, :, 0)
 
+    ! print *, "s_Level_Refl_UP", s_Level_Refl_UP(:, :, 0)
     IF (run_downward_loop /= 0) THEN
 
+       print *, "Here"
+       
        ! -------------------------------
        ! Initialize first "layer 0" values
        ! -------------------------------
@@ -1194,10 +1200,11 @@ SUBROUTINE CRTM_ADA()
        ! -------------------------------
        s_Level_Rad_DOWN = s_Level_Rad_DOWNT
        s_Level_Rad_UP   = s_Level_Rad_UPT
-    END IF
+
+    ENDIF
     
     RETURN
-
+    
   END SUBROUTINE CRTM_ADA 
       
   SUBROUTINE CRTM_AMOM_layer(KL) !Input, KL-th layer 
@@ -1308,9 +1315,6 @@ SUBROUTINE CRTM_ADA()
        EigValue(i,KL) = ZERO
      END IF
    END DO
-   ! print *, "Eig values", EigVa(1:nA,KL)
-   ! print *, "HH21", HH(2, 1, KL)
-   ! print *, "HH22", HH(2, 2, KL)
 
    DO i = 1, nA
      DO j = 1, nA
@@ -1447,7 +1451,7 @@ PROGRAM main
   CALL CRTM_ADA()
 
   ! write(filename,'(A,G0.2,A,G0.2,A)') './data/test_data/s_Level_Rad_UP_temp.csv'
-  write(filename,'(A,G0.2,A,G0.2,A)') './data/test_data/s_Level_Rad_UP_temp_twoway.csv'
+  write(filename,'(A,G0.2,A,G0.2,A)') './s_Level_Rad_UP_temp.csv'
   
   open(unit=10, file=filename, status='replace')
   write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
