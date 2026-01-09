@@ -755,23 +755,8 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
 
                 
             else:
-                print('enter')
-                # aads.s_level_rad_downt[:, k, :] = aads.s_level_rad_down[:, k + 1, :]
+                print('refl down negative')
                 aads.s_level_rad_downt[:, k, :] = aads.s_level_rad_down[:, k, :]
-
-                # aads.s_level_rad_upt[:, k, :] = (
-                #     np.matmul(
-                #         np.moveaxis(
-                #             aads.s_level_refl_up[:, :, k + 1, :],
-                #             source=[0, 1, 2],
-                #             destination=[1, 2, 0]),
-                #         np.moveaxis(aads.s_level_rad_down[:, k + 1, :],
-                #                     -1, 0)[:, :, None]
-                #     )
-                #     + np.moveaxis(aads.s_level_rad_up[:, k + 1, :],
-                #                 -1, 0)[:, :, None]
-                #     )
-                
                 
                 aads.s_level_rad_upt[:, k, :] = (
                     np.matmul(
@@ -809,19 +794,49 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
         aads.solar_irradiance * aads.cos_sun
     )
     
-    # directional HDRF at the bottom of the atmosphere
-    aads.directional_reflectance_bottom = (
-        aads.s_level_rad_up[:, -land.nbr_lyr-1, :] * np.pi
-        ) / ( 
-            2 * np.pi 
-            * np.sum(aads.s_level_rad_down[:, -land.nbr_lyr-1, :] 
-                     * np.array(aads.cos_weight)[:, None]
-                     * np.array(aads.cos_angle)[:, None],
-        axis=0,
-    ))
-
     # directional radiance at the top of the atmosphere
     aads.directional_radiance_top = aads.s_level_rad_up[:, 0, :]
+    
+    # compute surface values
+    if atmosphere.use_atmosphere:
+    
+        m = -land.nbr_lyr
+        
+        tau_k = aads.total_opt[m, :]
+        
+        E_dir = (
+            aads.solar_irradiance
+            * aads.cos_sun
+            * np.exp(-tau_k / aads.cos_sun)
+        )
+        
+        E_diff = (
+            2.0 * np.pi
+            * np.sum(
+                aads.s_level_rad_down[:, m, :]
+                * np.array(aads.cos_angle)[:, None]
+                * np.array(aads.cos_weight)[:, None],
+                axis=0,
+            )
+        )
+        
+        aads.directional_reflectance_surface = (
+            aads.s_level_rad_up[:, m, :] * np.pi 
+            ) / (E_diff + E_dir)
+        
+        aads.albedo_surface = (
+            2
+            * np.pi
+            * np.sum(
+                aads.s_level_rad_up[:, m, :]
+                * np.array(aads.cos_angle)[:, None]
+                * np.array(aads.cos_weight)[:, None],
+                axis=0,
+            )
+            / (E_diff + E_dir)  # project solar beam
+        ).flatten()
+            
+        
 
     outputs = aads.get_outputs()
 
