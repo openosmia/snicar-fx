@@ -134,9 +134,20 @@ class _MultiStreamSolver:
         self.s_level_rad_down = np.zeros((self.n_angles, self.nbr_lyr + 1, self.nbr_wvl))
 
         self.s_layer_source_up = np.zeros((self.n_angles, self.nbr_lyr, self.nbr_wvl))
+        
         self.s_layer_source_down = np.zeros((self.n_angles, self.nbr_lyr, self.nbr_wvl))
+        
+        self.s_layer_refl = np.zeros(
+            (self.nbr_wvl, self.n_angles, self.n_angles, self.nbr_lyr)
+        )
+        
+        self.s_layer_trans = np.zeros(
+            (self.nbr_wvl, self.n_angles, self.n_angles, self.nbr_lyr)
+        )
+
 
         if downward_loop: 
+            
             self.s_level_refl_down = np.zeros(
                 (self.n_angles, self.n_angles, self.nbr_lyr + 1, self.nbr_wvl)
             )
@@ -283,11 +294,10 @@ class _MultiStreamSolver:
 
         trans_t = np.moveaxis(trans, -1, 1)
         refl_t = np.moveaxis(refl, -1, 1)
-
+        
         # post processing
-        self.s_layer_trans = trans_t
-        self.s_layer_refl = refl_t
-        self.s_layer_source_up[:, :, :] = 0.0
+        self.s_layer_trans[:, :, :, k] = trans_t
+        self.s_layer_refl[:, :, :, k] = refl_t
 
         # not included for now since we don't model thermal
         # if self.mth_azi == 0:
@@ -442,6 +452,8 @@ class _MultiStreamSolver:
 
             self.s_layer_source_up[:, k, :] += source_up[:, 0, :]
             self.s_layer_source_down[:, k, :] += source_down[:, 0, :]
+            
+            
 
     def get_outputs(self):
         """
@@ -533,7 +545,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                 source=[0, 1, 2],
                 destination=[1, 2, 0],
             ),
-            aads.s_layer_refl,
+            aads.s_layer_refl[:, :, :,  k],
         )
 
         n = np.arange(aads.n_angles)
@@ -542,7 +554,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
         inv_gamma_t = np.moveaxis(
             np.linalg.solve(
                 np.moveaxis(infinite_scattering, 1, 2),
-                np.moveaxis(aads.s_layer_trans, 2, 1),
+                np.moveaxis(aads.s_layer_trans[:, :, :,  k], 2, 1),
             ),
             1,
             2,
@@ -579,11 +591,11 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                 source=[0, 1, 2],
                 destination=[1, 2, 0],
             ),
-            aads.s_layer_trans,
+            aads.s_layer_trans[:, :, :,  k],
         )
 
         aads.s_level_refl_up[:, :, k, :] = np.moveaxis(
-            aads.s_layer_refl + np.matmul(inv_gamma_t, refl_trans),
+            aads.s_layer_refl[:, :, :,  k] + np.matmul(inv_gamma_t, refl_trans),
             source=[0, 1, 2],  # wl, i, j
             destination=[2, 0, 1],
         )  # becomes i, j, wl
@@ -593,6 +605,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
             aads.s_level_rad_up[i, 0, :] += (
                 np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
+
     
     ###########################################################################
     if downward_loop: 
@@ -609,29 +622,30 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     aads.cosmic_background
                 )
                 
+        
         for k in range(0, aads.nbr_lyr):
-            
             infinite_scattering = -np.matmul(
                 np.moveaxis(
                     aads.s_level_refl_down[:, :, k, :],
                     source=[0, 1, 2],
                     destination=[1, 2, 0],
                 ),
-                aads.s_layer_refl,
+                aads.s_layer_refl[:, :, :, k],
             )
 
             n = np.arange(aads.n_angles)
             infinite_scattering[:, n, n] += 1
             
+            
             inv_gamma_t = np.moveaxis(
                 np.linalg.solve(
                     np.moveaxis(infinite_scattering, 1, 2),
-                    np.moveaxis(aads.s_layer_trans, 2, 1),
+                    np.moveaxis(aads.s_layer_trans[:, :, :,  k], 2, 1),
                 ),
                 1,
                 2,
             )
-       
+            
             
             refl_down = np.matmul(
                 np.moveaxis(
@@ -643,6 +657,8 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     aads.s_layer_source_up[:, k, :], source=[0, 1], destination=[1, 0]
                 )[:, :, None],
             ).reshape(aads.nbr_wvl, aads.n_angles)
+            
+            
         
             aads.s_level_rad_down[:, k + 1, :] = (
                 aads.s_layer_source_down[:, k, :]
@@ -657,6 +673,8 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     destination=[2, 0, 1],
                 )[:, 0, :]
             )
+
+            
             
             refl_trans = np.matmul(
                 np.moveaxis(
@@ -664,14 +682,20 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     source=[0, 1, 2],
                     destination=[1, 2, 0],
                 ),
-                aads.s_layer_trans,
+                aads.s_layer_trans[:, :, :,  k],
             )
+            
+            
 
             aads.s_level_refl_down[:, :, k + 1, :] = np.moveaxis(
-                aads.s_layer_refl + np.matmul(inv_gamma_t, refl_trans),
+                aads.s_layer_refl[:, :, :,  k] + np.matmul(inv_gamma_t, refl_trans),
                 source=[0, 1, 2],  # wl, i, j
                 destination=[2, 0, 1], # becomes i, j, wl
             )  
+            
+            
+            # print(aads.s_level_refl_down[0, :, k + 1, 0])
+            # print('\n')
             
             # finalize upward and downward radiances
             if np.max(np.abs(aads.s_level_refl_down[:, :, k + 1, :])) > 0:
@@ -691,10 +715,13 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
 
                 n = np.arange(aads.n_angles)
                 infinite_scattering[:, n, n] += 1
-            
+
                 inv_gamma = np.linalg.inv(
-                    np.moveaxis(infinite_scattering, 1, 2)
+                    infinite_scattering
                     )
+                
+                
+                # print(infinite_scattering[0, :, 0]) # not good
                 
                 # this does not appear in original code but we precompute
                 # as in previous calculations
@@ -709,7 +736,9 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     )[:, :, None],
                 ).reshape(aads.nbr_wvl, aads.n_angles)
                 
-                aads.s_level_rad_downt[:, k, :] = (
+                
+                
+                aads.s_level_rad_downt[:, k + 1, :] = (
                     np.moveaxis(
                         np.matmul(
                             inv_gamma,
@@ -721,7 +750,9 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                         destination=[2, 0, 1],
                     )[:, 0, :]
                 )
-
+                
+                # inv_gamma, ref_down good for all levels
+                
                 
                 temporal_vector = np.matmul(
                     inv_gamma,
@@ -731,7 +762,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     )
          
                 
-                aads.s_level_rad_upt[:, k, :] = (
+                aads.s_level_rad_upt[:, k + 1, :] = (
                     np.moveaxis(
                     np.matmul(
                         np.moveaxis(
@@ -752,30 +783,34 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                         destination=[2, 0, 1],
                     )[:, 0, :]
                 )
-
+                print(aads.s_level_rad_upt[:, k + 1, 0])
+                     
                 
             else:
                 print('refl down negative')
-                aads.s_level_rad_downt[:, k, :] = aads.s_level_rad_down[:, k, :]
+                aads.s_level_rad_downt[:, k + 1, :] = aads.s_level_rad_down[:, k + 1, :]
                 
-                aads.s_level_rad_upt[:, k, :] = (
+                aads.s_level_rad_upt[:, k + 1, :] = (
                     np.matmul(
                         np.moveaxis(
-                            aads.s_level_refl_up[:, :, k, :],
+                            aads.s_level_refl_up[:, :, k + 1, :],
                             source=[0, 1, 2],
                             destination=[1, 2, 0]),
-                        np.moveaxis(aads.s_level_rad_down[:, k, :],
+                        np.moveaxis(aads.s_level_rad_down[:, k + 1, :],
                                     -1, 0)[:, :, None]
                     )
-                    + np.moveaxis(aads.s_level_rad_up[:, k, :],
+                    + np.moveaxis(aads.s_level_rad_up[:, k + 1, :],
                                 -1, 0)[:, :, None]
                     )
             
+            # print(aads.s_level_rad_downt[0, :, 0])
         aads.s_level_rad_down = aads.s_level_rad_downt.copy()
         aads.s_level_rad_up = aads.s_level_rad_upt.copy()
     
     ###########################################################################
-        
+    
+            
+
 
     aads.albedo = (
         2
@@ -800,7 +835,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
     # compute surface values
     if atmosphere.use_atmosphere:
     
-        m = -land.nbr_lyr
+        m = -land.nbr_lyr 
         
         tau_k = aads.total_opt[m, :]
         
@@ -836,8 +871,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
             / (E_diff + E_dir)  # project solar beam
         ).flatten()
             
-        
-
+    
     outputs = aads.get_outputs()
 
     return outputs
