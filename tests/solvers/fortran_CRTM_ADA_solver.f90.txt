@@ -1,5 +1,7 @@
 ! gfortran fortran_CRTM_ADA_solver.f90 -o run_ADA
-! ./run_ADA w T_OD g COS_SUN Solar_irradiance
+! ./run_ADA w T_OD g COS_SUN Solar_irradiance run_downward_loop
+! ./run_ADA 0.89123599 0.91942177 0.86 0.6427876097 909.849 1
+
 MODULE CRTM_Shared
   IMPLICIT NONE
 
@@ -105,7 +107,7 @@ CONTAINS
     REAL(fp) :: norm_ff = 0.
     REAL(fp) :: norm_bb = 0.
 
-    REAL(fp) :: w_val, T_OD_val, g_val, COS_SUN
+    REAL(fp) :: w_val, T_OD_val, g_val !, COS_SUN
     CHARACTER(LEN=32) :: arg
     INTEGER :: ios
     integer :: unit_ff, unit_bb
@@ -1008,7 +1010,6 @@ SUBROUTINE CRTM_ADA()
   INTEGER :: i, j, k
   CHARACTER(*), PARAMETER :: ROUTINE_NAME = 'CRTM_ADA'
   CHARACTER(256) :: Message
-  REAL(fp) :: tmp_vec(nA)
 
   ! CALL Initialize_CRTM_Shared()
     
@@ -1076,7 +1077,7 @@ SUBROUTINE CRTM_ADA()
 
 
     ELSE
-      DO i = 1, nA 
+       DO i = 1, nA 
         s_Layer_Trans(i,i,k) = exp(-T_OD(k)/COS_Angle(i))
         s_Layer_Source_UP(i,k) = Planck_Atmosphere(k) * (ONE - s_Layer_Trans(i,i,k) )
         s_Layer_Source_DOWN(i,k) = s_Layer_Source_UP(i,k)
@@ -1098,6 +1099,7 @@ SUBROUTINE CRTM_ADA()
      
     10     CONTINUE
 
+     
     !  Adding reflected cosmic background radiation
     IF( mth_Azi == 0 ) THEN
        DO i = 1, nA 
@@ -1105,26 +1107,19 @@ SUBROUTINE CRTM_ADA()
        ENDDO
     END IF
 
-    ! print *, "s_Level_Refl_UP", s_Level_Refl_UP(:, :, 0)
+    ! print *, "s_Level_Rad_UP", s_Level_Rad_UP(1, :) !CHECKED ! nA, 0:nL 
+    
     IF (run_downward_loop /= 0) THEN
 
-       print *, "Here"
-       
-       ! -------------------------------
        ! Initialize first "layer 0" values
-       ! -------------------------------
        s_Level_Rad_UPT(:,0) = s_Level_Rad_UP(:,0)
        IF (mth_Azi == 0) THEN
-          DO i = 1, nA
-             s_Level_Rad_DOWN(i,0)  = cosmic_background
-             s_Level_Rad_DOWNT(i,0) = cosmic_background
-          END DO
+          s_Level_Rad_DOWN(:,0)  = cosmic_background
+          s_Level_Rad_DOWNT(:,0) = cosmic_background
        END IF
        s_Level_Refl_DOWN(:,:,0) = ZERO
 
-       ! -------------------------------
        ! Main downward loop over layers
-       ! -------------------------------
        DO k = 1, nL
 
           IF (w(k) > SCATTERING_ALBEDO_THRESHOLD) THEN
@@ -1134,41 +1129,38 @@ SUBROUTINE CRTM_ADA()
              DO i = 1, nA
                 temporal_matrix(i,i) = ONE + temporal_matrix(i,i)
              END DO
-
              Inv_Gamma2(:,:,k)  = matinv(temporal_matrix)
              Inv_Gamma2T(:,:,k) = matmul(s_Layer_Trans(:,:,k), Inv_Gamma2(:,:,k))
 
-             ! Downward source contribution from reflection above
-             refl_down(:,k) = matmul(s_Level_Refl_DOWN(:,:,k-1), s_Layer_Source_UP(:,k))
+             ! Downward radiance at level k
+             s_Level_Rad_DOWN(:,k) = s_Layer_Source_DOWN(:,k) + &
+                  matmul(Inv_Gamma2T(:,:,k), &
+                  s_Level_Rad_DOWN(:,k-1) + matmul(s_Level_Refl_DOWN(:,:,k-1), s_Layer_Source_UP(:,k)))
 
-             ! Compute downward radiance at level k
-             tmp_vec = refl_down(:,k) + s_Level_Rad_DOWN(:,k-1)
-             s_Level_Rad_DOWN(:,k) = s_Layer_Source_DOWN(:,k) + matmul(Inv_Gamma2T(:,:,k), tmp_vec)
-
+             ! !!!!!!!!!!!! s level rad down ok first level but not later
+             ! print *, s_Level_Rad_DOWN(:,k)
+             
              ! Update downward reflection for level k
-             tmp_vec = reshape(matmul(s_Level_Refl_DOWN(:,:,k-1), s_Layer_Trans(:,:,k)), [nA])
-             s_Level_Refl_DOWN(:,:,k) = s_Layer_Refl(:,:,k) + matmul(Inv_Gamma2T(:,:,k), reshape(tmp_vec, [nA,1]))
+             s_Level_Refl_DOWN(:,:,k) = s_Layer_Refl(:,:,k) + &
+                  matmul(Inv_Gamma2T(:,:,k), matmul(s_Level_Refl_DOWN(:,:,k-1), s_Layer_Trans(:,:,k)))
 
-          ELSE
-             ! Absorption-only layer (no scattering)
-             DO i = 1, nA
-                s_Level_Rad_DOWN(i,k) = s_Layer_Source_DOWN(i,k) + &
-                     s_Layer_Trans(i,i,k) * (sum(s_Level_Refl_DOWN(i,1:nA,k-1) * s_Layer_Source_UP(1:nA,k)) + &
-                     s_Level_Rad_DOWN(i,k-1))
-             END DO
+          ! ELSE
+          !    ! Absorption-only layer (no scattering)
+          !    DO i = 1, nA
+          !       s_Level_Rad_DOWN(i,k) = s_Layer_Source_DOWN(i,k) + &
+          !            s_Layer_Trans(i,i,k) * (sum(s_Level_Refl_DOWN(i,1:nA,k-1) * s_Layer_Source_UP(1:nA,k)) + &
+          !            s_Level_Rad_DOWN(i,k-1))
+          !    END DO
+          !    DO i = 1, nA
+          !       DO j = 1, nA
+          !          s_Level_Refl_DOWN(i,j,k) = s_Layer_Trans(i,i,k) * s_Level_Refl_DOWN(i,j,k-1) * s_Layer_Trans(j,j,k)
+          !       END DO
+          !    END DO
 
-             DO i = 1, nA
-                DO j = 1, nA
-                   s_Level_Refl_DOWN(i,j,k) = s_Layer_Trans(i,i,k) * s_Level_Refl_DOWN(i,j,k-1) * s_Layer_Trans(j,j,k)
-                END DO
-             END DO
-
-             ! Update upward radiance contributions
-             tmp_vec = matmul(s_Level_Refl_DOWN(:,:,k-1), s_Level_Rad_UP(:,k))
-             s_Level_Rad_UPT(:,k) = tmp_vec + s_Level_Rad_UP(:,k)
-
-             tmp_vec = matmul(s_Level_Refl_UP(:,:,k), s_Level_Rad_DOWN(:,k))
-             s_Level_Rad_UPT(:,k) = tmp_vec + s_Level_Rad_UP(:,k)
+          !    ! Update upward radiance inline (no tmp_vec)
+          !    s_Level_Rad_UPT(:,k) = s_Level_Rad_UP(:,k) + &
+          !         matmul(s_Level_Refl_DOWN(:,:,k-1), s_Level_Rad_UP(:,k)) + &
+          !         matmul(s_Level_Refl_UP(:,:,k), s_Level_Rad_DOWN(:,k))
 
           END IF
 
@@ -1178,30 +1170,36 @@ SUBROUTINE CRTM_ADA()
              DO i = 1, nA
                 temporal_matrix(i,i) = ONE + temporal_matrix(i,i)
              END DO
-
              Inv_Gamma3(:,:,k) = matinv(temporal_matrix)
 
+             ! Downward radiance at level k
              s_Level_Rad_DOWNT(:,k) = matmul(Inv_Gamma3(:,:,k), &
-                  matmul(s_Level_Refl_DOWN(:,:,k), s_Level_Rad_UP(:,k)) + s_Level_Rad_DOWN(:,k))
+                  s_Level_Rad_DOWN(:,k) + matmul(s_Level_Refl_DOWN(:,:,k), s_Level_Rad_UP(:,k)))
 
-             tmp_vec = matmul(Inv_Gamma3(:,:,k), s_Level_Rad_DOWN(:,k))
-             s_Level_Rad_UPT(:,k) = matmul(s_Level_Refl_UP(:,:,k), tmp_vec) + &
-                  matmul(Inv_Gamma3(:,:,k), s_Level_Rad_UP(:,k))
 
+             ! Compute intermediate vector for upward radiance
+             temporal_vector = matmul(Inv_Gamma3(:,:,k), s_Level_Rad_DOWN(:,k))
+
+             ! Upward radiance at level k
+             s_Level_Rad_UPT(:,k) = matmul(s_Level_Refl_UP(:,:,k), temporal_vector) + &
+                          matmul(Inv_Gamma3(:,:,k), s_Level_Rad_UP(:,k))
+
+             print *, s_Level_Rad_UPT(:,k)
+             
           ELSE
              s_Level_Rad_DOWNT(:,k) = s_Level_Rad_DOWN(:,k)
-             s_Level_Rad_UPT(:,k) = matmul(s_Level_Refl_UP(:,:,k), s_Level_Rad_DOWN(:,k)) + s_Level_Rad_UP(:,k)
+             s_Level_Rad_UPT(:,k) = s_Level_Rad_UP(:,k) + matmul(s_Level_Refl_UP(:,:,k), s_Level_Rad_DOWN(:,k))
           END IF
 
        END DO
-
-       ! -------------------------------
+       
        ! Copy final results back
-       ! -------------------------------
        s_Level_Rad_DOWN = s_Level_Rad_DOWNT
        s_Level_Rad_UP   = s_Level_Rad_UPT
+       
+    END IF
 
-    ENDIF
+    ! print *, "s_Level_Rad_UP", s_Level_Rad_UP(1, :)
     
     RETURN
     
@@ -1454,7 +1452,8 @@ PROGRAM main
   write(filename,'(A,G0.2,A,G0.2,A)') './s_Level_Rad_UP_temp.csv'
   
   open(unit=10, file=filename, status='replace')
-  write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
+  ! write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
+  write(10,'(100F12.5)') (s_Level_Rad_UP(i,1), i=1,nA)
   close(10)
   
   ! do k = 0, nL
