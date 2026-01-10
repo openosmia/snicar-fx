@@ -606,8 +606,6 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                 np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
 
-    
-    ###########################################################################
     if downward_loop: 
         
         # preserve TOA upward radiance
@@ -694,9 +692,6 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
             )  
             
             
-            # print(aads.s_level_refl_down[0, :, k + 1, 0])
-            # print('\n')
-            
             # finalize upward and downward radiances
             if np.max(np.abs(aads.s_level_refl_down[:, :, k + 1, :])) > 0:
                 
@@ -720,9 +715,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                     infinite_scattering
                     )
                 
-                
-                # print(infinite_scattering[0, :, 0]) # not good
-                
+                                
                 # this does not appear in original code but we precompute
                 # as in previous calculations
                 refl_down = np.matmul(
@@ -737,7 +730,6 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                 ).reshape(aads.nbr_wvl, aads.n_angles)
                 
                 
-                
                 aads.s_level_rad_downt[:, k + 1, :] = (
                     np.moveaxis(
                         np.matmul(
@@ -750,9 +742,6 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                         destination=[2, 0, 1],
                     )[:, 0, :]
                 )
-                
-                # inv_gamma, ref_down good for all levels
-                
                 
                 temporal_vector = np.matmul(
                     inv_gamma,
@@ -782,12 +771,10 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                         source=[0, 1, 2],
                         destination=[2, 0, 1],
                     )[:, 0, :]
-                )
-                print(aads.s_level_rad_upt[:, k + 1, 0])
-                     
+                )                     
                 
             else:
-                print('refl down negative')
+
                 aads.s_level_rad_downt[:, k + 1, :] = aads.s_level_rad_down[:, k + 1, :]
                 
                 aads.s_level_rad_upt[:, k + 1, :] = (
@@ -806,11 +793,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
             # print(aads.s_level_rad_downt[0, :, 0])
         aads.s_level_rad_down = aads.s_level_rad_downt.copy()
         aads.s_level_rad_up = aads.s_level_rad_upt.copy()
-    
-    ###########################################################################
-    
-            
-
+        
 
     aads.albedo = (
         2
@@ -835,9 +818,9 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
     # compute surface values
     if atmosphere.use_atmosphere:
     
-        m = -land.nbr_lyr 
+        interface_idx = -land.nbr_lyr 
         
-        tau_k = aads.total_opt[m, :]
+        tau_k = aads.total_opt[interface_idx, :]
         
         E_dir = (
             aads.solar_irradiance
@@ -848,7 +831,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
         E_diff = (
             2.0 * np.pi
             * np.sum(
-                aads.s_level_rad_down[:, m, :]
+                aads.s_level_rad_down[:, interface_idx, :]
                 * np.array(aads.cos_angle)[:, None]
                 * np.array(aads.cos_weight)[:, None],
                 axis=0,
@@ -856,19 +839,19 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
         )
         
         aads.directional_reflectance_surface = (
-            aads.s_level_rad_up[:, m, :] * np.pi 
+            aads.s_level_rad_up[:, interface_idx, :] * np.pi 
             ) / (E_diff + E_dir)
         
         aads.albedo_surface = (
             2
             * np.pi
             * np.sum(
-                aads.s_level_rad_up[:, m, :]
+                aads.s_level_rad_up[:, interface_idx, :]
                 * np.array(aads.cos_angle)[:, None]
                 * np.array(aads.cos_weight)[:, None],
                 axis=0,
             )
-            / (E_diff + E_dir)  # project solar beam
+            / (E_diff + E_dir)  
         ).flatten()
             
     
