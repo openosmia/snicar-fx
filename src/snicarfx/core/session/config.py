@@ -42,6 +42,11 @@ class Solver(BaseModel):
         description="If true, atmopshere layers are added on top of land layers and the extra-terrestrial solar irradiance at the top of atmosphere is used as boundary condition. If false, only land layers are modeled and the surface solar irradiance is used as boundary condition."
     )
 
+    # levels to output
+    OUTPUT_LEVELS: Literal["BOA", "TOA", "BOA+TOA"] = Field(
+        description="Levels to output. If Top of Atmosphere (TOA) and ATMOSPHERE_COUPLING, only the upward loop of the solver is computed. If Bottom of Atmosphere (BOA)+TOA and ATMOSPHERE_COUPLING, both upward and downward loops are computed (slower)."
+    )
+
     # number of Legendre moments to use in phase functions
     N_LEGENDRE_MOMENTS: int = Field(
         default=15,
@@ -58,6 +63,14 @@ class Solver(BaseModel):
         if self.TYPE == "two-stream" and self.ATMOSPHERE_COUPLING:
             raise ValueError(
                 "SOLVER.ATMOSPHERE_COUPLING is not supported when SOLVER.TYPE='two-stream'."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_output_levels(self):
+        if self.TYPE == "two-stream" and "TOA" in self.OUTPUT_LEVELS:
+            raise ValueError(
+                "TOA output level is not supported when SOLVER.TYPE='two-stream'."
             )
         return self
 
