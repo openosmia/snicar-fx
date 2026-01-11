@@ -304,8 +304,19 @@ class Session:
 
         elif self.config.SOLVER.TYPE == "multi-stream":
 
+            if (
+                "BOA" in self.config.SOLVER.OUTPUT_LEVELS
+                and self.config.SOLVER.ATMOSPHERE_COUPLING
+            ):
+                run_downward_loop = True
+            else:
+                run_downward_loop = False
+
             self.outputs = solve_multi_stream_rt(
-                self.land_column, self.atmosphere_column, self.solar_irradiance
+                self.land_column,
+                self.atmosphere_column,
+                self.solar_irradiance,
+                run_downward_loop,
             )
 
             if self.config.SPECTRAL.MODE == "band-srf-integration":

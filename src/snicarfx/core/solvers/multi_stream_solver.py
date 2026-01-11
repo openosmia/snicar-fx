@@ -56,7 +56,7 @@ class _MultiStreamSolver:
 
     """
 
-    def __init__(self, land, atmosphere, irradiance):
+    def __init__(self, land, atmosphere, irradiance, output_levels):
         """
         Initialize all variables required for the solver and applies delta
         scaling to the single scattering properties of the ice/snow column.
@@ -144,7 +144,7 @@ class _MultiStreamSolver:
             (self.nbr_wvl, self.n_angles, self.n_angles, self.nbr_lyr)
         )
 
-        if downward_loop:
+        if "BOA" in output_levels and atmosphere.use_atmosphere:
 
             self.s_level_refl_down = np.zeros(
                 (self.n_angles, self.n_angles, self.nbr_lyr + 1, self.nbr_wvl)
@@ -475,7 +475,7 @@ class _MultiStreamSolver:
         return results
 
 
-def solve_multi_stream_rt(land, atmosphere, irradiance):
+def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels):
     """
 
     This subroutine calculates hemispherical albedo by calling AMOM for each
@@ -496,7 +496,6 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class, storing the properties of the
         incoming solar irradiance.
-
     Returns
     -------
     albedo : array
@@ -504,7 +503,12 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
 
     """
 
-    aads = _MultiStreamSolver(land, atmosphere, irradiance)
+    aads = _MultiStreamSolver(land, atmosphere, irradiance, output_levels)
+
+    if "BOA" in output_levels and atmosphere.use_atmosphere:
+        run_downward_loop = True
+    else:
+        run_downward_loop = False
 
     for k in range(1, aads.nbr_lyr + 1):
         aads.total_opt[k, :] = aads.total_opt[k - 1, :] + aads.t_od[k - 1, :]
@@ -603,7 +607,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
                 np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
 
-    if downward_loop:
+    if run_downward_loop:
 
         # preserve TOA upward radiance
         aads.s_level_rad_upt[:, 0, :] = aads.s_level_rad_up[:, 0, :].copy()
@@ -793,7 +797,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance):
     aads.directional_radiance_top = aads.s_level_rad_up[:, 0, :]
 
     # compute surface values
-    if atmosphere.use_atmosphere:
+    if run_downward_loop:
 
         interface_idx = -land.nbr_lyr
 
