@@ -59,7 +59,7 @@ class Solver(BaseModel):
     model_config = {"extra": "forbid"}
 
     @model_validator(mode="after")
-    def check_atmosphere_coupling(self):
+    def check_type_atmosphere_coupling(self):
         if self.TYPE == "two-stream" and self.ATMOSPHERE_COUPLING:
             raise ValueError(
                 "SOLVER.ATMOSPHERE_COUPLING is not supported when SOLVER.TYPE='two-stream'."
@@ -71,6 +71,11 @@ class Solver(BaseModel):
         if self.TYPE == "two-stream" and "TOA" in self.OUTPUT_LEVELS:
             raise ValueError(
                 "TOA output level is not supported when SOLVER.TYPE='two-stream'."
+            )
+
+        if not self.ATMOSPHERE_COUPLING and "TOA" in self.OUTPUT_LEVELS:
+            raise ValueError(
+                "TOA output level is not supported when SOLVER.ATMOSPHERE_COUPLING=False."
             )
         return self
 

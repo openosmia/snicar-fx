@@ -304,19 +304,11 @@ class Session:
 
         elif self.config.SOLVER.TYPE == "multi-stream":
 
-            if (
-                "BOA" in self.config.SOLVER.OUTPUT_LEVELS
-                and self.config.SOLVER.ATMOSPHERE_COUPLING
-            ):
-                run_downward_loop = True
-            else:
-                run_downward_loop = False
-
             self.outputs = solve_multi_stream_rt(
                 self.land_column,
                 self.atmosphere_column,
                 self.solar_irradiance,
-                run_downward_loop,
+                self.config.SOLVER.OUTPUT_LEVELS,
             )
 
             if self.config.SPECTRAL.MODE == "band-srf-integration":
@@ -391,33 +383,26 @@ class Session:
             "session_state": self._write_current_state(),
         }
 
+        # store albedo, reflectance and radiance variables along with
+        # their dimensions
+        albedo_variables = {}
+        directional_variables = {}
+        for var_name, data in self.outputs.items():
+            if "albedo_" in var_name:
+                albedo_variables[var_name] = ("wavelength", data)
+            elif "directional_" in var_name:
+                directional_variables[var_name] = (("angle", "wavelength"), data)
+
+        # create xarray dataset
         ds = xr.Dataset(
-            data_vars={
-                "albedo": ("wavelength", self.outputs.albedo),
-                "gaussian_integration_angle": (
-                    "angle",
-                    self.outputs.cos_angle,
-                ),
-                "gaussian_integration_weight": (
-                    "angle",
-                    self.outputs.cos_weight,
-                ),
-                "directional_reflectance_top": (
-                    ("angle", "wavelength"),
-                    self.outputs.directional_reflectance_top,
-                ),
-                "directional_radiance_top": (
-                    ("angle", "wavelength"),
-                    self.outputs.directional_radiance_top,
-                ),
-            },
+            data_vars={**albedo_variables, **directional_variables},
             coords={
                 "wavelength": (
                     self._band_ranges[:, -1]
                     if "band-" in self.config.SPECTRAL.MODE
                     else self.config._wavelengths_land
                 ),
-                "angle": np.arange(len(self.outputs.cos_weight)),
+                "angle": self.outputs["outgoing_angle"],
             },
         )
 
@@ -428,28 +413,17 @@ class Session:
 
     def apply_spectral_response_function(self) -> None:
 
-        self.outputs.directional_reflectance_top = (
-            np.nansum(
-                self.outputs.directional_reflectance_top[:, None, :]
-                * self._spectral_response_function[None, :, :],
-                axis=-1,
-            )
-            / np.nansum(self._spectral_response_function, axis=1)[None, :]
-        )
+        for key, var in self.outputs.items():
 
-        self.outputs.directional_radiance_top = (
-            np.nansum(
-                self.outputs.directional_radiance_top[:, None, :]
-                * self._spectral_response_function[None, :, :],
-                axis=-1,
-            )
-            / np.nansum(self._spectral_response_function, axis=1)[None, :]
-        )
-
-        self.outputs.albedo = np.nansum(
-            self.outputs.albedo[None, :] * self._spectral_response_function,
-            axis=-1,
-        ) / np.nansum(self._spectral_response_function, axis=1)
+            if any(tag in key for tag in ["albedo_", "directional_"]):
+                self.outputs[key] = (
+                    np.nansum(
+                        self.outputs[key][:, None, :]
+                        * self._spectral_response_function[None, :, :],
+                        axis=-1,
+                    )
+                    / np.nansum(self._spectral_response_function, axis=1)[None, :]
+                )
 
         # overwrite high-resolution wavelength array (used for
         # computation) with center wavelengths

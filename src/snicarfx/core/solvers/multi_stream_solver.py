@@ -10,36 +10,6 @@ import numpy as np
 from scipy.special import legendre
 
 
-@dataclass
-class _MultiStreamSolverResults:
-    """
-    Stores output data from radiative transfer calculations.
-
-    This class holds computed radiative properties of the snow or ice column,
-    such as albedo, integration angles and spectral reflectance.
-
-    Attributes
-    ----------
-    albedo : array
-        Spectrally resolved surface albedo [unitless].
-    cos_angle : array
-        Angle of the Gaussian integration  [unitless].
-    cos_weight : array
-        Weights of the Gaussian integration [unitless].
-    directional_reflectance_top: array
-        Spectral reflectance at the top of the atmosphere [].
-    directional_radiance_top: array
-        Spectral reflectance at the top of the atmosphere [Wm-2sr-1].
-
-    """
-
-    albedo: np.ndarray
-    cos_angle: np.ndarray
-    cos_weight: np.ndarray
-    directional_reflectance_top: np.ndarray
-    directional_radiance_top: np.ndarray
-
-
 class _MultiStreamSolver:
     """
     This class initializes and calculates the variables necessary to solve the
@@ -84,6 +54,7 @@ class _MultiStreamSolver:
         self.cosmic_background = 0
         self.n_angles = 8
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
+        self.output_levels = output_levels
 
         # apply delta scaling to land column
         # Delta truncation: get highest Legendre term following
@@ -101,12 +72,14 @@ class _MultiStreamSolver:
             self.legendre_moments = np.hstack(
                 [atmosphere.legendre_moments, land.legendre_moments]
             )
+            self.surface_idx = -land.nbr_lyr - 1
 
         else:
             self.nbr_lyr = land.nbr_lyr
             self.t_od = np.array(land.tau)
             self.w = np.array(land.ss_alb)
             self.legendre_moments = np.array(land.legendre_moments)
+            self.surface_idx = 0
 
         # initialize arrays
         self.total_opt = np.zeros((self.nbr_lyr + 1, self.nbr_wvl))
@@ -464,13 +437,65 @@ class _MultiStreamSolver:
 
         """
 
-        results = _MultiStreamSolverResults(
-            albedo=self.albedo,
-            cos_angle=self.cos_angle,
-            cos_weight=self.cos_weight,
-            directional_reflectance_top=self.directional_reflectance_top,
-            directional_radiance_top=self.directional_radiance_top,
-        )
+        # dictionnary with outputs depending on user inputs
+        results = {}
+
+        results["outgoing_angle"] = np.rad2deg(np.acos(self.cos_angle))
+
+        if "BOA" in self.output_levels:
+
+            tau_k = self.total_opt[self.surface_idx, :]
+
+            E_dir = self.solar_irradiance * self.cos_sun * np.exp(-tau_k / self.cos_sun)
+
+            E_diff = (
+                2.0
+                * np.pi
+                * np.sum(
+                    self.s_level_rad_down[:, self.surface_idx, :]
+                    * np.array(self.cos_angle)[:, None]
+                    * np.array(self.cos_weight)[:, None],
+                    axis=0,
+                )
+            )
+
+            results["directional_reflectance_boa"] = (
+                self.s_level_rad_up[:, self.surface_idx, :] * np.pi
+            ) / (E_diff + E_dir)
+
+            results["albedo_boa"] = (
+                2
+                * np.pi
+                * np.sum(
+                    self.s_level_rad_up[:, self.surface_idx, :]
+                    * np.array(self.cos_angle)[:, None]
+                    * np.array(self.cos_weight)[:, None],
+                    axis=0,
+                )
+                / (E_diff + E_dir)
+            ).flatten()
+
+        if "TOA" in self.output_levels:
+
+            # directional radiance at the top of the atmosphere (TOA)
+            results["directional_radiance_toa"] = self.s_level_rad_up[:, 0, :]
+
+            # directional reflectance at the top of the atmosphere
+            results["directional_reflectance_toa"] = (
+                self.s_level_rad_up[:, 0, :] * np.pi
+            ) / (self.solar_irradiance * self.cos_sun)
+
+            results["albedo_toa"] = (
+                2
+                * np.pi
+                * np.sum(
+                    self.s_level_rad_up[:, 0, :]
+                    * np.array(self.cos_angle)[:, None]
+                    * np.array(self.cos_weight)[:, None],
+                    axis=0,
+                )
+                / (self.solar_irradiance[None, :] * self.cos_sun)  # project solar beam
+            ).flatten()
 
         return results
 
@@ -775,62 +800,6 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels):
             # print(aads.s_level_rad_downt[0, :, 0])
         aads.s_level_rad_down = aads.s_level_rad_downt.copy()
         aads.s_level_rad_up = aads.s_level_rad_upt.copy()
-
-    aads.albedo = (
-        2
-        * np.pi
-        * np.sum(
-            aads.s_level_rad_up[:, 0, :]
-            * np.array(aads.cos_angle)[:, None]
-            * np.array(aads.cos_weight)[:, None],
-            axis=0,
-        )
-        / (aads.solar_irradiance[None, :] * aads.cos_sun)  # project solar beam
-    ).flatten()
-
-    # directional reflectance at the top of the atmosphere
-    aads.directional_reflectance_top = (aads.s_level_rad_up[:, 0, :] * np.pi) / (
-        aads.solar_irradiance * aads.cos_sun
-    )
-
-    # directional radiance at the top of the atmosphere
-    aads.directional_radiance_top = aads.s_level_rad_up[:, 0, :]
-
-    # compute surface values
-    if run_downward_loop:
-
-        interface_idx = -land.nbr_lyr
-
-        tau_k = aads.total_opt[interface_idx, :]
-
-        E_dir = aads.solar_irradiance * aads.cos_sun * np.exp(-tau_k / aads.cos_sun)
-
-        E_diff = (
-            2.0
-            * np.pi
-            * np.sum(
-                aads.s_level_rad_down[:, interface_idx, :]
-                * np.array(aads.cos_angle)[:, None]
-                * np.array(aads.cos_weight)[:, None],
-                axis=0,
-            )
-        )
-
-        aads.directional_reflectance_surface = (
-            aads.s_level_rad_up[:, interface_idx, :] * np.pi
-        ) / (E_diff + E_dir)
-
-        aads.albedo_surface = (
-            2
-            * np.pi
-            * np.sum(
-                aads.s_level_rad_up[:, interface_idx, :]
-                * np.array(aads.cos_angle)[:, None]
-                * np.array(aads.cos_weight)[:, None],
-                axis=0,
-            )
-            / (E_diff + E_dir)
-        ).flatten()
 
     outputs = aads.get_outputs()
 
