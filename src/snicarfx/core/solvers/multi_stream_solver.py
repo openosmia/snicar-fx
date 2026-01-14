@@ -5,7 +5,6 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from dataclasses import dataclass
 import numpy as np
 from scipy.special import legendre
 
@@ -52,7 +51,7 @@ class _MultiStreamSolver:
         self.max_albedo = 0.999999
         self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
         self.cosmic_background = 0
-        self.n_angles = 8
+        self.n_angles = 16
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = output_levels
 
@@ -180,9 +179,10 @@ class _MultiStreamSolver:
             * ifac[:, None, None, None, None],
             axis=0,
         )
-
-        if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
-            raise ValueError("Negative phase matrix elements")
+        
+        # removed from now, but may need to bring them back
+        # if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
+        #     raise ValueError("Invalid phase matrix elements")
 
         self.ff[self.ff < 0] = 0
         self.bb[self.bb < 0] = 0
@@ -230,9 +230,9 @@ class _MultiStreamSolver:
         # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
 
+
         # take the square roots !!!!! must be fixed
-        eig_value = np.where(eig_vals > 0.0, np.sqrt(eig_vals), 0.0)
-        eig_value = np.where(eig_vals > 1e-12, np.sqrt(eig_vals), 1e-12)
+        eig_value = np.where(eig_vals > 0, np.sqrt(eig_vals), 0)
 
         # scale eigenvectors by square roots of eigen values
         eig_value_diag = np.eye(self.n_angles)[None, :, :] * eig_value[:, None, :]
@@ -440,7 +440,7 @@ class _MultiStreamSolver:
         # dictionnary with outputs depending on user inputs
         results = {}
 
-        results["outgoing_angle"] = np.rad2deg(np.acos(self.cos_angle))
+        results["outgoing_angle"] = np.rad2deg(np.arccos(self.cos_angle))
 
         if "BOA" in self.output_levels:
 
@@ -458,7 +458,7 @@ class _MultiStreamSolver:
                     axis=0,
                 )
             )
-
+            
             results["directional_reflectance_boa"] = (
                 self.s_level_rad_up[:, self.surface_idx, :] * np.pi
             ) / (E_diff + E_dir)
@@ -474,6 +474,33 @@ class _MultiStreamSolver:
                 )
                 / (E_diff + E_dir)
             ).flatten()
+            
+            # rad_down_all = self.s_level_rad_down[:, self.surface_idx, :].copy()
+            # closest_sun_angle = np.argmin(np.abs(np.array(self.cos_angle) - self.cos_sun))
+            # rad_down_all[closest_sun_angle, :] += self.solar_irradiance * np.exp(-tau_k / self.cos_sun) * self.cos_sun / (2 * np.pi *self.cos_angle[closest_sun_angle] * self.cos_weight[closest_sun_angle])
+            
+            # E_diff_trial = (
+            #     2.0
+            #     * np.pi
+            #     * np.sum(
+            #         rad_down_all
+            #         * np.array(self.cos_angle)[:, None]
+            #         * np.array(self.cos_weight)[:, None],
+            #         axis=0,
+            #     )
+            # )
+
+            # results["albedo_boa"] = (
+            #     2
+            #     * np.pi
+            #     * np.sum(
+            #         self.s_level_rad_up[:, self.surface_idx, :]
+            #         * np.array(self.cos_angle)[:, None]
+            #         * np.array(self.cos_weight)[:, None],
+            #         axis=0,
+            #     )
+            #     / (E_diff_trial)
+            # ).flatten()
 
         if "TOA" in self.output_levels:
 
@@ -610,6 +637,8 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels):
                 destination=[2, 0, 1],
             )[:, 0, :]
         )
+        
+    
 
         refl_trans = np.matmul(
             np.moveaxis(
@@ -631,7 +660,8 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels):
             aads.s_level_rad_up[i, 0, :] += (
                 np.sum(aads.s_level_refl_up[i, :, 0, :]) * aads.cosmic_background
             )
-
+        
+        
     if run_downward_loop:
 
         # preserve TOA upward radiance
@@ -796,10 +826,14 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels):
                     )
                     + np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)[:, :, None]
                 )
-
-            # print(aads.s_level_rad_downt[0, :, 0])
+            
+            
+        
+            
         aads.s_level_rad_down = aads.s_level_rad_downt.copy()
         aads.s_level_rad_up = aads.s_level_rad_upt.copy()
+                
+        
 
     outputs = aads.get_outputs()
 
