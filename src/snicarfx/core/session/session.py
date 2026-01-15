@@ -112,11 +112,19 @@ class Session:
                 if self.config.SPECTRAL.MODE == "band-snicar-default":
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
-        if self.config.SPECTRAL.RESOLUTION == "SENTINEL-3-OLCI":
+        elif isinstance(self.config.SPECTRAL.RESOLUTION, str):
 
-            ds = xr.open_dataset(
-                f"{self.config._ROOT_PATH}/data/satellite_spectral_responses/S3A_OL_SRF_20160713_mean_rsr.nc4"
+            srf_base_path = (
+                f"{self.config._ROOT_PATH}/data/satellite_spectral_responses"
             )
+            if self.config.SPECTRAL.RESOLUTION == "SENTINEL-3-OLCI":
+                srf_file_path = f"{srf_base_path}/S3A_OL_SRF_20160713_mean_rsr.nc4"
+
+            elif self.config.SPECTRAL.RESOLUTION == "PRISMA-HYC":
+                srf_file_path = f"{srf_base_path}/PRISMA_HYC_SRF.nc4"
+
+            ds = xr.open_dataset(srf_file_path)
+
             self._wavelengths_srf = ds.mean_spectral_response_function_wavelength.values
 
             # create a global wavelength array
