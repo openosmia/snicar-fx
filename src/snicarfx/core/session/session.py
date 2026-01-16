@@ -182,7 +182,7 @@ class Session:
                         self._wavelengths_srf[band_number, :],
                         ds.mean_spectral_response_function.values[band_number, :],
                     )
-                    for band_number in range(21)
+                    for band_number in range(self._band_ranges.shape[0])
                 ]
             )
 
