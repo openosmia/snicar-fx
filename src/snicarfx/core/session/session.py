@@ -112,6 +112,27 @@ class Session:
                 if self.config.SPECTRAL.MODE == "band-snicar-default":
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
+                elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
+                    # just compute a flat SRF of a given length (which
+                    # is arbitrary since it's anyway flat)
+                    srf_length = 10
+                    self._spectral_response_function = np.vstack(
+                        [
+                            np.interp(
+                                self.config._wavelengths_land,
+                                np.linspace(
+                                    self._band_ranges[band_number, 0],
+                                    self._band_ranges[band_number, 1],
+                                    srf_length,
+                                ),
+                                np.ones(srf_length),
+                                left=0.0,
+                                right=0.0,
+                            )
+                            for band_number in range(self._band_ranges.shape[0])
+                        ]
+                    )
+
         elif isinstance(self.config.SPECTRAL.RESOLUTION, str):
 
             srf_base_path = (
