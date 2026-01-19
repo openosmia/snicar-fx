@@ -184,6 +184,8 @@ class Session:
                         self.config._wavelengths_land,
                         self._wavelengths_srf[band_number, :],
                         ds.mean_spectral_response_function.values[band_number, :],
+                        left=0.0,
+                        right=0.0,
                     )
                     for band_number in range(self._band_ranges.shape[0])
                 ]
