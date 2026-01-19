@@ -123,6 +123,9 @@ class Session:
             elif self.config.SPECTRAL.RESOLUTION == "PRISMA-HYC":
                 srf_file_path = f"{srf_base_path}/PRISMA_HYC_SRF.nc4"
 
+            elif self.config.SPECTRAL.RESOLUTION == "ENVISAT-MERIS":
+                srf_file_path = f"{srf_base_path}/ENVISAT_MERIS_SRF.nc4"
+
             ds = xr.open_dataset(srf_file_path)
 
             self._wavelengths_srf = ds.mean_spectral_response_function_wavelength.values
@@ -171,9 +174,9 @@ class Session:
             if self.config.SPECTRAL.MODE == "band-snicar-default":
                 self.config._wavelengths_land = ds.nominal_centre_wavelength.values
 
-            # interpolate SENTINEL-3-OLCI SRF on homogeneous grid
+            # interpolate satellite SRF on homogeneous grid
             # (self.config._wavelengths_land could be any
-            # self.config._wavelengths_* since they are the same in
+            # self.config._wavelengths_ since they are the same in
             # band_method srf-integration)
             self._spectral_response_function = np.vstack(
                 [

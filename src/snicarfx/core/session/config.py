@@ -106,7 +106,7 @@ class Spectral(BaseModel):
             confloat(ge=200, le=5000),
             confloat(ge=0.001, le=100),
         ],
-        Literal["SENTINEL-3-OLCI", "PRISMA-HYC"],
+        Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"],
     ] = Field(
         description="The spectral resolution to cover. If a satellite platform is passed, then all bands are solved for."
     )
