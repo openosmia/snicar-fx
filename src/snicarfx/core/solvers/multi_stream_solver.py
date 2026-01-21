@@ -12,7 +12,8 @@ from scipy.special import legendre
 class _MultiStreamSolver:
     """
     This class initializes and calculates the variables necessary to solve the
-    radiative transfer equation with a multi-stream solver. The solver itself is
+    runpolarized adiative transfer equation with a multi-stream solver, 
+    assuming azimuthal symmetry. The solver itself is
     a combination of the the Advanced Matrix Operator Method (AMOM) and the
     adding method. It is a translation of the Fortran-based solver from CRTM,
     originally written by Quanhua Liu (QSS at JCSDA;
@@ -43,7 +44,6 @@ class _MultiStreamSolver:
             incoming solar irradiance.
         """
 
-        self.mth_azi = 0
         self.solar_irradiance = irradiance.flx_slr
         self.solar_flag = True
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
@@ -54,6 +54,7 @@ class _MultiStreamSolver:
         self.n_angles = 16
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = output_levels
+        self.mth_azi = 0 # 0th Fourier moment = azimuthal symmetry
 
         # apply delta scaling to land column
         # Delta truncation: get highest Legendre term following
@@ -147,7 +148,6 @@ class _MultiStreamSolver:
         # Wiscombe 1977 Eq. 14
         # Convention is 0.5 * (2l+1) * Bl for the expansion
         orders = np.arange(0, land.n_expansion)
-
         phase_coeffs = (2 * orders[:, None, None] + 1) * 0.5 * (self.legendre_moments)
 
         # Calculate Legendre polynomials
@@ -164,7 +164,8 @@ class _MultiStreamSolver:
         legs = np.arange(self.mth_azi, land.n_expansion)
         ifac = (-1) ** (legs - self.mth_azi)
 
-        # Calculate phase matrices
+        # Calculate phase matrices 
+        # (!) this would need to be changed for m > 0
         self.ff = np.sum(
             phase_coeffs[:, None, None, :, :]
             * leg_poly[:, :-1, None, None, None]  # -1 to exclude SZA
@@ -270,24 +271,6 @@ class _MultiStreamSolver:
         # post processing
         self.s_layer_trans[:, :, :, k] = trans_t
         self.s_layer_refl[:, :, :, k] = refl_t
-
-        # not included for now since we don't model thermal
-        # if self.mth_azi == 0:
-        #     print(trans.shape)
-        #     thermal_c = trans[:, : self.nb_streams].sum(
-        #         axis=1
-        #     ) + refl[:, : self.nb_streams].sum(axis=1)
-
-        #     if self.n_angles == (self.nb_streams + 1):
-        #         thermal_c[self.n_angles - 1] += trans[
-        #             self.n_angles - 1, self.n_angles - 1
-        #         ]
-        #     print(thermal_c.shape)
-        #     self.s_layer_source_up[:, k, :] = (
-        #         1.0 - thermal_c
-        #     ) * self.planck_atmosphere[k]
-
-        #     self.s_layer_source_down[:, k] = self.s_layer_source_up[:, k]
 
         # treatment of solar radiation
         if self.solar_flag:
@@ -474,6 +457,8 @@ class _MultiStreamSolver:
                 )
                 / (E_diff + E_dir)
             ).flatten()
+            
+                
             
             # rad_down_all = self.s_level_rad_down[:, self.surface_idx, :].copy()
             # closest_sun_angle = np.argmin(np.abs(np.array(self.cos_angle) - self.cos_sun))
