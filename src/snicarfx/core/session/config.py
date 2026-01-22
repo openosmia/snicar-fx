@@ -14,10 +14,11 @@ from pydantic import (
     BaseModel,
     Field,
     RootModel,
+    PrivateAttr,
     confloat,
     conlist,
     model_validator,
-    PrivateAttr,
+    computed_field,
 )
 from pydantic.fields import PydanticUndefined
 
@@ -47,16 +48,39 @@ class Solver(BaseModel):
         description="Levels to output. If Top of Atmosphere (TOA) and ATMOSPHERE_COUPLING, only the upward loop of the solver is computed. If Bottom of Atmosphere (BOA)+TOA and ATMOSPHERE_COUPLING, both upward and downward loops are computed (slower)."
     )
 
-    # number of Legendre moments to use in phase functions
-    N_LEGENDRE_MOMENTS: int = Field(
-        default=15,
-        ge=10,
-        le=17,
-        description="Number of Legendre moments to use in phase functions",
+    # number of streams to consider in solver
+    N_STREAMS: int = Field(
+        default=16, ge=2, le=16, description="Number of streams used by the solver."
+    )
+
+    N_LEGENDRE_MOMENTS: Optional[int] = Field(
+        default=None,
+        description="Number of Legendre moments to use in phase functions (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
     )
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def check_n_streams_even(self):
+        if self.N_STREAMS % 2 != 0:
+            raise ValueError(f"N_STREAMS must be even, got {self.N_STREAMS}")
+        return self
+
+    @model_validator(mode="after")
+    def set_n_legendre_moments(self):
+        # Default N_LEGENDRE_MOMENTS to N_STREAMS if not set
+        if self.N_LEGENDRE_MOMENTS is None:
+            self.N_LEGENDRE_MOMENTS = self.N_STREAMS
+
+        # Validate it does not exceed N_STREAMS
+        if self.N_LEGENDRE_MOMENTS > self.N_STREAMS:
+            raise ValueError(
+                f"N_LEGENDRE_MOMENTS ({self.N_LEGENDRE_MOMENTS}) cannot exceed "
+                f"N_STREAMS ({self.N_STREAMS})"
+            )
+
+        return self
 
     @model_validator(mode="after")
     def check_type_atmosphere_coupling(self):
@@ -377,13 +401,10 @@ class Config(BaseModel):
                 "LAND.LAYER_TYPE=1 is not supported when " "SOLVER.TYPE='multi-stream'."
             )
         return self
-    
+
     @model_validator(mode="after")
     def check_solver_grain_shape_compatibility(self):
-        if (
-            self.SOLVER.TYPE == "multi-stream"
-            and 0 in self.LAND.GRAIN_SHAPE
-        ):
+        if self.SOLVER.TYPE == "multi-stream" and 0 in self.LAND.GRAIN_SHAPE:
             raise ValueError(
                 "LAND.GRAIN_SHAPE=0 (spheres) is not currently supported when "
                 "SOLVER.TYPE='multi-stream'."
@@ -438,10 +459,16 @@ class Config(BaseModel):
 
     @staticmethod
     def print_help(model: type[BaseModel] = None, indent: int = 0):
-        """Print a prettier version of the model scheme"""
+        """
+        Print a prettier version of the model scheme including:
+          - regular fields
+          - nested BaseModels
+        """
 
         model = model or Config
         prefix = "  " * indent
+
+        # Regular fields
         for name, field in model.model_fields.items():
             typ = field.annotation
 
@@ -463,18 +490,18 @@ class Config(BaseModel):
             # Handle Literals / Enums
             enum_values = []
             if hasattr(typ, "__args__") and all(
-                isinstance(a, str) or isinstance(a, int) for a in typ.__args__
+                isinstance(a, (str, int)) for a in typ.__args__
             ):
                 enum_values = list(typ.__args__)
 
-            # Default value (replace PydanticUndefined with "required")
+            # Default value
             default = field.default
             if default is None or default is PydanticUndefined:
                 default_str = "required"
             else:
                 default_str = default
 
-            # Build help line
+            # Build line
             line = f"{prefix}{name} ({typ_str}) [default: {default_str}]"
             if enum_values:
                 line += f" Options: {enum_values}"
