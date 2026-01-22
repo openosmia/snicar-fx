@@ -50,7 +50,7 @@ class Solver(BaseModel):
 
     # number of streams to consider in solver
     N_STREAMS: int = Field(
-        default=16, ge=2, le=16, description="Number of streams used by the solver."
+        default=16, ge=2, le=32, description="Number of streams used by the solver."
     )
 
     N_LEGENDRE_MOMENTS: Optional[int] = Field(
