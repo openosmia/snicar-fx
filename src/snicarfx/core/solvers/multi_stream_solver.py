@@ -521,16 +521,93 @@ class _MultiStreamSolver:
 
         return results
 
+def verify_balance_of_fluxes(aads):
+    """
 
+    Verify that the energy coming in is either reflected back, absorbed by the 
+    layers or 'lost' at the model boundary.
+
+    Parameters
+    ----------
+    aads : MultiStreamSolver
+        instance of the solver
+
+    """
+    
+    # flux existing at top 
+    flx_back_top = (2 * np.pi
+               * np.sum(
+                   aads.s_level_rad_up[:, 0, :]
+                   * np.array(aads.cos_angle)[:, None]
+                   * np.array(aads.cos_weight)[:, None],
+                   axis=0)
+               )
+    
+    # flux absorbed at the bottom model boundary: down-up
+    flx_abs_bottom = ( 
+                   # diffuse down
+                   2 * np.pi * np.sum(
+                   aads.s_level_rad_down[:, -1, :]
+                   * np.array(aads.cos_angle)[:, None]
+                   * np.array(aads.cos_weight)[:, None],
+                   axis=0)
+                   # direct down
+                   + aads.solar_irradiance * aads.cos_sun 
+                   * np.exp(-aads.total_opt[-1, :] / aads.cos_sun)
+                   - 
+                   # diffuse up
+                   2 * np.pi * np.sum(
+                       aads.s_level_rad_up[:, -1, :]
+                       * np.array(aads.cos_angle)[:, None]
+                       * np.array(aads.cos_weight)[:, None],
+                       axis=0)
+               )
+               
+        
+    net_flux_layers = ( 
+                       # diffuse down
+                       2 * np.pi * np.sum(
+                       aads.s_level_rad_down
+                       * np.array(aads.cos_angle)[:, None, None]
+                       * np.array(aads.cos_weight)[:, None, None],
+                       axis=0)
+                       # direct down
+                       + aads.solar_irradiance * aads.cos_sun 
+                       * np.exp(-aads.total_opt / aads.cos_sun)
+                       - 
+                       # diffuse up
+                       2 * np.pi * np.sum(
+                           aads.s_level_rad_up
+                           * np.array(aads.cos_angle)[:, None, None]
+                           * np.array(aads.cos_weight)[:, None, None],
+                           axis=0)
+                   )
+    
+
+    flx_abs_layers = - (net_flux_layers[1:, :] - net_flux_layers[:-1, :])
+        
+    
+    flux_balance = (
+            aads.cos_sun * aads.solar_irradiance
+            - ( np.sum(flx_abs_layers, axis=0) # absorbed flux 
+                + flx_abs_bottom # absorbed flux at bottom
+                + flx_back_top # flux exiting at top
+                )
+        )
+
+    
+    if sum(flux_balance) > 1e-10:
+            raise ValueError("Conservation of fluxes not verified")
+    else:
+        pass
+    
+    return None
+    
 def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams):
     """
 
     This subroutine calculates hemispherical albedo by calling AMOM for each
-    layer and combining them with the adding method in an upward pass from the
-    bottom layer to the top layer.
-
-    ! the downward pass is not yet implemented, so that net fluxes at each
-    interface are not available.
+    layer and combining them with the adding method.
 
     Parameters
     ----------
@@ -830,8 +907,8 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
             
         aads.s_level_rad_down = aads.s_level_rad_downt.copy()
         aads.s_level_rad_up = aads.s_level_rad_upt.copy()
-                
-        
+                    
+    verify_balance_of_fluxes(aads)
 
     outputs = aads.get_outputs()
 
