@@ -58,7 +58,7 @@ class _MultiStreamSolver:
 
         # apply delta scaling to land column
         # Delta truncation: get highest Legendre term following
-        # Wicombe 1977 Eq. (15) -  2M = n_expansion + 1
+        # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
         f = np.array(land.asm_prm ** (land.n_expansion + 1))
 
         # Wiscombe 1977 Eq. 20(a, b) + 14
@@ -146,7 +146,8 @@ class _MultiStreamSolver:
 
         # Calculate scaled expansion coefficients
         # Wiscombe 1977 Eq. 14
-        # Convention is 0.5 * (2l+1) * Bl for the expansion
+        # Convention is 0.5 * (2l+1) * Bl for the expansion 
+        # because we use Bl values that do not integrate orthogonality 
         orders = np.arange(0, land.n_expansion)
         phase_coeffs = (2 * orders[:, None, None] + 1) * 0.5 * (self.legendre_moments)
 
