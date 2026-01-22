@@ -26,7 +26,7 @@ class _MultiStreamSolver:
 
     """
 
-    def __init__(self, land, atmosphere, irradiance, output_levels):
+    def __init__(self, land, atmosphere, irradiance, output_levels, n_streams):
         """
         Initialize all variables required for the solver and applies delta
         scaling to the single scattering properties of the ice/snow column.
@@ -42,6 +42,10 @@ class _MultiStreamSolver:
         irradiance : SolarIrradiance
             Instance of the SolarIrradiance class, storing the properties of the
             incoming solar irradiance.
+        output_levels : string
+            Level at which radiance fields mut be returned (TOA/BOA).
+        n_streams: int
+            Number of discrete ordinates / angles in the gaussian quadrature.
         """
 
         self.solar_irradiance = irradiance.flx_slr
@@ -51,12 +55,12 @@ class _MultiStreamSolver:
         self.max_albedo = 0.999999
         self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
         self.cosmic_background = 0
-        self.n_angles = 16
+        self.n_angles = n_streams
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = output_levels
         self.mth_azi = 0 # 0th Fourier moment = azimuthal symmetry
 
-        # apply delta scaling to land column
+        # apply delta scaling (!) to land column only -> HG function (!)
         # Delta truncation: get highest Legendre term following
         # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
         f = np.array(land.asm_prm ** (land.n_expansion + 1))
@@ -64,6 +68,11 @@ class _MultiStreamSolver:
         # Wiscombe 1977 Eq. 20(a, b) + 14
         land.tau = (1.0 - land.ss_alb * f) * land.tau
         land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
+        land.legendre_moments = (
+            land.legendre_moments
+            - f[None, :, :]
+        ) / (1 - f[None, :, :])
+        
 
         if atmosphere.use_atmosphere:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
@@ -513,7 +522,7 @@ class _MultiStreamSolver:
         return results
 
 
-def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels):
+def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams):
     """
 
     This subroutine calculates hemispherical albedo by calling AMOM for each
@@ -534,14 +543,17 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels):
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class, storing the properties of the
         incoming solar irradiance.
+    output_levels : string
+        Level at which radiance fields mut be returned (TOA/BOA).
+    n_streams: int
+        Number of discrete ordinates / angles in the gaussian quadrature.
     Returns
     -------
-    albedo : array
-        Hemispherical albedo integrated with gaussian quadrature over 16 angles.
+    outputs : dictionary
 
     """
 
-    aads = _MultiStreamSolver(land, atmosphere, irradiance, output_levels)
+    aads = _MultiStreamSolver(land, atmosphere, irradiance, output_levels, n_streams)
 
     if "BOA" in output_levels and atmosphere.use_atmosphere:
         run_downward_loop = True

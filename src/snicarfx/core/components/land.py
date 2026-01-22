@@ -342,21 +342,12 @@ class LandColumn:
         )
         
     def set_legendre_moments(self):
-        
-        # Delta truncation: Legendre term of HG function at 2M = 16
-        # Wicombe 1977 Eq. 15
-        f = self.asm_prm ** (self.n_expansion + 1)
-        
-        for lyr in range(self.nbr_lyr):
             
-            self.legendre_moments[:, lyr, :] = self.asm_prm[None, lyr, :] ** np.arange(self.n_expansion)[:, None]
-            
-            # Calculate legendre moments (Delta truncated)
-            # Wiscombe 1977 Eq. 14
-            self.legendre_moments[:, lyr, :] = (
-                self.legendre_moments[:, lyr, :]
-                - f[None, lyr, :]
-            ) / (1 - f[None, lyr, :])
+        self.legendre_moments = (
+            self.asm_prm[None, :, :] ** np.arange(
+                self.n_expansion)[:, None, None]
+            )
+        
     
             
             
