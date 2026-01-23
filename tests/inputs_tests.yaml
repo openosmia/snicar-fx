@@ -22,7 +22,7 @@ LAND:
   SPECIFIC_SURFACE_AREA: [1, 1, 1] # m2 kg-1. for ice, should be below ??
   LWC: [0, 0, 0] # LWC content in snow/ice 
   SFC: 0.25 # reflectance of lower boundary  
-  GRAIN_SHAPE: [0, 0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
+  GRAIN_SHAPE: [1, 1, 1]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
   ALTITUDE: 0.0 # surface altitude in km
   
   LIGHT_ABSORBING_PARTICLES:

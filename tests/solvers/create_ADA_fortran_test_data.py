@@ -13,25 +13,27 @@ import subprocess
 import numpy as np
 import xarray as xr
 
-import snicarfx.core.advanced_doubling_adding_solver_vectorized as adv_solver_mod
-from snicarfx.core import ColumnProperties, ModelInputs, SolarIrradiance
+from snicarfx.core import Session
+from snicarfx.core.solvers.multi_stream_solver import (
+    solve_multi_stream_rt,
+    _MultiStreamSolver,
+)
 
-# %% instanciate snicar-fx classes
 
-model_inputs = ModelInputs("./inputs_tests.yaml")
-column = ColumnProperties(model_inputs)
-irradiance = SolarIrradiance(model_inputs)
+# %% instanciate snicar-fx simulation
+
+simulation = Session("./inputs_tests.yaml")
 
 # %% declare ranges of parameter to use in runs of the ADA solver
+
+# number of angles
+n_streams = simulation.config.SOLVER.N_STREAMS
 
 # single scattering albedos
 w_list = np.arange(0.2, 0.7, 0.1)
 
 # asymmetry parameters
-g_list = [0.32, 0.86]
-
-# number of angles
-n_angles = 8
+g_list = [0.32, 0.82]
 
 # optical depths
 t_od_list = np.arange(5, 220, 20)
@@ -40,9 +42,9 @@ t_od_list = np.arange(5, 220, 20)
 wavelength_index_list = [10, 40, 60, 80]
 
 # calculate Legendre polynomials required by the Fortran solver
-nodes, weights = np.polynomial.legendre.leggauss(n_angles * 2)
-cos_angle = nodes[n_angles:]
-cos_weight = weights[n_angles:]
+# nodes, weights = np.polynomial.legendre.leggauss(n_streams * 2)
+# cos_angle = nodes[n_streams:]
+# cos_weight = weights[n_streams:]
 
 # allocate results of the Fortran solver
 f90_results = np.zeros(
@@ -56,33 +58,40 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
     # save g in files first because too big to pass at run time
     for g in g_list:
 
-        column.asm_prm[:, wavelength_index] = g
-        column.update_column_ops_with_laps()
+        simulation.land_column.asm_prm[:, :] = g
+        simulation.land_column.legendre_moments = (
+            simulation.land_column.asm_prm[None, :, :]
+            ** np.arange(simulation.land_column.n_expansion)[:, None, None]
+        )
 
-        tst = adv_solver_mod.solve_advanced_adding_doubling(column, irradiance)
+        solver = _MultiStreamSolver(
+            simulation.land_column,
+            simulation.atmosphere_column,
+            simulation.solar_irradiance,
+            simulation.config.SOLVER.OUTPUT_LEVELS,
+            n_streams,
+        )
 
-        solver = adv_solver_mod._AdvancedDoublingAddingSolver(column, irradiance)
         ff_wvl = solver.ff[:, :, :, wavelength_index]
         bb_wvl = solver.bb[:, :, :, wavelength_index]
 
         np.savetxt(
-            f"../test_data/ff_g{g}.csv",
+            f"./test_data/test_data/ff_g{g}.csv",
             ff_wvl[:, :, 0],
             delimiter=",",
         )
 
         np.savetxt(
-            f"../test_data/bb_g{g}.csv",
+            f"./test_data/test_data/bb_g{g}.csv",
             bb_wvl[:, :, 0],
             delimiter=",",
         )
 
-    # re-initialize snicar-fx classes
-    column = ColumnProperties(model_inputs)
-    irradiance = SolarIrradiance(model_inputs)
+    # re-initialize snicar-fx session
+    simulation = Session("./inputs_tests.yaml")
 
     # extract values required by the Fortran solver
-    cos_sun = irradiance.cos_sza
+    cos_sun = solver.cos_sun
     solar_irradiance = solver.solar_irradiance[wavelength_index]
 
     # pass other simpler arguments now, at run time
@@ -91,16 +100,23 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
             for g_enumerator, g in enumerate(g_list):
 
                 # update python variables
-                column.ss_alb[:, wavelength_index] = w
-                column.tau[:, wavelength_index] = t_od
-                column.asm_prm[:, wavelength_index] = g
-                column.update_column_ops_with_laps()
+                simulation.land_column.ss_alb[:, :] = w
+                simulation.land_column.tau[:, :] = t_od
+                simulation.land_column.asm_prm[:, :] = g
+                simulation.land_column.legendre_moments = (
+                    simulation.land_column.asm_prm[None, :, :]
+                    ** np.arange(simulation.land_column.n_expansion)[:, None, None]
+                )
 
                 # initiate the python ADA solver to extract delta
                 # scaled variables and feed them to the fortran ADA
                 # solver, which doesn't have delta scaling
-                solver = adv_solver_mod._AdvancedDoublingAddingSolver(
-                    column, irradiance
+                solver = _MultiStreamSolver(
+                    simulation.land_column,
+                    simulation.atmosphere_column,
+                    simulation.solar_irradiance,
+                    simulation.config.SOLVER.OUTPUT_LEVELS,
+                    n_streams,
                 )
 
                 # run fortran version by passing variables to the executable
@@ -117,7 +133,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
 
                 # read outputs from the fortran ADA solver
                 s_level_rad_up_f90_k0 = np.loadtxt(
-                    "../test_data/s_Level_Rad_UP_temp.csv"
+                    "./test_data/test_data/s_Level_Rad_UP_temp.csv"
                 )
 
                 # compute albedo of the fortran ADA solver to compare
@@ -125,7 +141,9 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                 albedo_f90 = (
                     2
                     * np.pi
-                    * np.sum(s_level_rad_up_f90_k0 * cos_angle * cos_weight)
+                    * np.sum(
+                        s_level_rad_up_f90_k0 * solver.cos_angle * solver.cos_weight
+                    )
                     / (solar_irradiance * cos_sun)
                 )
 
@@ -134,6 +152,15 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                     w_enumerator, t_od_enumerator, g_enumerator, wvl_enumarator
                 ] = albedo_f90
 
+                # uncomment to check py/f90 match directly here
+                # py_results = solve_multi_stream_rt(
+                #     simulation.land_column,
+                #     simulation.atmosphere_column,
+                #     simulation.solar_irradiance,
+                #     simulation.config.SOLVER.OUTPUT_LEVELS,
+                #     n_streams,
+                # )
+                # print(np.abs(py_results["albedo_boa"][wavelength_index] - albedo_f90))
 
 # %% save results
 
@@ -154,4 +181,4 @@ data_xr = xr.Dataset(
     },
 )
 
-data_xr.to_netcdf(path="../test_data/benchmark_ADA_spectral_albedo.nc")
+data_xr.to_netcdf(path=f"./test_data/benchmark_ADA_spectral_albedo.nc")
