@@ -132,7 +132,7 @@ def multistream_ada_parameter_grid(ds):
             ds.w.values,
             ds.t_od.values,
             ds.g.values,
-            ds.wvl_idx.values,
+            ds.wavelength_index.values,
         )
     )
 

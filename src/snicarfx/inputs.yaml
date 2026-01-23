@@ -4,7 +4,8 @@
 SOLVER:
   TYPE: "two-stream" # two-stream, multi-stream
   ATMOSPHERE_COUPLING: false # explicit surface-atmosphere coupling
-
+  OUTPUT_LEVELS: "BOA"
+  
 SPECTRAL:
   MODE: "monochromatic" # monochromatic | band-srf-integration | band-snicar-default | band-solar-weighted-mean
   RESOLUTION: [360, 1000, 10] # [start, end, step] or satellite instrument

@@ -44,28 +44,29 @@ def test_multistream_outputs(
     irradiance = session.solar_irradiance
     atmosphere = session.atmosphere_column
 
-    land_column.ss_alb[:, wvl_idx] = w
-    land_column.tau[:, wvl_idx] = t_od
-    land_column.asm_prm[:, wvl_idx] = g
+    land_column.ss_alb[:, :] = w
+    land_column.tau[:, :] = t_od
+    land_column.asm_prm[:, :] = g
 
     # legendre moments
-    f = land_column.asm_prm[:, wvl_idx] ** (land_column.n_expansion + 1)
-
-    # Calculate legendre moments
-    # Wiscombe 1977 Eq. 14
-    land_column.legendre_moments[:, :, wvl_idx] = (
-        land_column.asm_prm[None, :, wvl_idx]
-        ** np.arange(land_column.n_expansion)[:, None]
-        - f[None, :]
-    ) / (1 - f[None, :])
+    land_column.legendre_moments = (
+        land_column.asm_prm[None, :, :]
+        ** np.arange(land_column.n_expansion)[:, None, None]
+    )
 
     # solve RTE
-    results = solve_multi_stream_rt(land_column, atmosphere, irradiance)
+    results = solve_multi_stream_rt(
+        land_column,
+        atmosphere,
+        irradiance,
+        session.config.SOLVER.OUTPUT_LEVELS,
+        session.config.SOLVER.N_STREAMS,
+    )
 
     # a given set of parameters (including a given wavelength)
     assert np.allclose(
-        results.albedo[wvl_idx],
-        benchmark_ada_spectral_data.sel(w=w, t_od=t_od, g=g, wvl_idx=wvl_idx)[
+        results["albedo_boa"][wvl_idx],
+        benchmark_ada_spectral_data.sel(w=w, t_od=t_od, g=g, wavelength_index=wvl_idx)[
             "albedo"
         ].values,
         atol=absolute_tolerance_benchmark,
