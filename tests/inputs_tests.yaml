@@ -1,6 +1,7 @@
 SOLVER:
   TYPE: "two-stream" # two-stream, multi-stream
   ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
+  OUTPUT_LEVELS: "BOA"
 
 SPECTRAL:
   MODE: "band-snicar-default"
