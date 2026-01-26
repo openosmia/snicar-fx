@@ -1,14 +1,16 @@
+! f90 code gathered from
+! https://github.com/JCSDA/CRTMv3/blob/3f997e4f7d0902eaeb511eaf86da575b5dd019d8/
+! and turned into a standalone ADA module for python solver testing
+
 ! gfortran fortran_CRTM_ADA_solver.f90 -o run_ADA
-! ./run_ADA w T_OD g COS_SUN Solar_irradiance run_downward_loop
+!./run_ADA w T_OD g COS_SUN Solar_irradiance run_downward_loop
 
 MODULE CRTM_Shared
   IMPLICIT NONE
 
   INTEGER, PARAMETER :: fp = KIND(1.0D0)
 
-  ! -----------------
   ! Literal constants
-  ! -----------------
   REAL(fp), PUBLIC, PARAMETER :: ZERO         = 0.0_fp
   REAL(fp), PUBLIC, PARAMETER :: ONE          = 1.0_fp
   REAL(fp), PUBLIC, PARAMETER :: TWO          = 2.0_fp
@@ -21,9 +23,7 @@ MODULE CRTM_Shared
   REAL(fp), PUBLIC, PARAMETER :: POINT_75     = 0.75_fp
   REAL(fp), PUBLIC, PARAMETER :: ONEpointFIVE = 1.5_fp
   
-  ! --------------------
   ! PI-related constants
-  ! --------------------
   REAL(fp), PUBLIC, PARAMETER :: PI = 3.141592653589793238462643383279_fp
   REAL(fp), PUBLIC, PARAMETER :: TWOPI = TWO * PI
   REAL(fp), PUBLIC, PARAMETER :: DEGREES_TO_RADIANS = PI / 180.0_fp
@@ -109,7 +109,7 @@ CONTAINS
     REAL(fp) :: w_val, T_OD_val, g_val !, COS_SUN
     CHARACTER(LEN=32) :: arg
     INTEGER :: ios
-    integer :: unit_ff, unit_bb
+    integer :: unit_ff, unit_bb, unit_cosw, unit_cosa
     character(len=10) :: g_str
     character(len=200) :: fname
     
@@ -151,10 +151,7 @@ CONTAINS
        run_downward_loop = 0
     END IF
 
-   
-    ! -----------------------
     ! Allocate arrays and set values
-    ! -----------------------
     ALLOCATE(w(nL)); w = w_val
     ALLOCATE(T_OD(nL)); T_OD = T_OD_val
     
@@ -165,42 +162,8 @@ CONTAINS
     ALLOCATE(Planck_Atmosphere(0:nL));     Planck_Atmosphere = ZERO
     ALLOCATE(total_opt(0:nL));             total_opt = ZERO
 
-    ! hard code cos_angle and cos_weight to ensure full match with Python version
     ALLOCATE(COS_Angle(nA));               COS_Angle = ZERO
-    COS_Angle(1) = 0.04830766568773831_fp
-    COS_Angle(2) = 0.1444719615827965_fp
-    COS_Angle(3) = 0.23928736225213706_fp
-    COS_Angle(4) = 0.33186860228212767_fp
-    COS_Angle(5) = 0.42135127613063533_fp
-    COS_Angle(6) = 0.5068999089322294_fp
-    COS_Angle(7) = 0.5877157572407623_fp
-    COS_Angle(8) = 0.6630442669302152_fp
-    COS_Angle(9) = 0.7321821187402897_fp
-    COS_Angle(10) = 0.7944837959679424_fp
-    COS_Angle(11) = 0.84936761373257_fp
-    COS_Angle(12) = 0.8963211557660522_fp
-    COS_Angle(13) = 0.9349060759377397_fp
-    COS_Angle(14) = 0.9647622555875064_fp
-    COS_Angle(15) = 0.9856115115452684_fp
-    COS_Angle(16) = 0.9972638618494816_fp
-
     ALLOCATE(COS_Weight(nA));              COS_Weight = 0
-    COS_Weight(1) = 0.09654008851472781_fp
-    COS_Weight(2) = 0.09563872007927483_fp
-    COS_Weight(3) = 0.09384439908080457_fp
-    COS_Weight(4) = 0.09117387869576386_fp
-    COS_Weight(5) = 0.08765209300440391_fp
-    COS_Weight(6) = 0.08331192422694685_fp
-    COS_Weight(7) = 0.07819389578707031_fp
-    COS_Weight(8) = 0.072345794108848457_fp
-    COS_Weight(9) = 0.06582222277636175_fp
-    COS_Weight(10) = 0.058684093478535704_fp
-    COS_Weight(11) = 0.050998059262376244_fp
-    COS_Weight(12) = 0.042835898022226426_fp
-    COS_Weight(13) = 0.034273862913021626_fp
-    COS_Weight(14) = 0.025392065309262427_fp
-    COS_Weight(15) = 0.016274394730905965_fp
-    COS_Weight(16) = 0.007018610009469298_fp
 
     ALLOCATE(temporal_matrix(nA,nA));      temporal_matrix = ZERO
     ALLOCATE(refl_down(nA,nL));            refl_down = ZERO
@@ -218,8 +181,6 @@ CONTAINS
     ALLOCATE(s_Level_Refl_DOWNT(nA,nA,0:nL)); s_Level_Refl_DOWNT = ZERO
     ALLOCATE(s_Level_Rad_DOWNT(nA,0:nL));     s_Level_Rad_DOWNT = ZERO
     ALLOCATE(s_Level_Rad_UPT(nA,0:nL));     s_Level_Rad_UPT = ZERO
-    
-
 
     ALLOCATE(Pff(nA,nA+1,nL))
     ALLOCATE(Pbb(nA,nA+1,nL))
@@ -227,25 +188,39 @@ CONTAINS
     ALLOCATE(Pff2d(nA,nA+1))
     ALLOCATE(Pbb2d(nA,nA+1))
     
-    fname = "./test_ADA/test_data/ff_g" // trim(adjustl(g_str)) // ".csv"
+    fname = "./ff_g" // trim(adjustl(g_str)) // ".csv"
     open(newunit=unit_ff, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_ff,*,iostat=ios) (Pff2d(i,j), j=1,nA+1)
     end do
     close(unit_ff)
 
-    fname = "./test_ADA/test_data/bb_g" // trim(adjustl(g_str)) // ".csv"
+    fname = "./bb_g" // trim(adjustl(g_str)) // ".csv"
     open(newunit=unit_bb, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_bb,*,iostat=ios) (Pbb2d(i,j), j=1,nA+1)
     end do
     close(unit_bb)
-
+    
     ! Replicate along third dimension
     do k = 1, nL
        Pff(:,:,k) = Pff2d(:,:)
        Pbb(:,:,k) = Pbb2d(:,:)
     end do
+
+    ! read cos weight and cos angle
+    fname = "./cos_weight.csv"
+    open(newunit=unit_cosw, file=fname, status="old", action="read")
+    do i = 1, nA
+       read(unit_cosw,*,iostat=ios) cos_weight(i)
+    end do
+    close(unit_cosw)
+    fname = "./cos_angle.csv"
+    open(newunit=unit_cosa, file=fname, status="old", action="read")
+    do i = 1, nA
+       read(unit_cosa,*,iostat=ios) cos_angle(i)
+    end do
+    close(unit_cosa)
 
     ! print *, Pff(1, :, 1)
     
@@ -305,10 +280,8 @@ MODULE matrix_utils
 CONTAINS
 
   FUNCTION matinv(a) RESULT(inv_mat)
-    ! --------------------------------------------------------------------
     ! Compute the inversion of the matrix A
     ! Invert matrix by Gauss method
-    ! --------------------------------------------------------------------
 
     REAL(fp), INTENT(IN), DIMENSION(:,:) :: a
 
@@ -318,10 +291,9 @@ CONTAINS
     REAL(fp), DIMENSION(SIZE(a,1)) :: temp
     ! Local parameters
     CHARACTER(*), PARAMETER :: ROUTINE_NAME = 'matinv'
-    ! - - - Local Variables - - -
+    ! Local Variables
     REAL(fp) :: c, d
     INTEGER :: i, j, k, m, imax(1), ipvt(SIZE(a,1))
-    ! - - - - - - - - - - - - - -
 
     Error_Status = SUCCESS
     b = a
@@ -1400,22 +1372,14 @@ PROGRAM main
   CALL Initialize_CRTM_Shared()
   CALL CRTM_ADA()
 
-  ! write(filename,'(A,G0.2,A,G0.2,A)') './data/test_data/s_Level_Rad_UP_temp.csv'
-  write(filename,'(A,G0.2,A,G0.2,A)') './test_data/s_Level_Rad_UP_temp.csv'
-  
-  ! open(unit=10, file=filename, status='replace')
-  ! ! write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
-  ! write(10,'(100F12.5)') (s_Level_Rad_UP(i,1), i=1,nA)
-  ! close(10)
+  write(filename,'(A,G0.2,A,G0.2,A)') './s_Level_Rad_UP_temp.csv'
   
   open(unit=10, file=filename, status='replace')
 
   DO i = 1, nA
      WRITE(10,'(ES25.15E3)') s_Level_Rad_UP(i,0)
   END DO
-  ! WRITE(10, '(E25.15)') (s_Level_Rad_UP(i,1), i=1,nA)
   close(10)
-  
 
   ! then in python:  
   ! nA = 16

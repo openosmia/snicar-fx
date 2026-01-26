@@ -12,7 +12,7 @@ from scipy.special import legendre
 class _MultiStreamSolver:
     """
     This class initializes and calculates the variables necessary to solve the
-    runpolarized adiative transfer equation with a multi-stream solver, 
+    runpolarized adiative transfer equation with a multi-stream solver,
     assuming azimuthal symmetry. The solver itself is
     a combination of the the Advanced Matrix Operator Method (AMOM) and the
     adding method. It is a translation of the Fortran-based solver from CRTM,
@@ -58,7 +58,7 @@ class _MultiStreamSolver:
         self.n_angles = n_streams
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = output_levels
-        self.mth_azi = 0 # 0th Fourier moment = azimuthal symmetry
+        self.mth_azi = 0  # 0th Fourier moment = azimuthal symmetry
 
         # apply delta scaling (!) to land column only -> HG function (!)
         # Delta truncation: get highest Legendre term following
@@ -68,11 +68,9 @@ class _MultiStreamSolver:
         # Wiscombe 1977 Eq. 20(a, b) + 14
         land.tau = (1.0 - land.ss_alb * f) * land.tau
         land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
-        land.legendre_moments = (
-            land.legendre_moments
-            - f[None, :, :]
-        ) / (1 - f[None, :, :])
-        
+        land.legendre_moments = (land.legendre_moments - f[None, :, :]) / (
+            1 - f[None, :, :]
+        )
 
         if atmosphere.use_atmosphere:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
@@ -152,8 +150,8 @@ class _MultiStreamSolver:
 
         # Calculate scaled expansion coefficients
         # Wiscombe 1977 Eq. 14
-        # Convention is 0.5 * (2l+1) * Bl for the expansion 
-        # ie the 0.5 factor coming from RTE now is included here 
+        # Convention is 0.5 * (2l+1) * Bl for the expansion
+        # ie the 0.5 factor coming from RTE now is included here
         orders = np.arange(0, land.n_expansion)
         phase_coeffs = (2 * orders[:, None, None] + 1) * 0.5 * (self.legendre_moments)
 
@@ -171,7 +169,7 @@ class _MultiStreamSolver:
         legs = np.arange(self.mth_azi, land.n_expansion)
         ifac = (-1) ** (legs - self.mth_azi)
 
-        # Calculate phase matrices 
+        # Calculate phase matrices
         # (!) this would need to be changed for m > 0
         self.ff = np.sum(
             phase_coeffs[:, None, None, :, :]
@@ -187,7 +185,7 @@ class _MultiStreamSolver:
             * ifac[:, None, None, None, None],
             axis=0,
         )
-        
+
         # removed from now, but may need to bring them back
         # if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
         #     raise ValueError("Invalid phase matrix elements")
@@ -237,7 +235,6 @@ class _MultiStreamSolver:
         # get eigen values & vectors
         # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
-
 
         # take the square roots !!!!! must be fixed
         eig_value = np.where(eig_vals > 0, np.sqrt(eig_vals), 0)
@@ -448,7 +445,7 @@ class _MultiStreamSolver:
                     axis=0,
                 )
             )
-            
+
             results["directional_reflectance_boa"] = (
                 self.s_level_rad_up[:, self.surface_idx, :] * np.pi
             ) / (E_diff + E_dir)
@@ -464,13 +461,11 @@ class _MultiStreamSolver:
                 )
                 / (E_diff + E_dir)
             ).flatten()
-            
-                
-            
+
             # rad_down_all = self.s_level_rad_down[:, self.surface_idx, :].copy()
             # closest_sun_angle = np.argmin(np.abs(np.array(self.cos_angle) - self.cos_sun))
             # rad_down_all[closest_sun_angle, :] += self.solar_irradiance * np.exp(-tau_k / self.cos_sun) * self.cos_sun / (2 * np.pi *self.cos_angle[closest_sun_angle] * self.cos_weight[closest_sun_angle])
-            
+
             # E_diff_trial = (
             #     2.0
             #     * np.pi
@@ -518,10 +513,11 @@ class _MultiStreamSolver:
 
         return results
 
+
 def verify_balance_of_fluxes(aads):
     """
 
-    Verify that the energy coming in is either reflected back, absorbed by the 
+    Verify that the energy coming in is either reflected back, absorbed by the
     layers or 'lost' at the model boundary.
 
     Parameters
@@ -530,76 +526,86 @@ def verify_balance_of_fluxes(aads):
         instance of the solver
 
     """
-    
-    # flux existing at top 
-    flx_back_top = (2 * np.pi
-               * np.sum(
-                   aads.s_level_rad_up[:, 0, :]
-                   * np.array(aads.cos_angle)[:, None]
-                   * np.array(aads.cos_weight)[:, None],
-                   axis=0)
-               )
-    
-    # flux absorbed at the bottom model boundary: down-up
-    flx_abs_bottom = ( 
-                   # diffuse down
-                   2 * np.pi * np.sum(
-                   aads.s_level_rad_down[:, -1, :]
-                   * np.array(aads.cos_angle)[:, None]
-                   * np.array(aads.cos_weight)[:, None],
-                   axis=0)
-                   # direct down
-                   + aads.solar_irradiance * aads.cos_sun 
-                   * np.exp(-aads.total_opt[-1, :] / aads.cos_sun)
-                   - 
-                   # diffuse up
-                   2 * np.pi * np.sum(
-                       aads.s_level_rad_up[:, -1, :]
-                       * np.array(aads.cos_angle)[:, None]
-                       * np.array(aads.cos_weight)[:, None],
-                       axis=0)
-               )
-               
-        
-    net_flux_layers = ( 
-                       # diffuse down
-                       2 * np.pi * np.sum(
-                       aads.s_level_rad_down
-                       * np.array(aads.cos_angle)[:, None, None]
-                       * np.array(aads.cos_weight)[:, None, None],
-                       axis=0)
-                       # direct down
-                       + aads.solar_irradiance * aads.cos_sun 
-                       * np.exp(-aads.total_opt / aads.cos_sun)
-                       - 
-                       # diffuse up
-                       2 * np.pi * np.sum(
-                           aads.s_level_rad_up
-                           * np.array(aads.cos_angle)[:, None, None]
-                           * np.array(aads.cos_weight)[:, None, None],
-                           axis=0)
-                   )
-    
 
-    flx_abs_layers = - (net_flux_layers[1:, :] - net_flux_layers[:-1, :])
-        
-    
-    flux_balance = (
-            aads.cos_sun * aads.solar_irradiance
-            - ( np.sum(flx_abs_layers, axis=0) # absorbed flux 
-                + flx_abs_bottom # absorbed flux at bottom
-                + flx_back_top # flux exiting at top
-                )
+    # flux existing at top
+    flx_back_top = (
+        2
+        * np.pi
+        * np.sum(
+            aads.s_level_rad_up[:, 0, :]
+            * np.array(aads.cos_angle)[:, None]
+            * np.array(aads.cos_weight)[:, None],
+            axis=0,
         )
+    )
 
-    
+    # flux absorbed at the bottom model boundary: down-up
+    flx_abs_bottom = (
+        # diffuse down
+        2
+        * np.pi
+        * np.sum(
+            aads.s_level_rad_down[:, -1, :]
+            * np.array(aads.cos_angle)[:, None]
+            * np.array(aads.cos_weight)[:, None],
+            axis=0,
+        )
+        # direct down
+        + aads.solar_irradiance
+        * aads.cos_sun
+        * np.exp(-aads.total_opt[-1, :] / aads.cos_sun)
+        -
+        # diffuse up
+        2
+        * np.pi
+        * np.sum(
+            aads.s_level_rad_up[:, -1, :]
+            * np.array(aads.cos_angle)[:, None]
+            * np.array(aads.cos_weight)[:, None],
+            axis=0,
+        )
+    )
+
+    net_flux_layers = (
+        # diffuse down
+        2
+        * np.pi
+        * np.sum(
+            aads.s_level_rad_down
+            * np.array(aads.cos_angle)[:, None, None]
+            * np.array(aads.cos_weight)[:, None, None],
+            axis=0,
+        )
+        # direct down
+        + aads.solar_irradiance * aads.cos_sun * np.exp(-aads.total_opt / aads.cos_sun)
+        -
+        # diffuse up
+        2
+        * np.pi
+        * np.sum(
+            aads.s_level_rad_up
+            * np.array(aads.cos_angle)[:, None, None]
+            * np.array(aads.cos_weight)[:, None, None],
+            axis=0,
+        )
+    )
+
+    flx_abs_layers = -(net_flux_layers[1:, :] - net_flux_layers[:-1, :])
+
+    flux_balance = aads.cos_sun * aads.solar_irradiance - (
+        np.sum(flx_abs_layers, axis=0)  # absorbed flux
+        + flx_abs_bottom  # absorbed flux at bottom
+        + flx_back_top  # flux exiting at top
+    )
+
     if sum(flux_balance) > 1e-10:
-            raise ValueError("Conservation of fluxes not verified")
+        raise ValueError("Conservation of fluxes not verified")
     else:
         pass
-    
+
     return None
-    
+
+
 def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams):
     """
 
@@ -665,8 +671,8 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
         # at the new level.
 
         infinite_scattering = -np.matmul(
-                aads.s_level_refl_up[:, :, :, k + 1],
-                aads.s_layer_refl[:, :, :, k],
+            aads.s_level_refl_up[:, :, :, k + 1],
+            aads.s_layer_refl[:, :, :, k],
         )
 
         n = np.arange(aads.n_angles)
@@ -682,7 +688,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
         )
 
         refl_down = np.matmul(
-                aads.s_level_refl_up[:, :, :, k + 1],
+            aads.s_level_refl_up[:, :, :, k + 1],
             np.moveaxis(
                 aads.s_layer_source_down[:, k, :], source=[0, 1], destination=[1, 0]
             )[:, :, None],
@@ -701,25 +707,22 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                 destination=[2, 0, 1],
             )[:, 0, :]
         )
-        
 
         refl_trans = np.matmul(
-                aads.s_level_refl_up[:, :, :, k + 1],
-                aads.s_layer_trans[:, :, :, k],
+            aads.s_level_refl_up[:, :, :, k + 1],
+            aads.s_layer_trans[:, :, :, k],
         )
 
-        aads.s_level_refl_up[:, :, :, k] = (
-            aads.s_layer_refl[:, :, :, k] 
-            + np.matmul(inv_gamma_t, refl_trans)
-            )
+        aads.s_level_refl_up[:, :, :, k] = aads.s_layer_refl[:, :, :, k] + np.matmul(
+            inv_gamma_t, refl_trans
+        )
 
     if aads.mth_azi == 0:
         for i in range(len(aads.cos_angle)):
             aads.s_level_rad_up[i, 0, :] += (
                 np.sum(aads.s_level_refl_up[i, :, :, 0]) * aads.cosmic_background
             )
-        
-        
+
     if run_downward_loop:
 
         # preserve TOA upward radiance
@@ -732,7 +735,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
 
         for k in range(0, aads.nbr_lyr):
             infinite_scattering = -np.matmul(
-                    aads.s_level_refl_down[:, :, :, k],
+                aads.s_level_refl_down[:, :, :, k],
                 aads.s_layer_refl[:, :, :, k],
             )
 
@@ -749,7 +752,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
             )
 
             refl_down = np.matmul(
-                    aads.s_level_refl_down[:, :, :, k],
+                aads.s_level_refl_down[:, :, :, k],
                 np.moveaxis(
                     aads.s_layer_source_up[:, k, :], source=[0, 1], destination=[1, 0]
                 )[:, :, None],
@@ -771,22 +774,20 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
             )
 
             refl_trans = np.matmul(
-                    aads.s_level_refl_down[:, :, :, k],
+                aads.s_level_refl_down[:, :, :, k],
                 aads.s_layer_trans[:, :, :, k],
             )
 
-            aads.s_level_refl_down[:, :, :, k + 1] = (
-                aads.s_layer_refl[:, :, :, k] 
-                + np.matmul(inv_gamma_t, refl_trans)
-                )
+            aads.s_level_refl_down[:, :, :, k + 1] = aads.s_layer_refl[
+                :, :, :, k
+            ] + np.matmul(inv_gamma_t, refl_trans)
 
             # finalize upward and downward radiances
             if np.max(np.abs(aads.s_level_refl_down[:, :, :, k + 1])) > 0:
 
                 infinite_scattering = -np.matmul(
-                        aads.s_level_refl_down[:, :, :, k + 1],
-                        aads.s_level_refl_up[:, :, :, k + 1],
-
+                    aads.s_level_refl_down[:, :, :, k + 1],
+                    aads.s_level_refl_up[:, :, :, k + 1],
                 )
 
                 n = np.arange(aads.n_angles)
@@ -797,7 +798,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                 # this does not appear in original code but we precompute
                 # as in previous calculations
                 refl_down = np.matmul(
-                        aads.s_level_refl_down[:, :, :, k + 1],
+                    aads.s_level_refl_down[:, :, :, k + 1],
                     np.moveaxis(
                         aads.s_level_rad_up[:, k + 1, :],
                         source=[0, 1],
@@ -826,8 +827,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
 
                 aads.s_level_rad_upt[:, k + 1, :] = np.moveaxis(
                     np.matmul(
-                            aads.s_level_refl_up[:, :, :, k + 1],
-
+                        aads.s_level_refl_up[:, :, :, k + 1],
                         temporal_vector,
                     )
                     + np.matmul(
@@ -846,22 +846,19 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
 
                 aads.s_level_rad_upt[:, k + 1, :] = (
                     np.matmul(
-                            aads.s_level_refl_up[:, :, :, k + 1],
-
+                        aads.s_level_refl_up[:, :, :, k + 1],
                         np.moveaxis(aads.s_level_rad_down[:, k + 1, :], -1, 0)[
                             :, :, None
                         ],
                     )
                     + np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)[:, :, None]
                 )
-            
-            
+
         aads.s_level_rad_down = aads.s_level_rad_downt.copy()
         aads.s_level_rad_up = aads.s_level_rad_upt.copy()
-                    
+
     verify_balance_of_fluxes(aads)
 
     outputs = aads.get_outputs()
 
     return outputs
-

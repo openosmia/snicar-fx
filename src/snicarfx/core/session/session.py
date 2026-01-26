@@ -343,7 +343,7 @@ class Session:
                 self.atmosphere_column,
                 self.solar_irradiance,
                 self.config.SOLVER.OUTPUT_LEVELS,
-                self.config.SOLVER.N_STREAMS
+                self.config.SOLVER.N_STREAMS,
             )
 
             if self.config.SPECTRAL.MODE == "band-srf-integration":
