@@ -1,6 +1,5 @@
 ! gfortran fortran_CRTM_ADA_solver.f90 -o run_ADA
 ! ./run_ADA w T_OD g COS_SUN Solar_irradiance run_downward_loop
-! ./run_ADA 0.89123599 0.91942177 0.86 0.6427876097 909.849 1
 
 MODULE CRTM_Shared
   IMPLICIT NONE
@@ -38,9 +37,9 @@ MODULE CRTM_Shared
   INTEGER, PARAMETER :: FAILURE = 1
 
   ! Grid sizes
-  INTEGER, PARAMETER :: nL = 3   ! number of layers
-  INTEGER, PARAMETER :: nA = 8   ! number of angles
-  INTEGER, PARAMETER :: nS = 1   ! number of streams
+  INTEGER, PARAMETER :: nL = 3    ! number of layers
+  INTEGER, PARAMETER :: nA = 16   ! number of angles
+  INTEGER, PARAMETER :: nS = 1    ! number of streams
 
   ! Global status and flags
   INTEGER :: Error_Status = 0, mth_Azi = 0
@@ -114,15 +113,6 @@ CONTAINS
     character(len=10) :: g_str
     character(len=200) :: fname
     
-    ! ALLOCATE(w(nL));                        w = ZERO
-    ! w(1) = 0.43_fp
-    ! w(2) = 0.43_fp
-    ! w(3) = 0.43_fp
-    ! ALLOCATE(T_OD(nL));                     T_OD = ZERO
-    ! T_OD(1) = 2.15377_fp
-    ! T_OD(2) = 2.15377_fp
-    ! T_OD(3) = 2.15377_fp
-
     ! First argument is w
     CALL GET_COMMAND_ARGUMENT(1, arg)
     READ(arg, *, IOSTAT=ios) w_val
@@ -174,26 +164,43 @@ CONTAINS
 
     ALLOCATE(Planck_Atmosphere(0:nL));     Planck_Atmosphere = ZERO
     ALLOCATE(total_opt(0:nL));             total_opt = ZERO
-    ALLOCATE(COS_Angle(nA));               COS_Angle = ZERO
-    COS_Angle(1) = 0.09501250983763745_fp
-    COS_Angle(2) = 0.2816035507792589_fp
-    COS_Angle(3) = 0.45801677765722737_fp
-    COS_Angle(4) = 0.6178762444026438_fp
-    COS_Angle(5) = 0.755404408355003_fp
-    COS_Angle(6) = 0.8656312023878318_fp
-    COS_Angle(7) = 0.9445750230732326_fp
-    COS_Angle(8) = 0.9894009349916499_fp
 
+    ! hard code cos_angle and cos_weight to ensure full match with Python version
+    ALLOCATE(COS_Angle(nA));               COS_Angle = ZERO
+    COS_Angle(1) = 0.04830766568773831_fp
+    COS_Angle(2) = 0.1444719615827965_fp
+    COS_Angle(3) = 0.23928736225213706_fp
+    COS_Angle(4) = 0.33186860228212767_fp
+    COS_Angle(5) = 0.42135127613063533_fp
+    COS_Angle(6) = 0.5068999089322294_fp
+    COS_Angle(7) = 0.5877157572407623_fp
+    COS_Angle(8) = 0.6630442669302152_fp
+    COS_Angle(9) = 0.7321821187402897_fp
+    COS_Angle(10) = 0.7944837959679424_fp
+    COS_Angle(11) = 0.84936761373257_fp
+    COS_Angle(12) = 0.8963211557660522_fp
+    COS_Angle(13) = 0.9349060759377397_fp
+    COS_Angle(14) = 0.9647622555875064_fp
+    COS_Angle(15) = 0.9856115115452684_fp
+    COS_Angle(16) = 0.9972638618494816_fp
 
     ALLOCATE(COS_Weight(nA));              COS_Weight = 0
-    COS_Weight(1) = 0.18945061045506859_fp
-    COS_Weight(2) = 0.1826034150449236_fp
-    COS_Weight(3) = 0.16915651939500262_fp
-    COS_Weight(4) = 0.14959598881657676_fp
-    COS_Weight(5) = 0.12462897125553403_fp
-    COS_Weight(6) = 0.09515851168249259_fp
-    COS_Weight(7) = 0.062253523938647706_fp
-    COS_Weight(8) = 0.027152459411754037_fp
+    COS_Weight(1) = 0.09654008851472781_fp
+    COS_Weight(2) = 0.09563872007927483_fp
+    COS_Weight(3) = 0.09384439908080457_fp
+    COS_Weight(4) = 0.09117387869576386_fp
+    COS_Weight(5) = 0.08765209300440391_fp
+    COS_Weight(6) = 0.08331192422694685_fp
+    COS_Weight(7) = 0.07819389578707031_fp
+    COS_Weight(8) = 0.072345794108848457_fp
+    COS_Weight(9) = 0.06582222277636175_fp
+    COS_Weight(10) = 0.058684093478535704_fp
+    COS_Weight(11) = 0.050998059262376244_fp
+    COS_Weight(12) = 0.042835898022226426_fp
+    COS_Weight(13) = 0.034273862913021626_fp
+    COS_Weight(14) = 0.025392065309262427_fp
+    COS_Weight(15) = 0.016274394730905965_fp
+    COS_Weight(16) = 0.007018610009469298_fp
 
     ALLOCATE(temporal_matrix(nA,nA));      temporal_matrix = ZERO
     ALLOCATE(refl_down(nA,nL));            refl_down = ZERO
@@ -220,69 +227,14 @@ CONTAINS
     ALLOCATE(Pff2d(nA,nA+1))
     ALLOCATE(Pbb2d(nA,nA+1))
     
-    ! ! --- Fill Pff first dimension tiles ---
-    ! ! Tile 1 (first row)
-    ! Pbb(1,1:nA+1,1) = [0.5635281782935613_fp, 0.5309813932241677_fp, 0.48983080117125544_fp, 0.4484286224100112_fp, 0.412293963050083_fp, 0.3840683320914725_fp, 0.36457762109015396_fp, 0.3538381236301168_fp, 0.44186064955688137_fp]
-
-    ! ! Tile 2
-    ! Pbb(2,1:nA+1,1) = [0.5309813932241677_fp, 0.481309465903503_fp, 0.43264256547130225_fp, 0.3901806469464983_fp, 0.3561081126993239_fp, 0.3307816419859241_fp, 0.3137841149765358_fp, 0.30455856912561213_fp, 0.3838191292293587_fp]
-
-    ! ! Tile 3
-    ! Pbb(3,1:nA+1,1) = [0.48983080117125544_fp, 0.43264256547130225_fp, 0.38316083849934796_fp, 0.34312672515536613_fp, 0.3124254131472557_fp, 0.290204144796698_fp, 0.27551421810543786_fp, 0.26760359365583486_fp, 0.337312242159366_fp]
-
-    ! ! Tile 4
-    ! Pbb(4,1:nA+1,1) = [0.4484286224100112_fp, 0.3901806469464983_fp, 0.34312672515536613_fp, 0.30660658998768037_fp, 0.27927759728339896_fp, 0.25977291841144506_fp, 0.24697796933236227_fp, 0.24011477353701674_fp, 0.30139147100146324_fp]
-
-    ! ! Tile 5
-    ! Pbb(5,1:nA+1,1) = [0.412293963050083_fp, 0.3561081126993239_fp, 0.3124254131472557_fp, 0.27927759728339896_fp, 0.2547886980021267_fp, 0.23743333721505738_fp, 0.2260900589177046_fp, 0.22001609111622647_fp, 0.2745862674235308_fp]
-
-    ! ! Tile 6
-    ! Pbb(6,1:nA+1,1) = [0.3840683320914725_fp, 0.3307816419859241_fp, 0.2902041447966979_fp, 0.25977291841144506_fp, 0.23743333721505733_fp, 0.22165241041548847_fp, 0.2113536804370969_fp, 0.20584256755309185_fp, 0.2554853969861519_fp]
-
-    ! ! Tile 7
-    ! Pbb(7,1:nA+1,1) = [0.36457762109015396_fp, 0.3137841149765358_fp, 0.27551421810543786_fp, 0.2469779693323622_fp, 0.22609005891770453_fp, 0.2113536804370969_fp, 0.2017413497593499_fp, 0.1965981308922976_fp, 0.24296581481977325_fp]
-
-    ! ! Tile 8
-    ! Pbb(8,1:nA+1,1) = [0.3538381236301168_fp, 0.3045585691256122_fp, 0.26760359365583486_fp, 0.24011477353701668_fp, 0.22001609111622647_fp, 0.20584256755309185_fp, 0.1965981308922976_fp, 0.19165164756666647_fp, 0.23625309584873333_fp]
-
-    ! ! --- Fill Pbb similarly ---
-    ! ! Tile 1
-    ! Pff(1,1:nA+1,1) = [0.5789529616959299_fp, 0.5732842837504045_fp, 0.5497785922723679_fp, 0.5166344266668839_fp, 0.48235349645410525_fp, 0.4528923550100303_fp, 0.43141620734792213_fp, 0.4192392699548376_fp, 0.5107302491089581_fp]
-
-    ! ! Tile 2
-    ! Pff(2,1:nA+1,1) = [0.5732842837504045_fp, 0.5991995039811251_fp, 0.6039405519491116_fp, 0.5900939370437481_fp, 0.5656986462376987_fp, 0.5395897258968659_fp, 0.5182892556811232_fp, 0.5054990290002607_fp, 0.5864627775856661_fp]
-
-    ! ! Tile 3
-    ! Pff(3,1:nA+1,1) = [0.5497785922723679_fp, 0.6039405519491116_fp, 0.6425868812961821_fp, 0.6599421389257812_fp, 0.6578859438285592_fp, 0.6443872119760935_fp, 0.6286996846981149_fp, 0.617805162855038_fp, 0.660791135638681_fp]
-    
-    ! ! Tile 4
-    ! Pff(4,1:nA+1,1) = [0.5166344266668839_fp, 0.5900939370437481_fp, 0.6599421389257812_fp, 0.7154420479847825_fp, 0.7494814671575751_fp, 0.7629476330377473_fp, 0.7634633781603917_fp, 0.7601419873004777_fp, 0.7227741587460175_fp]
-
-    ! ! Tile 5
-    ! Pff(5,1:nA+1,1) = [0.48235349645410525_fp, 0.5656986462376987_fp, 0.6578859438285592_fp, 0.7494814671575751_fp, 0.8281297742441638_fp, 0.8844382368853543_fp, 0.9170607690383024_fp, 0.9315148526990503_fp, 0.7639875469019556_fp]
-
-    ! ! Tile 6
-    ! Pff(6,1:nA+1,1) = [0.4528923550100303_fp, 0.5395897258968659_fp, 0.6443872119760935_fp, 0.7629476330377473_fp, 0.8844382368853544_fp, 0.9930318899462598_fp, 1.0740261635239157_fp, 1.1197358577388217_fp, 0.7836286077979845_fp]
-
-    ! ! Tile 7
-    ! Pff(7,1:nA+1,1) = [0.43141620734792213_fp, 0.518289255681123_fp, 0.6286996846981149_fp, 0.7634633781603918_fp, 0.9170607690383025_fp, 1.0740261635239154_fp, 1.2093215745493846_fp, 1.2956869840520613_fp, 0.7883363531468024_fp]
-
-    ! ! Tile 8
-    ! Pff(8,1:nA+1,1) = [0.4192392699548376_fp, 0.5054990290002607_fp, 0.617805162855038_fp, 0.7601419873004777_fp, 0.9315148526990503_fp, 1.1197358577388217_fp, 1.2956869840520613_fp, 1.4162864990259598_fp, 0.7871679016915832_fp]
-
-    ! ! Replicate along third dimension
-    ! DO i = 2, nL
-    !    Pbb(:,:,i) = Pbb(:,:,1)
-    ! END DO
-
-    fname = "./snicar-fx-dev/data/test_data/ff_g" // trim(adjustl(g_str)) // ".csv"
+    fname = "./test_ADA/test_data/ff_g" // trim(adjustl(g_str)) // ".csv"
     open(newunit=unit_ff, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_ff,*,iostat=ios) (Pff2d(i,j), j=1,nA+1)
     end do
     close(unit_ff)
 
-    fname = "./snicar-fx-dev/data/test_data/bb_g" // trim(adjustl(g_str)) // ".csv"
+    fname = "./test_ADA/test_data/bb_g" // trim(adjustl(g_str)) // ".csv"
     open(newunit=unit_bb, file=fname, status="old", action="read")
     do i = 1, nA
        read(unit_bb,*,iostat=ios) (Pbb2d(i,j), j=1,nA+1)
@@ -1449,22 +1401,24 @@ PROGRAM main
   CALL CRTM_ADA()
 
   ! write(filename,'(A,G0.2,A,G0.2,A)') './data/test_data/s_Level_Rad_UP_temp.csv'
-  write(filename,'(A,G0.2,A,G0.2,A)') './s_Level_Rad_UP_temp.csv'
+  write(filename,'(A,G0.2,A,G0.2,A)') './test_data/s_Level_Rad_UP_temp.csv'
+  
+  ! open(unit=10, file=filename, status='replace')
+  ! ! write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
+  ! write(10,'(100F12.5)') (s_Level_Rad_UP(i,1), i=1,nA)
+  ! close(10)
   
   open(unit=10, file=filename, status='replace')
-  ! write(10,'(100F12.5)') (s_Level_Rad_UP(i,0), i=1,nA)
-  write(10,'(100F12.5)') (s_Level_Rad_UP(i,1), i=1,nA)
+
+  DO i = 1, nA
+     WRITE(10,'(ES25.15E3)') s_Level_Rad_UP(i,0)
+  END DO
+  ! WRITE(10, '(E25.15)') (s_Level_Rad_UP(i,1), i=1,nA)
   close(10)
   
-  ! do k = 0, nL
-  !    do i = 1, nA
-  !       write(10,'(100F12.5)') (s_Level_Rad_UP(i,j,k), j=1,nA)
-  !    end do
-  ! end do
-
 
   ! then in python:  
-  ! nA = 8
+  ! nA = 16
   ! nL = 3
   ! data = np.loadtxt('s_Level_Refl_UP.csv')
   ! array_3d = data.reshape((nL+1, nA, nA))  # shape must match Fortran order
