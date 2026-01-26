@@ -139,12 +139,12 @@ class _MultiStreamSolver:
             )
 
         ######################################################################
-        # SET GAUSSIAN QUADRATURE
+        # SET GAUSSIAN QUADRATURE (remapped to [0-1])
         ######################################################################
 
-        nodes, weights = np.polynomial.legendre.leggauss(self.n_angles * 2)
-        self.cos_angle = nodes[self.n_angles :]  # only positive
-        self.cos_weight = weights[self.n_angles :]
+        nodes, weights = np.polynomial.legendre.leggauss(self.n_angles)
+        self.cos_angle = 0.5 * (nodes + 1.0)
+        self.cos_weight = 0.5 * weights
 
         ######################################################################
         # CALCULATE PHASE COEFFS & PHASE MATRICES
@@ -153,7 +153,7 @@ class _MultiStreamSolver:
         # Calculate scaled expansion coefficients
         # Wiscombe 1977 Eq. 14
         # Convention is 0.5 * (2l+1) * Bl for the expansion 
-        # because we use Bl values that do not integrate orthogonality 
+        # ie the 0.5 factor coming from RTE now is included here 
         orders = np.arange(0, land.n_expansion)
         phase_coeffs = (2 * orders[:, None, None] + 1) * 0.5 * (self.legendre_moments)
 
