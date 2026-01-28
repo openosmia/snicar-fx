@@ -50,7 +50,7 @@ class Solver(BaseModel):
 
     # number of streams to consider in solver
     N_STREAMS: int = Field(
-        default=16, ge=2, le=32, description="Number of streams used by the solver."
+        default=16, ge=12, le=100, description="Number of streams used by the solver."
     )
 
     N_LEGENDRE_MOMENTS: Optional[int] = Field(
@@ -402,14 +402,14 @@ class Config(BaseModel):
             )
         return self
 
-    @model_validator(mode="after")
-    def check_solver_grain_shape_compatibility(self):
-        if self.SOLVER.TYPE == "multi-stream" and 0 in self.LAND.GRAIN_SHAPE:
-            raise ValueError(
-                "LAND.GRAIN_SHAPE=0 (spheres) is not currently supported when "
-                "SOLVER.TYPE='multi-stream'."
-            )
-        return self
+    # @model_validator(mode="after")
+    # def check_solver_grain_shape_compatibility(self):
+    #     if self.SOLVER.TYPE == "multi-stream" and 0 in self.LAND.GRAIN_SHAPE:
+    #         raise ValueError(
+    #             "LAND.GRAIN_SHAPE=0 (spheres) is not currently supported when "
+    #             "SOLVER.TYPE='multi-stream'."
+    #         )
+    #     return self
 
     @model_validator(mode="after")
     def check_lengths(self):

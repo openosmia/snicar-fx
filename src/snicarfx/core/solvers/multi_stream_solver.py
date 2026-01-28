@@ -185,14 +185,22 @@ class _MultiStreamSolver:
             * ifac[:, None, None, None, None],
             axis=0,
         )
-
+        
+        energy_error = (np.einsum('ijlk,j->ilk', 
+                              self.ff[:, :-1, :, :] 
+                              + self.bb[:, :-1, :, :], 
+                              self.cos_weight) - 1)
+        
+        if np.max(np.abs(energy_error)) > 1e-8: 
+            raise ValueError("Error in stream energy conservation. Try increasing stream number or use aspherical shapes.")
+        
         # removed from now, but may need to bring them back
-        # if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
-        #     raise ValueError("Invalid phase matrix elements")
+        if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
+            raise ValueError("Invalid phase matrix elements. Try increasing stream numbers or use aspherical shapes.")
 
-        self.ff[self.ff < 0] = 0
-        self.bb[self.bb < 0] = 0
-
+        # self.ff[self.ff < 0] = 0
+        # self.bb[self.bb < 0] = 0
+        
         return None
 
     def amom(self, k):
