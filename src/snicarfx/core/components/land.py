@@ -171,17 +171,17 @@ class LandColumn:
 
                 self.ss_alb[lyr, :] = scattering_cff / (scattering_cff + abs_cff)
 
-                if self.grain_shape[lyr] == 0:
-                    # Kokhanovsky 2002
-                    self.asm_prm[lyr, :] = 0.49274 + 0.44466 / (
-                        0.69233 * np.sqrt(np.pi / 2)
-                    ) * np.exp(-2 * ((1 / self.ref_idx_re - 1.04882) / 0.69233) ** 2)
-    
-                    self.asm_prm = np.clip(self.asm_prm, 0, 1)
                 
-                elif self.grain_shape[lyr] == 1:
-                    # Robledano 2023 measurements
-                    self.asm_prm[lyr, :] =0.815
+                # Kokhanovsky 2002 - spherical bubbles
+                self.asm_prm[lyr, :] = 0.49274 + 0.44466 / (
+                    0.69233 * np.sqrt(np.pi / 2)
+                ) * np.exp(-2 * ((1 / self.ref_idx_re - 1.04882) / 0.69233) ** 2)
+
+                self.asm_prm = np.clip(self.asm_prm, 0, 1)
+                
+                if self.grain_shape[lyr] == 1:
+                    # correction low end of Dadic 2013 
+                    self.asm_prm[lyr, :] = self.asm_prm[lyr, :] * 0.94
 
                 self.ext_cff[lyr, :] = scattering_cff + abs_cff
 
