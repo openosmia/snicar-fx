@@ -73,8 +73,9 @@ class Solver(BaseModel):
         if self.N_LEGENDRE_MOMENTS is None:
             self.N_LEGENDRE_MOMENTS = self.N_STREAMS
 
-        # Validate it does not exceed N_STREAMS
-        if self.N_LEGENDRE_MOMENTS > self.N_STREAMS:
+
+        # Validate it does not exceed 2 * (N_STREAMS-1)
+        if self.N_LEGENDRE_MOMENTS > 2 * (self.N_STREAMS - 1):
             raise ValueError(
                 f"N_LEGENDRE_MOMENTS ({self.N_LEGENDRE_MOMENTS}) cannot exceed "
                 f"N_STREAMS ({self.N_STREAMS})"
