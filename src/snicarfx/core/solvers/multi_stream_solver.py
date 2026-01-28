@@ -6,8 +6,7 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
-from scipy.special import legendre
-
+from scipy.special import legendre, lpmv, factorial 
 
 class _MultiStreamSolver:
     """
@@ -58,7 +57,7 @@ class _MultiStreamSolver:
         self.n_angles = n_streams
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = output_levels
-        self.mth_azi = 0  # 0th Fourier moment = azimuthal symmetry
+        self.mth_azi = 2  # 0th Fourier moment = azimuthal symmetry
 
         # apply delta scaling (!) to land column only -> HG function (!)
         # Delta truncation: get highest Legendre term following
@@ -148,29 +147,55 @@ class _MultiStreamSolver:
         # CALCULATE PHASE COEFFS & PHASE MATRICES
         ######################################################################
 
-        # Calculate scaled expansion coefficients
+        ########## Calculate weighed/scaled expansion coefficients
         # Wiscombe 1977 Eq. 14
         # Convention is 0.5 * (2l+1) * Bl for the expansion
         # ie the 0.5 factor coming from RTE now is included here
-        orders = np.arange(0, land.n_expansion)
-        phase_coeffs = (2 * orders[:, None, None] + 1) * 0.5 * (self.legendre_moments)
+        # and we add the factorial normalization when fourier mode > 0
+        
+        orders = np.arange(self.mth_azi, land.n_expansion)
+        
+        if self.mth_azi == 0:
+            phase_coeffs = (
+                (2 * orders[:, None, None] + 1) 
+                * 0.5 
+                * (self.legendre_moments)
+                )
 
-        # Calculate Legendre polynomials
-        leg_poly = np.zeros((land.n_expansion, self.n_angles + 1))
+        elif self.mth_azi > 0:
+            # add normalization factor
+            norm = (
+                factorial(orders - self.mth_azi)
+                / factorial(orders + self.mth_azi)
+            )
+            phase_coeffs = (
+                (2 * orders[:, None, None] + 1) 
+                * 0.5 
+                * (self.legendre_moments)[self.mth_azi:]
+                * norm[:, None, None]
+                )
+            
 
-        # for all but the last column
-        for order in orders:
-            leg_poly[order, :-1] = legendre(order)(self.cos_angle)
+        ####### Calculate Legendre polynomials/associated functions
+    
+        if self.mth_azi == 0:
+            leg_poly = np.zeros((land.n_expansion, self.n_angles + 1))
+            for order in orders:
+                leg_poly[order, :-1] = legendre(order)(self.cos_angle)
+                # add SZA in the last column
+                leg_poly[order, self.n_angles] = legendre(order)(self.cos_sun)
+            
+        elif self.mth_azi > 0:
+            leg_poly = np.zeros((land.n_expansion - self.mth_azi, self.n_angles + 1))
+            for i, order in enumerate(orders):
+                leg_poly[i, :-1] = lpmv(self.mth_azi, order, self.cos_angle)
+                leg_poly[i, self.n_angles] = lpmv(self.mth_azi, order, self.cos_sun)
+            
 
-        # add SZA in the last column
-        for order in orders:
-            leg_poly[order, self.n_angles] = legendre(order)(self.cos_sun)
-
+        ####### Calculate phase matrices
         legs = np.arange(self.mth_azi, land.n_expansion)
         ifac = (-1) ** (legs - self.mth_azi)
-
-        # Calculate phase matrices
-        # (!) this would need to be changed for m > 0
+        
         self.ff = np.sum(
             phase_coeffs[:, None, None, :, :]
             * leg_poly[:, :-1, None, None, None]  # -1 to exclude SZA
@@ -191,7 +216,7 @@ class _MultiStreamSolver:
                               + self.bb[:, :-1, :, :], 
                               self.cos_weight) - 1)
 
-        if np.max(np.abs(energy_error)) > 1e-8: 
+        if self.mth_azi == 0 and np.max(np.abs(energy_error)) > 1e-8: 
             raise ValueError("Error in stream energy conservation. Try increasing stream number or use aspherical shapes.")
         
         # removed from now, but may need to bring them back
