@@ -652,7 +652,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
     
     for m in range(n_fourier + 1):
     
-        aads.mth_azi = n_fourier
+        aads.mth_azi = m
         
         # calculate phase matrices
         
