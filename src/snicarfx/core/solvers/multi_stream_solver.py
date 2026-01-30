@@ -47,7 +47,7 @@ class _MultiStreamSolver:
             Number of discrete ordinates / angles in the gaussian quadrature.
         """
 
-        self.solar_irradiance = irradiance.flx_slr
+        self.solar_irradiance = np.array(irradiance.flx_slr)
         self.solar_flag = True
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
         self.DELTA_OPTICAL_DEPTH = 1e-8
@@ -59,33 +59,61 @@ class _MultiStreamSolver:
         self.output_levels = output_levels
         self.mth_azi = 0 # Fourier moment initialized at 0
 
+        # # apply delta scaling (!) to land column only -> HG function (!)
+        # # Delta truncation: get highest Legendre term following
+        # # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
+        # f = np.array(land.asm_prm ** (land.n_expansion + 1))
+
+        # # Wiscombe 1977 Eq. 20(a, b) + 14
+        # land.tau = (1.0 - land.ss_alb * f) * land.tau
+        # land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
+        # land.legendre_moments = (land.legendre_moments - f[None, :, :]) / (
+        #     1 - f[None, :, :]
+        # )
+
+        # if atmosphere.use_atmosphere:
+        #     self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
+        #     self.t_od = np.vstack([atmosphere.tau, land.tau])
+        #     self.w = np.vstack([atmosphere.ss_alb, land.ss_alb])
+        #     self.legendre_moments = np.hstack(
+        #         [atmosphere.legendre_moments, land.legendre_moments]
+        #     )
+        #     self.surface_idx = -land.nbr_lyr - 1
+
+        # else:
+        #     self.nbr_lyr = land.nbr_lyr
+        #     self.t_od = np.array(land.tau)
+        #     self.w = np.array(land.ss_alb)
+        #     self.legendre_moments = np.array(land.legendre_moments)
+        #     self.surface_idx = 0
+        
         # apply delta scaling (!) to land column only -> HG function (!)
         # Delta truncation: get highest Legendre term following
         # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
         f = np.array(land.asm_prm ** (land.n_expansion + 1))
 
         # Wiscombe 1977 Eq. 20(a, b) + 14
-        land.tau = (1.0 - land.ss_alb * f) * land.tau
-        land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
-        land.legendre_moments = (land.legendre_moments - f[None, :, :]) / (
+        tau_delta_scaled = np.array((1.0 - land.ss_alb * f) * land.tau)
+        ss_alb_delta_scaled = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
+        legendre_moments_delta_scaled = np.array((land.legendre_moments - f[None, :, :]) / (
             1 - f[None, :, :]
-        )
+        ))
 
-        if atmosphere.use_atmosphere:
+        if not atmosphere.use_atmosphere:
+            self.nbr_lyr = land.nbr_lyr
+            self.t_od = tau_delta_scaled
+            self.w = ss_alb_delta_scaled
+            self.legendre_moments = legendre_moments_delta_scaled
+            self.surface_idx = 0
+            
+        else:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
-            self.t_od = np.vstack([atmosphere.tau, land.tau])
-            self.w = np.vstack([atmosphere.ss_alb, land.ss_alb])
+            self.t_od = np.vstack([atmosphere.tau, tau_delta_scaled])
+            self.w = np.vstack([atmosphere.ss_alb, ss_alb_delta_scaled])
             self.legendre_moments = np.hstack(
-                [atmosphere.legendre_moments, land.legendre_moments]
+                [atmosphere.legendre_moments, legendre_moments_delta_scaled]
             )
             self.surface_idx = -land.nbr_lyr - 1
-
-        else:
-            self.nbr_lyr = land.nbr_lyr
-            self.t_od = np.array(land.tau)
-            self.w = np.array(land.ss_alb)
-            self.legendre_moments = np.array(land.legendre_moments)
-            self.surface_idx = 0
 
         # initialize arrays
         self.total_opt = np.zeros((self.nbr_lyr + 1, self.nbr_wvl))
@@ -646,12 +674,15 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
         run_downward_loop = True
     else:
         run_downward_loop = False
+        
+    temporary_variable = []
     
-    # initialize solver
-    aads = _MultiStreamSolver(land, atmosphere, irradiance, output_levels, n_streams)
     
     for m in range(n_fourier + 1):
-    
+        
+        # initialize solver
+        aads = _MultiStreamSolver(land, atmosphere, irradiance, output_levels, n_streams)
+
         aads.mth_azi = m
         
         # calculate phase matrices
@@ -876,14 +907,16 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
             aads.s_level_rad_down = aads.s_level_rad_downt.copy()
             aads.s_level_rad_up = aads.s_level_rad_upt.copy()
             
-                
-            if aads.mth_azi == 0:
-                verify_balance_of_fluxes(aads)
+        temporary_variable.append(aads.s_level_rad_up[:, 0, :].copy())
+
+        if aads.mth_azi == 0:
+            verify_balance_of_fluxes(aads)
             
     if aads.mth_azi == 0:
         outputs = aads.get_outputs()
         return outputs
     else: 
-        raise ValueError('Integration in azimuth not yet implemented')
+        return temporary_variable
+        # raise ValueError('Integration in azimuth not yet implemented')
 
     
