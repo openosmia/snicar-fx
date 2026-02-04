@@ -774,8 +774,6 @@ class _MultiStreamSolver:
                     )  # project solar beam
                 ).flatten()
 
-        # Fourier reconstructions
-
         return results
 
 
