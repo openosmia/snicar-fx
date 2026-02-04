@@ -6,7 +6,8 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
-from scipy.special import legendre, lpmv, factorial 
+from scipy.special import legendre, lpmv, factorial
+
 
 class _MultiStreamSolver:
     """
@@ -57,7 +58,7 @@ class _MultiStreamSolver:
         self.n_angles = n_streams
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = output_levels
-        self.mth_azi = 0 # Fourier moment initialized at 0
+        self.mth_azi = 0  # Fourier moment initialized at 0
 
         # # apply delta scaling (!) to land column only -> HG function (!)
         # # Delta truncation: get highest Legendre term following
@@ -86,7 +87,7 @@ class _MultiStreamSolver:
         #     self.w = np.array(land.ss_alb)
         #     self.legendre_moments = np.array(land.legendre_moments)
         #     self.surface_idx = 0
-        
+
         # apply delta scaling (!) to land column only -> HG function (!)
         # Delta truncation: get highest Legendre term following
         # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
@@ -95,9 +96,9 @@ class _MultiStreamSolver:
         # Wiscombe 1977 Eq. 20(a, b) + 14
         tau_delta_scaled = np.array((1.0 - land.ss_alb * f) * land.tau)
         ss_alb_delta_scaled = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
-        legendre_moments_delta_scaled = np.array((land.legendre_moments - f[None, :, :]) / (
-            1 - f[None, :, :]
-        ))
+        legendre_moments_delta_scaled = np.array(
+            (land.legendre_moments - f[None, :, :]) / (1 - f[None, :, :])
+        )
 
         if not atmosphere.use_atmosphere:
             self.nbr_lyr = land.nbr_lyr
@@ -105,7 +106,7 @@ class _MultiStreamSolver:
             self.w = ss_alb_delta_scaled
             self.legendre_moments = legendre_moments_delta_scaled
             self.surface_idx = 0
-            
+
         else:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
             self.t_od = np.vstack([atmosphere.tau, tau_delta_scaled])
@@ -170,9 +171,126 @@ class _MultiStreamSolver:
         nodes, weights = np.polynomial.legendre.leggauss(self.n_angles)
         self.cos_angle = 0.5 * (nodes + 1.0)
         self.cos_weight = 0.5 * weights
-        
-        return None
 
+    def set_phase_matrices(self):
+        """Calculate phase coefficients and phase matrices
+
+        Calculate weighed/scaled expansion coefficients Wiscombe
+        1977 Eq. 14 Convention is 0.5 * (2l+1) * Bl for the
+        expansion ie the 0.5 factor coming from RTE now is
+        included here and we add the factorial normalization when
+        fourier mode > 0
+
+        """
+
+        orders = np.arange(self.mth_azi, self.legendre_moments.shape[0])
+
+        if self.mth_azi == 0:
+            phase_coeffs = (
+                (2 * orders[:, None, None] + 1) * 0.5 * (self.legendre_moments)
+            )
+
+        elif self.mth_azi > 0:
+            # add normalization factor
+            norm = factorial(orders - self.mth_azi) / factorial(orders + self.mth_azi)
+            phase_coeffs = (
+                (2 * orders[:, None, None] + 1)
+                * 0.5
+                * (self.legendre_moments)[self.mth_azi :]
+                * norm[:, None, None]
+            )
+
+        ####### Calculate Legendre polynomials/associated functions
+
+        if self.mth_azi == 0:
+            leg_poly = np.zeros((self.legendre_moments.shape[0], self.n_angles + 1))
+            for order in orders:
+                leg_poly[order, :-1] = legendre(order)(self.cos_angle)
+                # add SZA in the last column
+                leg_poly[order, self.n_angles] = legendre(order)(self.cos_sun)
+
+        elif self.mth_azi > 0:
+            leg_poly = np.zeros(
+                (self.legendre_moments.shape[0] - self.mth_azi, self.n_angles + 1)
+            )
+            for i, order in enumerate(orders):
+                leg_poly[i, :-1] = lpmv(self.mth_azi, order, self.cos_angle)
+                leg_poly[i, self.n_angles] = lpmv(self.mth_azi, order, self.cos_sun)
+
+        ####### Calculate phase matrices
+        legs = np.arange(self.mth_azi, self.legendre_moments.shape[0])
+        ifac = (-1) ** (legs - self.mth_azi)
+
+        self.ff = np.sum(
+            phase_coeffs[:, None, None, :, :]
+            * leg_poly[:, :-1, None, None, None]  # -1 to exclude SZA
+            * leg_poly[:, None, :, None, None],
+            axis=0,
+        )
+
+        self.bb = np.sum(
+            phase_coeffs[:, None, None, :, :]
+            * leg_poly[:, :-1, None, None, None]  # -1 to exclude SZA
+            * leg_poly[:, None, :, None, None]
+            * ifac[:, None, None, None, None],
+            axis=0,
+        )
+
+        energy_error = (
+            np.einsum(
+                "ijlk,j->ilk",
+                self.ff[:, :-1, :, :] + self.bb[:, :-1, :, :],
+                self.cos_weight,
+            )
+            - 1
+        )
+
+        if self.mth_azi == 0 and np.max(np.abs(energy_error)) > 1e-8:
+            raise ValueError(
+                "Error in stream energy conservation. Try increasing stream number or use aspherical shapes."
+            )
+
+        # removed from now, but may need to bring them back
+        if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
+            raise ValueError(
+                "Invalid phase matrix elements. Try increasing stream numbers or use aspherical shapes."
+            )
+
+        # self.ff[self.ff < 0] = 0
+        # self.bb[self.bb < 0] = 0
+
+    def reset_state(self, m):
+        """
+        Change Fourier moment and reset required variables.
+        """
+
+        # Fourier moment
+        self.mth_azi = m
+
+        # scalar state
+        self.total_opt.fill(0.0)
+
+        # phase matrices
+        self.ff.fill(0.0)
+        self.bb.fill(0.0)
+
+        # radiances and reflectances
+        self.s_level_rad_up.fill(0.0)
+        self.s_level_rad_down.fill(0.0)
+        self.s_level_refl_up.fill(0.0)
+        self.s_layer_source_up.fill(0.0)
+        self.s_layer_source_down.fill(0.0)
+        self.s_layer_refl.fill(0.0)
+        self.s_layer_trans.fill(0.0)
+
+        self.direct_reflectivity.fill(0.0)
+        self.emissivity.fill(0.0)
+        self.reflectivity.fill(0.0)
+
+        if hasattr(self, "s_level_refl_down"):
+            self.s_level_refl_down.fill(0.0)
+            self.s_level_rad_upt.fill(0.0)
+            self.s_level_rad_downt.fill(0.0)
 
     def amom(self, k):
         """
@@ -391,6 +509,99 @@ class _MultiStreamSolver:
             self.s_layer_source_up[:, k, :] += source_up[:, 0, :]
             self.s_layer_source_down[:, k, :] += source_down[:, 0, :]
 
+    def verify_balance_of_fluxes(self):
+        """
+
+        Verify that the energy coming in is either reflected back, absorbed by the
+        layers or 'lost' at the model boundary.
+
+        Parameters
+        ----------
+        aads : MultiStreamSolver
+            instance of the solver
+
+        """
+
+        # flux existing at top
+        flx_back_top = (
+            2
+            * np.pi
+            * np.sum(
+                self.s_level_rad_up[:, 0, :]
+                * np.array(self.cos_angle)[:, None]
+                * np.array(self.cos_weight)[:, None],
+                axis=0,
+            )
+        )
+
+        # flux absorbed at the bottom model boundary: down-up
+        flx_abs_bottom = (
+            # diffuse down
+            2
+            * np.pi
+            * np.sum(
+                self.s_level_rad_down[:, -1, :]
+                * np.array(self.cos_angle)[:, None]
+                * np.array(self.cos_weight)[:, None],
+                axis=0,
+            )
+            # direct down
+            + self.solar_irradiance
+            * self.cos_sun
+            * np.exp(-self.total_opt[-1, :] / self.cos_sun)
+            -
+            # diffuse up
+            2
+            * np.pi
+            * np.sum(
+                self.s_level_rad_up[:, -1, :]
+                * np.array(self.cos_angle)[:, None]
+                * np.array(self.cos_weight)[:, None],
+                axis=0,
+            )
+        )
+
+        net_flux_layers = (
+            # diffuse down
+            2
+            * np.pi
+            * np.sum(
+                self.s_level_rad_down
+                * np.array(self.cos_angle)[:, None, None]
+                * np.array(self.cos_weight)[:, None, None],
+                axis=0,
+            )
+            # direct down
+            + self.solar_irradiance
+            * self.cos_sun
+            * np.exp(-self.total_opt / self.cos_sun)
+            -
+            # diffuse up
+            2
+            * np.pi
+            * np.sum(
+                self.s_level_rad_up
+                * np.array(self.cos_angle)[:, None, None]
+                * np.array(self.cos_weight)[:, None, None],
+                axis=0,
+            )
+        )
+
+        flx_abs_layers = -(net_flux_layers[1:, :] - net_flux_layers[:-1, :])
+
+        flux_balance = self.cos_sun * self.solar_irradiance - (
+            np.sum(flx_abs_layers, axis=0)  # absorbed flux
+            + flx_abs_bottom  # absorbed flux at bottom
+            + flx_back_top  # flux exiting at top
+        )
+
+        if sum(flux_balance) > 1e-10:
+            raise ValueError("Conservation of fluxes not verified")
+        else:
+            pass
+
+        return None
+
     def get_outputs(self):
         """
         Compile and return radiative transfer results as an
@@ -464,186 +675,11 @@ class _MultiStreamSolver:
             ).flatten()
 
         return results
-    
-def set_phase_matrices(aads):
-    
-    ######################################################################
-    # CALCULATE PHASE COEFFS & PHASE MATRICES
-    ######################################################################
-
-    ########## Calculate weighed/scaled expansion coefficients
-    # Wiscombe 1977 Eq. 14
-    # Convention is 0.5 * (2l+1) * Bl for the expansion
-    # ie the 0.5 factor coming from RTE now is included here
-    # and we add the factorial normalization when fourier mode > 0
-        
-    orders = np.arange(aads.mth_azi, aads.legendre_moments.shape[0])
-    
-    if aads.mth_azi == 0:
-        phase_coeffs = (
-            (2 * orders[:, None, None] + 1) 
-            * 0.5 
-            * (aads.legendre_moments)
-            )
-
-    elif aads.mth_azi > 0:
-        # add normalization factor
-        norm = (
-            factorial(orders - aads.mth_azi)
-            / factorial(orders + aads.mth_azi)
-        )
-        phase_coeffs = (
-            (2 * orders[:, None, None] + 1) 
-            * 0.5 
-            * (aads.legendre_moments)[aads.mth_azi:]
-            * norm[:, None, None]
-            )
-        
-
-    ####### Calculate Legendre polynomials/associated functions
-
-    if aads.mth_azi == 0:
-        leg_poly = np.zeros((aads.legendre_moments.shape[0], aads.n_angles + 1))
-        for order in orders:
-            leg_poly[order, :-1] = legendre(order)(aads.cos_angle)
-            # add SZA in the last column
-            leg_poly[order, aads.n_angles] = legendre(order)(aads.cos_sun)
-        
-    elif aads.mth_azi > 0:
-        leg_poly = np.zeros((aads.legendre_moments.shape[0] - aads.mth_azi, aads.n_angles + 1))
-        for i, order in enumerate(orders):
-            leg_poly[i, :-1] = lpmv(aads.mth_azi, order, aads.cos_angle)
-            leg_poly[i, aads.n_angles] = lpmv(aads.mth_azi, order, aads.cos_sun)
-        
-
-    ####### Calculate phase matrices
-    legs = np.arange(aads.mth_azi, aads.legendre_moments.shape[0])
-    ifac = (-1) ** (legs - aads.mth_azi)
-    
-    aads.ff = np.sum(
-        phase_coeffs[:, None, None, :, :]
-        * leg_poly[:, :-1, None, None, None]  # -1 to exclude SZA
-        * leg_poly[:, None, :, None, None],
-        axis=0,
-    )
-
-    aads.bb = np.sum(
-        phase_coeffs[:, None, None, :, :]
-        * leg_poly[:, :-1, None, None, None]  # -1 to exclude SZA
-        * leg_poly[:, None, :, None, None]
-        * ifac[:, None, None, None, None],
-        axis=0,
-    )
-     
-    energy_error = (np.einsum('ijlk,j->ilk', 
-                          aads.ff[:, :-1, :, :] 
-                          + aads.bb[:, :-1, :, :], 
-                          aads.cos_weight) - 1)
-
-    if aads.mth_azi == 0 and np.max(np.abs(energy_error)) > 1e-8: 
-        raise ValueError("Error in stream energy conservation. Try increasing stream number or use aspherical shapes.")
-    
-    # removed from now, but may need to bring them back
-    if np.any(aads.ff < -0.1) or np.any(aads.bb < -0.1):
-        raise ValueError("Invalid phase matrix elements. Try increasing stream numbers or use aspherical shapes.")
-
-    # self.ff[self.ff < 0] = 0
-    # self.bb[self.bb < 0] = 0
-
-def verify_balance_of_fluxes(aads):
-    """
-
-    Verify that the energy coming in is either reflected back, absorbed by the
-    layers or 'lost' at the model boundary.
-
-    Parameters
-    ----------
-    aads : MultiStreamSolver
-        instance of the solver
-
-    """
-
-    # flux existing at top
-    flx_back_top = (
-        2
-        * np.pi
-        * np.sum(
-            aads.s_level_rad_up[:, 0, :]
-            * np.array(aads.cos_angle)[:, None]
-            * np.array(aads.cos_weight)[:, None],
-            axis=0,
-        )
-    )
-
-    # flux absorbed at the bottom model boundary: down-up
-    flx_abs_bottom = (
-        # diffuse down
-        2
-        * np.pi
-        * np.sum(
-            aads.s_level_rad_down[:, -1, :]
-            * np.array(aads.cos_angle)[:, None]
-            * np.array(aads.cos_weight)[:, None],
-            axis=0,
-        )
-        # direct down
-        + aads.solar_irradiance
-        * aads.cos_sun
-        * np.exp(-aads.total_opt[-1, :] / aads.cos_sun)
-        -
-        # diffuse up
-        2
-        * np.pi
-        * np.sum(
-            aads.s_level_rad_up[:, -1, :]
-            * np.array(aads.cos_angle)[:, None]
-            * np.array(aads.cos_weight)[:, None],
-            axis=0,
-        )
-    )
-
-    net_flux_layers = (
-        # diffuse down
-        2
-        * np.pi
-        * np.sum(
-            aads.s_level_rad_down
-            * np.array(aads.cos_angle)[:, None, None]
-            * np.array(aads.cos_weight)[:, None, None],
-            axis=0,
-        )
-        # direct down
-        + aads.solar_irradiance * aads.cos_sun * np.exp(-aads.total_opt / aads.cos_sun)
-        -
-        # diffuse up
-        2
-        * np.pi
-        * np.sum(
-            aads.s_level_rad_up
-            * np.array(aads.cos_angle)[:, None, None]
-            * np.array(aads.cos_weight)[:, None, None],
-            axis=0,
-        )
-    )
-
-    flx_abs_layers = -(net_flux_layers[1:, :] - net_flux_layers[:-1, :])
-
-    flux_balance = aads.cos_sun * aads.solar_irradiance - (
-        np.sum(flx_abs_layers, axis=0)  # absorbed flux
-        + flx_abs_bottom  # absorbed flux at bottom
-        + flx_back_top  # flux exiting at top
-    )
-
-    if sum(flux_balance) > 1e-10:
-        raise ValueError("Conservation of fluxes not verified")
-    else:
-        pass
-
-    return None
 
 
-def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams, 
-                          n_fourier=0):
+def solve_multi_stream_rt(
+    land, atmosphere, irradiance, output_levels, n_streams, n_fourier=0
+):
     """
 
     This subroutine calculates hemispherical albedo by calling AMOM for each
@@ -669,39 +705,36 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
     outputs : dictionary
 
     """
-    
+
     if "BOA" in output_levels and atmosphere.use_atmosphere:
         run_downward_loop = True
     else:
         run_downward_loop = False
-        
-    temporary_variable = []
-    
-    
-    for m in range(n_fourier + 1):
-        
-        # initialize solver
-        aads = _MultiStreamSolver(land, atmosphere, irradiance, output_levels, n_streams)
 
-        aads.mth_azi = m
-        
+    temporary_variable = []
+
+    # initialize solver
+    aads = _MultiStreamSolver(land, atmosphere, irradiance, output_levels, n_streams)
+    for m in range(n_fourier + 1):
+
+        # reset variables
+        aads.reset_state(m=m)
+
         # calculate phase matrices
-        
-        set_phase_matrices(aads)
-        
-    
+        aads.set_phase_matrices()
+
         for k in range(1, aads.nbr_lyr + 1):
             aads.total_opt[k, :] = aads.total_opt[k - 1, :] + aads.t_od[k - 1, :]
-    
+
         aads.s_level_refl_up[:, :, :, -1] = aads.reflectivity
-    
+
         # if aads.mth_azi == 0:
         #     aads.s_level_rad_up[:, -1, :] = aads.emissivity * aads.planck_surface
-    
+
         # adds a solar reflection term to the upward radiance at the
         # last layer for all viewing angles
         if aads.solar_flag:
-    
+
             aads.s_level_rad_up[:, -1, :] += (
                 aads.direct_reflectivity
                 * aads.cos_sun
@@ -709,25 +742,25 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                 / np.pi
                 * np.exp(-aads.total_opt[-1, :][None, :] / aads.cos_sun)
             )
-    
+
         for k in range(aads.nbr_lyr - 1, -1, -1):
-    
+
             # call AMOM algorithm to compute layer
             # transmission, reflection, and source functions.
             aads.amom(k)
-    
+
             # Adding method to add the layer to the present level
             # to compute upward radiances and reflection matrix
             # at the new level.
-    
+
             infinite_scattering = -np.matmul(
                 aads.s_level_refl_up[:, :, :, k + 1],
                 aads.s_layer_refl[:, :, :, k],
             )
-    
+
             n = np.arange(aads.n_angles)
             infinite_scattering[:, n, n] += 1
-    
+
             inv_gamma_t = np.moveaxis(
                 np.linalg.solve(
                     np.moveaxis(infinite_scattering, 1, 2),
@@ -736,62 +769,63 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                 1,
                 2,
             )
-    
+
             refl_down = np.matmul(
                 aads.s_level_refl_up[:, :, :, k + 1],
                 np.moveaxis(
                     aads.s_layer_source_down[:, k, :], source=[0, 1], destination=[1, 0]
                 )[:, :, None],
             ).reshape(aads.nbr_wvl, aads.n_angles)
-    
+
             aads.s_level_rad_up[:, k, :] = (
                 aads.s_layer_source_up[:, k, :]
                 + np.moveaxis(
                     np.matmul(
                         inv_gamma_t,
-                        (refl_down + np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0))[
-                            :, :, None
-                        ],
+                        (
+                            refl_down
+                            + np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)
+                        )[:, :, None],
                     ),
                     source=[0, 1, 2],
                     destination=[2, 0, 1],
                 )[:, 0, :]
             )
-    
+
             refl_trans = np.matmul(
                 aads.s_level_refl_up[:, :, :, k + 1],
                 aads.s_layer_trans[:, :, :, k],
             )
-    
-            aads.s_level_refl_up[:, :, :, k] = aads.s_layer_refl[:, :, :, k] + np.matmul(
-                inv_gamma_t, refl_trans
-            )
-    
+
+            aads.s_level_refl_up[:, :, :, k] = aads.s_layer_refl[
+                :, :, :, k
+            ] + np.matmul(inv_gamma_t, refl_trans)
+
         if aads.mth_azi == 0:
             for i in range(len(aads.cos_angle)):
                 aads.s_level_rad_up[i, 0, :] += (
                     np.sum(aads.s_level_refl_up[:, i, :, 0]) * aads.cosmic_background
                 )
-    
+
         if run_downward_loop:
-    
+
             # preserve TOA upward radiance
             aads.s_level_rad_upt[:, 0, :] = aads.s_level_rad_up[:, 0, :].copy()
-    
+
             if aads.mth_azi == 0:
                 for i in range(len(aads.cos_angle)):
                     aads.s_level_rad_down[i, 0, :] = aads.cosmic_background
                     aads.s_level_rad_downt[i, 0, :] = aads.cosmic_background
-    
+
             for k in range(0, aads.nbr_lyr):
                 infinite_scattering = -np.matmul(
                     aads.s_level_refl_down[:, :, :, k],
                     aads.s_layer_refl[:, :, :, k],
                 )
-    
+
                 n = np.arange(aads.n_angles)
                 infinite_scattering[:, n, n] += 1
-    
+
                 inv_gamma_t = np.moveaxis(
                     np.linalg.solve(
                         np.moveaxis(infinite_scattering, 1, 2),
@@ -800,14 +834,16 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                     1,
                     2,
                 )
-    
+
                 refl_down = np.matmul(
                     aads.s_level_refl_down[:, :, :, k],
                     np.moveaxis(
-                        aads.s_layer_source_up[:, k, :], source=[0, 1], destination=[1, 0]
+                        aads.s_layer_source_up[:, k, :],
+                        source=[0, 1],
+                        destination=[1, 0],
                     )[:, :, None],
                 ).reshape(aads.nbr_wvl, aads.n_angles)
-    
+
                 aads.s_level_rad_down[:, k + 1, :] = (
                     aads.s_layer_source_down[:, k, :]
                     + np.moveaxis(
@@ -822,29 +858,29 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                         destination=[2, 0, 1],
                     )[:, 0, :]
                 )
-    
+
                 refl_trans = np.matmul(
                     aads.s_level_refl_down[:, :, :, k],
                     aads.s_layer_trans[:, :, :, k],
                 )
-    
+
                 aads.s_level_refl_down[:, :, :, k + 1] = aads.s_layer_refl[
                     :, :, :, k
                 ] + np.matmul(inv_gamma_t, refl_trans)
-    
+
                 # finalize upward and downward radiances
                 if np.max(np.abs(aads.s_level_refl_down[:, :, :, k + 1])) > 0:
-    
+
                     infinite_scattering = -np.matmul(
                         aads.s_level_refl_down[:, :, :, k + 1],
                         aads.s_level_refl_up[:, :, :, k + 1],
                     )
-    
+
                     n = np.arange(aads.n_angles)
                     infinite_scattering[:, n, n] += 1
-    
+
                     inv_gamma = np.linalg.inv(infinite_scattering)
-    
+
                     # this does not appear in original code but we precompute
                     # as in previous calculations
                     refl_down = np.matmul(
@@ -855,7 +891,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                             destination=[1, 0],
                         )[:, :, None],
                     ).reshape(aads.nbr_wvl, aads.n_angles)
-    
+
                     aads.s_level_rad_downt[:, k + 1, :] = np.moveaxis(
                         np.matmul(
                             inv_gamma,
@@ -867,14 +903,14 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                         source=[0, 1, 2],
                         destination=[2, 0, 1],
                     )[:, 0, :]
-    
+
                     temporal_vector = np.matmul(
                         inv_gamma,
                         (np.moveaxis(aads.s_level_rad_down[:, k + 1, :], -1, 0))[
                             :, :, None
                         ],
                     )
-    
+
                     aads.s_level_rad_upt[:, k + 1, :] = np.moveaxis(
                         np.matmul(
                             aads.s_level_refl_up[:, :, :, k + 1],
@@ -889,11 +925,13 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                         source=[0, 1, 2],
                         destination=[2, 0, 1],
                     )[:, 0, :]
-    
+
                 else:
-    
-                    aads.s_level_rad_downt[:, k + 1, :] = aads.s_level_rad_down[:, k + 1, :]
-    
+
+                    aads.s_level_rad_downt[:, k + 1, :] = aads.s_level_rad_down[
+                        :, k + 1, :
+                    ]
+
                     aads.s_level_rad_upt[:, k + 1, :] = (
                         np.matmul(
                             aads.s_level_refl_up[:, :, :, k + 1],
@@ -901,22 +939,22 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, output_levels, n_streams
                                 :, :, None
                             ],
                         )
-                        + np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)[:, :, None]
+                        + np.moveaxis(aads.s_level_rad_up[:, k + 1, :], -1, 0)[
+                            :, :, None
+                        ]
                     )
-    
+
             aads.s_level_rad_down = aads.s_level_rad_downt.copy()
             aads.s_level_rad_up = aads.s_level_rad_upt.copy()
-            
+
         temporary_variable.append(aads.s_level_rad_up[:, 0, :].copy())
 
         if aads.mth_azi == 0:
-            verify_balance_of_fluxes(aads)
-            
+            aads.verify_balance_of_fluxes()
+
     if aads.mth_azi == 0:
         outputs = aads.get_outputs()
         return outputs
-    else: 
+    else:
         return temporary_variable
         # raise ValueError('Integration in azimuth not yet implemented')
-
-    
