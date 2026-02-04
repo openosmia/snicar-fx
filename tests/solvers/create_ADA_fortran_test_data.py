@@ -46,6 +46,9 @@ simulation = Session("../inputs_tests.yaml")
 # number of angles
 n_streams = simulation.config.SOLVER.N_STREAMS
 
+# number of Fourier modes
+n_fouriers = simulation.config.SOLVER.N_FOURIER_MODES
+
 # single scattering albedos
 w_list = np.arange(0.2, 0.7, 0.1)
 
@@ -83,6 +86,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
             simulation.solar_irradiance,
             simulation.config.SOLVER.OUTPUT_LEVELS,
             n_streams,
+            n_fouriers,
         )
 
         ff_wvl = solver.ff[:, :, :, wavelength_index]
@@ -148,6 +152,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                     simulation.solar_irradiance,
                     simulation.config.SOLVER.OUTPUT_LEVELS,
                     n_streams,
+                    n_fouriers,
                 )
 
                 # run fortran version by passing variables to the executable
@@ -196,6 +201,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                 #     simulation.solar_irradiance,
                 #     simulation.config.SOLVER.OUTPUT_LEVELS,
                 #     n_streams,
+                #     n_fouriers,
                 # )
                 # print(np.abs(py_results["albedo_boa"][wavelength_index] - albedo_f90))
                 # reflectance_f90 = (np.pi * s_level_rad_up_f90_k0) / (

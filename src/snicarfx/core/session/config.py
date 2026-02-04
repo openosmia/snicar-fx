@@ -58,6 +58,11 @@ class Solver(BaseModel):
         description="Number of Legendre moments to use in phase functions (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
     )
 
+    N_FOURIER_MODES: Optional[int] = Field(
+        default=0,
+        description="Number of Fourier modes to solve for azimuth dependency.",
+    )
+
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
@@ -72,7 +77,6 @@ class Solver(BaseModel):
         # Default N_LEGENDRE_MOMENTS to N_STREAMS if not set
         if self.N_LEGENDRE_MOMENTS is None:
             self.N_LEGENDRE_MOMENTS = self.N_STREAMS
-
 
         # Validate it does not exceed 2 * (N_STREAMS-1)
         if self.N_LEGENDRE_MOMENTS > 2 * (self.N_STREAMS - 1):

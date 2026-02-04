@@ -26,7 +26,9 @@ class _MultiStreamSolver:
 
     """
 
-    def __init__(self, land, atmosphere, irradiance, output_levels, n_streams):
+    def __init__(
+        self, land, atmosphere, irradiance, output_levels, n_streams, n_fouriers
+    ):
         """
         Initialize all variables required for the solver and applies delta
         scaling to the single scattering properties of the ice/snow column.
@@ -46,6 +48,8 @@ class _MultiStreamSolver:
             Level at which radiance fields mut be returned (TOA/BOA).
         n_streams: int
             Number of discrete ordinates / angles in the gaussian quadrature.
+        n_fouriers: int
+            Number of Fourier modes to solve for.
         """
 
         self.solar_irradiance = np.array(irradiance.flx_slr)
@@ -58,35 +62,10 @@ class _MultiStreamSolver:
         self.n_angles = n_streams
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = output_levels
-        self.mth_azi = 0  # Fourier moment initialized at 0
 
-        # # apply delta scaling (!) to land column only -> HG function (!)
-        # # Delta truncation: get highest Legendre term following
-        # # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
-        # f = np.array(land.asm_prm ** (land.n_expansion + 1))
-
-        # # Wiscombe 1977 Eq. 20(a, b) + 14
-        # land.tau = (1.0 - land.ss_alb * f) * land.tau
-        # land.ss_alb = (1.0 - f) * land.ss_alb / (1 - land.ss_alb * f)
-        # land.legendre_moments = (land.legendre_moments - f[None, :, :]) / (
-        #     1 - f[None, :, :]
-        # )
-
-        # if atmosphere.use_atmosphere:
-        #     self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
-        #     self.t_od = np.vstack([atmosphere.tau, land.tau])
-        #     self.w = np.vstack([atmosphere.ss_alb, land.ss_alb])
-        #     self.legendre_moments = np.hstack(
-        #         [atmosphere.legendre_moments, land.legendre_moments]
-        #     )
-        #     self.surface_idx = -land.nbr_lyr - 1
-
-        # else:
-        #     self.nbr_lyr = land.nbr_lyr
-        #     self.t_od = np.array(land.tau)
-        #     self.w = np.array(land.ss_alb)
-        #     self.legendre_moments = np.array(land.legendre_moments)
-        #     self.surface_idx = 0
+        self.total_m_azi = n_fouriers
+        # Fourier moment initialized at 0
+        self.mth_azi = 0
 
         # apply delta scaling (!) to land column only -> HG function (!)
         # Delta truncation: get highest Legendre term following
@@ -678,7 +657,12 @@ class _MultiStreamSolver:
 
 
 def solve_multi_stream_rt(
-    land, atmosphere, irradiance, output_levels, n_streams, n_fourier=0
+    land,
+    atmosphere,
+    irradiance,
+    output_levels,
+    n_streams,
+    n_fouriers,
 ):
     """
 
@@ -700,6 +684,8 @@ def solve_multi_stream_rt(
         Level at which radiance fields mut be returned (TOA/BOA).
     n_streams: int
         Number of discrete ordinates / angles in the gaussian quadrature.
+    n_fouriers: int
+        Number of Fourier modes to solve for.
     Returns
     -------
     outputs : dictionary
@@ -714,8 +700,10 @@ def solve_multi_stream_rt(
     temporary_variable = []
 
     # initialize solver
-    aads = _MultiStreamSolver(land, atmosphere, irradiance, output_levels, n_streams)
-    for m in range(n_fourier + 1):
+    aads = _MultiStreamSolver(
+        land, atmosphere, irradiance, output_levels, n_streams, n_fouriers
+    )
+    for m in range(n_fouriers + 1):
 
         # reset variables
         aads.reset_state(m=m)

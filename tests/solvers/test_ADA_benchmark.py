@@ -61,6 +61,7 @@ def test_multistream_outputs(
         irradiance,
         session.config.SOLVER.OUTPUT_LEVELS,
         session.config.SOLVER.N_STREAMS,
+        session.config.SOLVER.N_FOURIER_MODES,
     )
 
     # a given set of parameters (including a given wavelength)
