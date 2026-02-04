@@ -27,7 +27,11 @@ class _MultiStreamSolver:
     """
 
     def __init__(
-        self, land, atmosphere, irradiance, output_levels, n_streams, n_fouriers
+        self,
+        land,
+        atmosphere,
+        irradiance,
+        SOLVER,
     ):
         """
         Initialize all variables required for the solver and applies delta
@@ -48,7 +52,7 @@ class _MultiStreamSolver:
             Level at which radiance fields mut be returned (TOA/BOA).
         n_streams: int
             Number of discrete ordinates / angles in the gaussian quadrature.
-        n_fouriers: int
+        n_fourier: int
             Number of Fourier modes to solve for.
         """
 
@@ -59,13 +63,16 @@ class _MultiStreamSolver:
         self.max_albedo = 0.999999
         self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
         self.cosmic_background = 0
-        self.n_angles = n_streams
+        self.n_angles = SOLVER.N_STREAMS
+        self.n_fourier = SOLVER.N_FOURIER_MODES
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
-        self.output_levels = output_levels
+        self.output_levels = SOLVER.OUTPUT_LEVELS
+        self.relative_azimuths = np.arange(*np.deg2rad(SOLVER.RELATIVE_AZIMUTH))
 
-        self.total_m_azi = n_fouriers
-        # Fourier moment initialized at 0
-        self.mth_azi = 0
+        if "BOA" in SOLVER.OUTPUT_LEVELS and atmosphere.use_atmosphere:
+            self.run_downward_loop = True
+        else:
+            self.run_downward_loop = False
 
         # apply delta scaling (!) to land column only -> HG function (!)
         # Delta truncation: get highest Legendre term following
@@ -131,7 +138,14 @@ class _MultiStreamSolver:
             (self.nbr_wvl, self.n_angles, self.n_angles, self.nbr_lyr)
         )
 
-        if "BOA" in output_levels and atmosphere.use_atmosphere:
+        self.s_level_rad_up_moments = np.zeros(
+            self.s_level_rad_up.shape + (self.n_fourier,)
+        )
+        self.s_level_rad_down_moments = np.zeros(
+            self.s_level_rad_down.shape + (self.n_fourier,)
+        )
+
+        if self.run_downward_loop:
 
             self.s_level_refl_down = np.zeros(
                 (self.nbr_wvl, self.n_angles, self.n_angles, self.nbr_lyr + 1)
@@ -266,7 +280,7 @@ class _MultiStreamSolver:
         self.emissivity.fill(0.0)
         self.reflectivity.fill(0.0)
 
-        if hasattr(self, "s_level_refl_down"):
+        if self.run_downward_loop:
             self.s_level_refl_down.fill(0.0)
             self.s_level_rad_upt.fill(0.0)
             self.s_level_rad_downt.fill(0.0)
@@ -604,66 +618,168 @@ class _MultiStreamSolver:
 
             E_dir = self.solar_irradiance * self.cos_sun * np.exp(-tau_k / self.cos_sun)
 
-            E_diff = (
-                2.0
-                * np.pi
-                * np.sum(
-                    self.s_level_rad_down[:, self.surface_idx, :]
-                    * np.array(self.cos_angle)[:, None]
-                    * np.array(self.cos_weight)[:, None],
-                    axis=0,
-                )
-            )
+            if self.n_fourier > 1:
 
-            results["directional_reflectance_boa"] = (
-                self.s_level_rad_up[:, self.surface_idx, :] * np.pi
-            ) / (E_diff + E_dir)
-
-            results["albedo_boa"] = (
-                2
-                * np.pi
-                * np.sum(
-                    self.s_level_rad_up[:, self.surface_idx, :]
-                    * np.array(self.cos_angle)[:, None]
-                    * np.array(self.cos_weight)[:, None],
-                    axis=0,
+                # Fourier reconstruction
+                s_level_rad_down_boa = np.sum(
+                    (
+                        self.s_level_rad_down_moments[:, self.surface_idx, :, :, None]
+                        * np.cos(
+                            np.arange(self.n_fourier)[None, None, :, None]
+                            * self.relative_azimuths[None, None, None, :]
+                        )
+                    ),
+                    axis=2,
                 )
-                / (E_diff + E_dir)
-            ).flatten()
+                s_level_rad_up_boa = np.sum(
+                    (
+                        self.s_level_rad_up_moments[:, self.surface_idx, :, :, None]
+                        * np.cos(
+                            np.arange(self.n_fourier)[None, None, :, None]
+                            * self.relative_azimuths[None, None, None, :]
+                        )
+                    ),
+                    axis=2,
+                )
+
+                E_diff = (
+                    2.0
+                    * np.pi
+                    * np.sum(
+                        s_level_rad_down_boa
+                        * np.array(self.cos_angle)[:, None, None]
+                        * np.array(self.cos_weight)[:, None, None],
+                        axis=0,
+                    )
+                )
+
+                results["directional_reflectance_boa"] = (
+                    s_level_rad_up_boa * np.pi
+                ) / (E_diff + E_dir[:, None])
+
+                results["albedo_boa"] = (
+                    2
+                    * np.pi
+                    * np.sum(
+                        s_level_rad_up_boa
+                        * np.array(self.cos_angle)[:, None, None]
+                        * np.array(self.cos_weight)[:, None, None],
+                        axis=0,
+                    )
+                    / (E_diff + E_dir[:, None])
+                ).flatten()
+
+            else:
+                E_diff = (
+                    2.0
+                    * np.pi
+                    * np.sum(
+                        self.s_level_rad_down[:, self.surface_idx, :]
+                        * np.array(self.cos_angle)[:, None]
+                        * np.array(self.cos_weight)[:, None],
+                        axis=0,
+                    )
+                )
+
+                results["directional_reflectance_boa"] = (
+                    self.s_level_rad_up[:, self.surface_idx, :] * np.pi
+                ) / (E_diff + E_dir)
+
+                results["albedo_boa"] = (
+                    2
+                    * np.pi
+                    * np.sum(
+                        self.s_level_rad_up[:, self.surface_idx, :]
+                        * np.array(self.cos_angle)[:, None]
+                        * np.array(self.cos_weight)[:, None],
+                        axis=0,
+                    )
+                    / (E_diff + E_dir)
+                ).flatten()
 
         if "TOA" in self.output_levels:
 
-            # directional radiance at the top of the atmosphere (TOA)
-            results["directional_radiance_toa"] = self.s_level_rad_up[:, 0, :]
+            if self.n_fourier > 1:
 
-            # directional reflectance at the top of the atmosphere
-            results["directional_reflectance_toa"] = (
-                self.s_level_rad_up[:, 0, :] * np.pi
-            ) / (self.solar_irradiance * self.cos_sun)
-
-            results["albedo_toa"] = (
-                2
-                * np.pi
-                * np.sum(
-                    self.s_level_rad_up[:, 0, :]
-                    * np.array(self.cos_angle)[:, None]
-                    * np.array(self.cos_weight)[:, None],
-                    axis=0,
+                # Fourier reconstruction
+                s_level_rad_down_toa = np.sum(
+                    (
+                        self.s_level_rad_down_moments[:, 0, :, :, None]
+                        * np.cos(
+                            np.arange(self.n_fourier)[None, None, :, None]
+                            * self.relative_azimuths[None, None, None, :]
+                        )
+                    ),
+                    axis=2,
                 )
-                / (self.solar_irradiance[None, :] * self.cos_sun)  # project solar beam
-            ).flatten()
+                s_level_rad_up_toa = np.sum(
+                    (
+                        self.s_level_rad_up_moments[:, 0, :, :, None]
+                        * np.cos(
+                            np.arange(self.n_fourier)[None, None, :, None]
+                            * self.relative_azimuths[None, None, None, :]
+                        )
+                    ),
+                    axis=2,
+                )
+
+                E_diff = (
+                    2.0
+                    * np.pi
+                    * np.sum(
+                        s_level_rad_down_toa
+                        * np.array(self.cos_angle)[:, None, None]
+                        * np.array(self.cos_weight)[:, None, None],
+                        axis=0,
+                    )
+                )
+
+                results["directional_reflectance_toa"] = (
+                    s_level_rad_up_toa * np.pi
+                ) / (E_diff + E_dir[:, None])
+
+                results["albedo_toa"] = (
+                    2
+                    * np.pi
+                    * np.sum(
+                        s_level_rad_up_toa
+                        * np.array(self.cos_angle)[:, None, None]
+                        * np.array(self.cos_weight)[:, None, None],
+                        axis=0,
+                    )
+                    / (E_diff + E_dir[:, None])
+                ).flatten()
+
+            else:
+
+                # directional radiance at the top of the atmosphere (TOA)
+                results["directional_radiance_toa"] = self.s_level_rad_up[:, 0, :]
+
+                # directional reflectance at the top of the atmosphere
+                results["directional_reflectance_toa"] = (
+                    self.s_level_rad_up[:, 0, :] * np.pi
+                ) / (self.solar_irradiance * self.cos_sun)
+
+                results["albedo_toa"] = (
+                    2
+                    * np.pi
+                    * np.sum(
+                        self.s_level_rad_up[:, 0, :]
+                        * np.array(self.cos_angle)[:, None]
+                        * np.array(self.cos_weight)[:, None],
+                        axis=0,
+                    )
+                    / (
+                        self.solar_irradiance[None, :] * self.cos_sun
+                    )  # project solar beam
+                ).flatten()
+
+        # Fourier reconstructions
 
         return results
 
 
-def solve_multi_stream_rt(
-    land,
-    atmosphere,
-    irradiance,
-    output_levels,
-    n_streams,
-    n_fouriers,
-):
+def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
     """
 
     This subroutine calculates hemispherical albedo by calling AMOM for each
@@ -684,7 +800,7 @@ def solve_multi_stream_rt(
         Level at which radiance fields mut be returned (TOA/BOA).
     n_streams: int
         Number of discrete ordinates / angles in the gaussian quadrature.
-    n_fouriers: int
+    n_fourier: int
         Number of Fourier modes to solve for.
     Returns
     -------
@@ -692,18 +808,10 @@ def solve_multi_stream_rt(
 
     """
 
-    if "BOA" in output_levels and atmosphere.use_atmosphere:
-        run_downward_loop = True
-    else:
-        run_downward_loop = False
-
-    temporary_variable = []
-
     # initialize solver
-    aads = _MultiStreamSolver(
-        land, atmosphere, irradiance, output_levels, n_streams, n_fouriers
-    )
-    for m in range(n_fouriers + 1):
+    aads = _MultiStreamSolver(land, atmosphere, irradiance, SOLVER)
+
+    for m in range(aads.n_fourier):
 
         # reset variables
         aads.reset_state(m=m)
@@ -795,7 +903,7 @@ def solve_multi_stream_rt(
                     np.sum(aads.s_level_refl_up[:, i, :, 0]) * aads.cosmic_background
                 )
 
-        if run_downward_loop:
+        if aads.run_downward_loop:
 
             # preserve TOA upward radiance
             aads.s_level_rad_upt[:, 0, :] = aads.s_level_rad_up[:, 0, :].copy()
@@ -935,14 +1043,13 @@ def solve_multi_stream_rt(
             aads.s_level_rad_down = aads.s_level_rad_downt.copy()
             aads.s_level_rad_up = aads.s_level_rad_upt.copy()
 
-        temporary_variable.append(aads.s_level_rad_up[:, 0, :].copy())
+        aads.s_level_rad_down_moments[:, :, :, aads.mth_azi] = (
+            aads.s_level_rad_down.copy()
+        )
+        aads.s_level_rad_up_moments[:, :, :, aads.mth_azi] = aads.s_level_rad_up.copy()
 
         if aads.mth_azi == 0:
             aads.verify_balance_of_fluxes()
 
-    if aads.mth_azi == 0:
-        outputs = aads.get_outputs()
-        return outputs
-    else:
-        return temporary_variable
-        # raise ValueError('Integration in azimuth not yet implemented')
+    outputs = aads.get_outputs()
+    return outputs

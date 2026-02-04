@@ -59,8 +59,19 @@ class Solver(BaseModel):
     )
 
     N_FOURIER_MODES: Optional[int] = Field(
-        default=0,
-        description="Number of Fourier modes to solve for azimuth dependency.",
+        default=None,
+        description="Number of Fourier modes to solve for azimuth dependency. Defaults to 0 (no azimuth dependency).",
+    )
+
+    RELATIVE_AZIMUTH: Optional[
+        Tuple[
+            confloat(ge=0, le=360),
+            confloat(ge=0, le=360),
+            confloat(ge=0.01, le=360),
+        ]
+    ] = Field(
+        default=(0.0, 180.0, 20.0),
+        description="The relative azimuth resolution to cover.",
     )
 
     # only fields validated here are allowed
@@ -78,11 +89,45 @@ class Solver(BaseModel):
         if self.N_LEGENDRE_MOMENTS is None:
             self.N_LEGENDRE_MOMENTS = self.N_STREAMS
 
-        # Validate it does not exceed 2 * (N_STREAMS-1)
-        if self.N_LEGENDRE_MOMENTS > 2 * (self.N_STREAMS - 1):
+        # Validate it does not exceed N_STREAMS
+        if self.N_LEGENDRE_MOMENTS > self.N_STREAMS:
             raise ValueError(
                 f"N_LEGENDRE_MOMENTS ({self.N_LEGENDRE_MOMENTS}) cannot exceed "
                 f"N_STREAMS ({self.N_STREAMS})"
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def set_n_fourier_modes(self):
+        # Default N_FOURIER_MODES to 0 if not set
+        if self.N_FOURIER_MODES is None:
+            self.N_FOURIER_MODES = 0
+
+        # Validate it does not exceed N_LEGENDRE_MOMENTS
+        if self.N_FOURIER_MODES > self.N_LEGENDRE_MOMENTS:
+            raise ValueError(
+                f"N_FOURIER_MODES ({self.N_LEGENDRE_MOMENTS}) cannot exceed "
+                f"N_LEGENDRE_MOMENTS ({self.N_STREAMS})"
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def check_relative_azimuth_range(self):
+        """
+        Validate end > start and step < end - start.
+        """
+
+        start, end, step = self.RELATIVE_AZIMUTH
+        if end <= start:
+            raise ValueError(
+                f"RELATIVE_AZIMUTH must be a valid range ([start, end, step]), with end ({end}) larger than start ({start})."
+            )
+
+        if step > (end - start):
+            raise ValueError(
+                f"RELATIVE_AZIMUTH must be a valid range ([start, end, step]), with step ({step}) smaller than the difference between start and end ({end-start})."
             )
 
         return self
@@ -146,7 +191,7 @@ class Spectral(BaseModel):
     @model_validator(mode="after")
     def check_spectral_range(self):
         """
-        If SPECTRAL_RANGE is numeric (start, end, step), validate
+        If SPECTRAL_RESOLUTION is numeric (start, end, step), validate
         end > start and step < end - start.
         Skip validation if it's a satellite platform string.
         """
@@ -155,12 +200,12 @@ class Spectral(BaseModel):
             start, end, step = self.RESOLUTION
             if end <= start:
                 raise ValueError(
-                    f"SPECTRAL_RANGE must be a valid spectral range ([start, end, step]), with end ({end}) larger than start ({start})."
+                    f"SPECTRAL_RESOLUTION must be a valid spectral range ([start, end, step]), with end ({end}) larger than start ({start})."
                 )
 
             if step > (end - start):
                 raise ValueError(
-                    f"SPECTRAL_RANGE must be a valid spectral range ([start, end, step]), with step ({step}) smaller than the difference between start and end ({end-start})."
+                    f"SPECTRAL_RESOLUTION must be a valid spectral range ([start, end, step]), with step ({step}) smaller than the difference between start and end ({end-start})."
                 )
 
         return self
