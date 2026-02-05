@@ -334,7 +334,7 @@ class Session:
             self.outputs = solve_two_stream_rt(self.land_column, self.solar_irradiance)
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
-                self.outputs = self.two_stream_results_to_xarray()
+                self.outputs = self.format_twostream_results_to_xarray()
 
         elif self.config.SOLVER.TYPE == "multi-stream":
 
@@ -350,7 +350,7 @@ class Session:
 
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
-                self.outputs = self.multi_stream_results_to_xarray()
+                self.outputs = self.format_multistream_results_to_xarray()
 
         return self.outputs
 
@@ -364,7 +364,7 @@ class Session:
 
         return snicarfx_root_path
 
-    def two_stream_results_to_xarray(self) -> xr.Dataset:
+    def format_twostream_results_to_xarray(self) -> xr.Dataset:
         """
         Save results to an xarray with rather extensive model and
         session state metadata.
@@ -403,7 +403,7 @@ class Session:
 
         return ds
 
-    def multi_stream_results_to_xarray(self) -> xr.Dataset:
+    def format_multistream_results_to_xarray(self) -> xr.Dataset:
         """
         Save results to an xarray with rather extensive model and
         session state metadata.
@@ -424,24 +424,70 @@ class Session:
         for var_name, data in self.outputs.items():
             if "albedo_" in var_name:
                 albedo_variables[var_name] = ("wavelength", data)
+
             elif "directional_" in var_name:
-                directional_variables[var_name] = (("angle", "wavelength"), data)
+                if self.config.SOLVER.N_FOURIER_MODES == 1:
+                    directional_variables[var_name] = (
+                        ("viewing_angle", "wavelength"),
+                        data,
+                    )
+                else:
+                    directional_variables[var_name] = (
+                        ("viewing_angle", "wavelength", "azimuth_angle"),
+                        data,
+                    )
 
         # create xarray dataset
-        ds = xr.Dataset(
-            data_vars={**albedo_variables, **directional_variables},
-            coords={
-                "wavelength": (
-                    self._band_ranges[:, -1]
-                    if "band-" in self.config.SPECTRAL.MODE
-                    else self.config._wavelengths_land
-                ),
-                "angle": self.outputs["outgoing_angle"],
-            },
-        )
+        if self.config.SOLVER.N_FOURIER_MODES == 1:
+            ds = xr.Dataset(
+                data_vars={**albedo_variables, **directional_variables},
+                coords={
+                    "wavelength": (
+                        self._band_ranges[:, -1]
+                        if "band-" in self.config.SPECTRAL.MODE
+                        else self.config._wavelengths_land
+                    ),
+                    "viewing_angle": self.outputs["viewing_angle"],
+                },
+            )
+        else:
+            ds = xr.Dataset(
+                data_vars={**albedo_variables, **directional_variables},
+                coords={
+                    "wavelength": (
+                        self._band_ranges[:, -1]
+                        if "band-" in self.config.SPECTRAL.MODE
+                        else self.config._wavelengths_land
+                    ),
+                    "viewing_angle": self.outputs["viewing_angle"],
+                    "azimuth_angle": self.outputs["azimuth_angle"],
+                },
+            )
 
         # add attributes
         ds.attrs.update(attrs)
+
+        # Add coordinate metadata
+        ds["wavelength"].attrs.update(
+            {
+                "description": "Wavelength",
+                "units": "nm",
+            }
+        )
+        ds["viewing_angle"].attrs.update(
+            {
+                "description": "Result viewing angle. Defined from 0 to 90 degrees, as 90-180 degrees is covered by the opposite azimuth angle.",
+                "units": "degrees",
+            }
+        )
+
+        if self.config.SOLVER.N_FOURIER_MODES > 1:
+            ds["azimuth_angle"].attrs.update(
+                {
+                    "description": "Azimuth angle relative to the prescribed solar azimuth angle.",
+                    "units": "degrees",
+                }
+            )
 
         return ds
 

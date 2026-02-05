@@ -16,6 +16,7 @@ from pydantic import (
     RootModel,
     PrivateAttr,
     confloat,
+    conint,
     conlist,
     model_validator,
     computed_field,
@@ -53,14 +54,14 @@ class Solver(BaseModel):
         default=16, ge=12, le=100, description="Number of streams used by the solver."
     )
 
-    N_LEGENDRE_MOMENTS: Optional[int] = Field(
+    N_LEGENDRE_MOMENTS: Optional[confloat(ge=1, le=100)] = Field(
         default=None,
         description="Number of Legendre moments to use in phase functions (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
     )
 
-    N_FOURIER_MODES: Optional[int] = Field(
+    N_FOURIER_MODES: Optional[conint(ge=1, le=100)] = Field(
         default=None,
-        description="Number of Fourier modes to solve for azimuth dependency. Defaults to 0 (no azimuth dependency).",
+        description="Number of Fourier modes to solve for azimuth dependency. Defaults to 1 (no azimuth dependency).",
     )
 
     RELATIVE_AZIMUTH: Optional[
@@ -102,7 +103,7 @@ class Solver(BaseModel):
     def set_n_fourier_modes(self):
         # Default N_FOURIER_MODES to 0 if not set
         if self.N_FOURIER_MODES is None:
-            self.N_FOURIER_MODES = 0
+            self.N_FOURIER_MODES = 1
 
         # Validate it does not exceed N_LEGENDRE_MOMENTS
         if self.N_FOURIER_MODES > self.N_LEGENDRE_MOMENTS:
