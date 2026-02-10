@@ -78,10 +78,16 @@ class AtmosphereColumn:
 
             # load gas cross sections
             self.load_gas_absorption_cross_sections(config)
-
             self.compute_gas_optical_thickness()
 
-            self.set_atmospheric_properties_wout_aerosols()
+            # set aerosol properties
+            self.set_aerosol_properties()
+
+            # scale aerosol with AOD
+            self.scale_tau_aerosols()
+
+            # self.set_atmospheric_properties_without_aerosols()
+            self.set_atmospheric_properties_with_aerosols()
 
     def set_atmospheric_profile(self):
         profile = pd.read_csv(
@@ -250,7 +256,6 @@ class AtmosphereColumn:
         # self.rayleigh_legendre_moments[:3, :, :] = np.array([1, 0, 0.5])[:, None, None]
         self.rayleigh_legendre_moments[:3, :, :] = np.array([1, 0, 0.1])[:, None, None]
 
-
         return None
 
     def load_gas_absorption_cross_sections(self, config):
@@ -316,12 +321,86 @@ class AtmosphereColumn:
 
         return None
 
-    def set_atmospheric_properties_wout_aerosols(self):
+    def load_aerosol_properties(self):
+        """
+        Load optical properties of aerosols
+        """
+
+        aerosol_properties = xr.open_dataset(
+            f"{self.ROOT_PATH}/data/aerosols/aerosol_mixture_Adachietal2023_VRS_Greenland.nc"
+        ).interp(wavelength=self.wavelengths, kwargs={"fill_value": "extrapolate"})
+
+        return aerosol_properties
+
+    def set_aerosol_properties(self):
+        """
+        Set optical properties of light-absorbing particles (AEROSOLs).
+
+        This method sets the properties of each AEROSOL defined in the input
+        configuration, converting their concentrations to consistent units,
+        and interpolating their properties to the model's spectral grid.
+        """
+
+        aerosol_properties = self.load_aerosol_properties()
+
+        self.aerosol_ss_alb = aerosol_properties["single_scattering_albedo"].values
+        self.aerosol_ext_cff = aerosol_properties["extinction_coefficient"].values
+        self.aerosol_ext_cff_550 = (
+            aerosol_properties["extinction_coefficient"].interp(wavelength=550).values
+        )
+        self.aerosol_legendre_moments = aerosol_properties["legendre_moments"].values.T[
+            : self.n_expansion, :
+        ]
+
+    def scale_tau_aerosols(self):
+        """
+        Scale aerosols by given .
+        """
+
+        AOD = 0.1
+
+        self.tau_aerosols = np.zeros_like(self.tau_molecular_scatter)
+
+        profile_aerosol = self.atmosphere_profile.copy()
+        # set dz to 0 outside of the aerosol layer (propagating to tau=0)
+        profile_aerosol[self.atmosphere_profile["z(km)"] > 30]["dz(km)"] = 0
+
+        self.tau_aerosols = (
+            self.aerosol_ext_cff[None, :]
+            * profile_aerosol["dz(km)"].values[:, None]
+            * AOD
+            / self.aerosol_ext_cff_550
+            / np.nansum(profile_aerosol["dz(km)"].values)
+        )
+
+    def set_atmospheric_properties_without_aerosols(self):
 
         self.tau = self.tau_molecular_scatter + self.tau_gases
         self.ss_alb = self.tau_molecular_scatter / (
             self.tau_gases + self.tau_molecular_scatter
         )
         self.legendre_moments = self.rayleigh_legendre_moments
+
+        return None
+
+    def set_atmospheric_properties_with_aerosols(self):
+
+        self.tau = self.tau_molecular_scatter + self.tau_gases + self.tau_aerosols
+
+        self.ss_alb = (
+            self.tau_molecular_scatter + self.aerosol_ss_alb * self.tau_aerosols
+        ) / (self.tau_gases + self.tau_molecular_scatter + self.tau_aerosols)
+
+        self.legendre_moments = (
+            (
+                self.aerosol_legendre_moments[:, None, :]
+                * self.tau_aerosols[None, :, :]
+                * self.aerosol_ss_alb[None, None, :]
+            )
+            + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
+        ) / (
+            self.tau_molecular_scatter[None, :, :]
+            + self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]
+        )
 
         return None
