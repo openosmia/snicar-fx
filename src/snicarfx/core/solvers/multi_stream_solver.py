@@ -6,7 +6,7 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
-from scipy.special import factorial, legendre, lpmv
+from scipy.special import factorial, legendre, lpmv, eval_legendre
 
 
 class _MultiStreamSolver:
@@ -69,6 +69,7 @@ class _MultiStreamSolver:
         self.output_levels = SOLVER.OUTPUT_LEVELS
         self.relative_azimuths = np.arange(*SOLVER.RELATIVE_AZIMUTH)
         self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
+        self._angle_indices = np.arange(self.n_angles)
 
         if "BOA" in SOLVER.OUTPUT_LEVELS and atmosphere.use_atmosphere:
             self.run_downward_loop = True
@@ -198,10 +199,10 @@ class _MultiStreamSolver:
 
         if self.mth_azi == 0:
             leg_poly = np.zeros((self.legendre_moments.shape[0], self.n_angles + 1))
-            for order in orders:
-                leg_poly[order, :-1] = legendre(order)(self.cos_angle)
-                # add SZA in the last column
-                leg_poly[order, self.n_angles] = legendre(order)(self.cos_sun)
+            leg_poly[orders, :-1] = eval_legendre(
+                orders[:, None], self.cos_angle[None, :]
+            )
+            leg_poly[orders, self.n_angles] = eval_legendre(orders, self.cos_sun)
 
         elif self.mth_azi > 0:
             leg_poly = np.zeros(
@@ -308,7 +309,7 @@ class _MultiStreamSolver:
             / self.cos_angle[:, None, None]
         )
         # equation 6A + 7 L&W2013 (apply Kronecker delta to get alpha)
-        n = np.arange(self.n_angles)
+        n = self._angle_indices
         pp[n, n, :] -= 1.0 / self.cos_angle[:, None]
 
         # equation 6B L&W2013
@@ -411,7 +412,7 @@ class _MultiStreamSolver:
                 : self.n_angles, : self.n_angles, :
             ]
 
-            n = np.arange(self.n_angles)
+            n = self._angle_indices
             v0[n, n, :] -= 1.0 + self.cos_angle[:, None] / self.cos_sun
 
             n = np.arange(self.n_angles, n2)
@@ -815,7 +816,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
                 aads.s_layer_refl[:, :, :, k],
             )
 
-            n = np.arange(aads.n_angles)
+            n = aads._angle_indices
             infinite_scattering[:, n, n] += 1
 
             inv_gamma_t = np.moveaxis(
@@ -880,7 +881,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
                     aads.s_layer_refl[:, :, :, k],
                 )
 
-                n = np.arange(aads.n_angles)
+                n = aads._angle_indices
                 infinite_scattering[:, n, n] += 1
 
                 inv_gamma_t = np.moveaxis(
@@ -933,7 +934,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
                         aads.s_level_refl_up[:, :, :, k + 1],
                     )
 
-                    n = np.arange(aads.n_angles)
+                    n = aads._angle_indices
                     infinite_scattering[:, n, n] += 1
 
                     inv_gamma = np.linalg.inv(infinite_scattering)

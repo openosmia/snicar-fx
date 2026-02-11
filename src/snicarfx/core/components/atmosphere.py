@@ -82,7 +82,9 @@ class AtmosphereColumn:
             self.load_gas_absorption_cross_sections(config)
             self.compute_gas_optical_thickness()
 
-            if self.AOD == 0.0:
+            self.aerosol_boundary_height = 30  # km
+
+            if self.AOD == 0.0 or self.surface_elevation > self.aerosol_boundary_height:
                 self.set_atmospheric_properties_without_aerosols()
 
             else:
@@ -276,6 +278,9 @@ class AtmosphereColumn:
         #     or config.SPECTRAL.BAND_METHOD == "srf-integration"
         # ):
         self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self.wavelengths)
+        self.gas_cross_sections = self.gas_cross_sections.sel(
+            nlyr=self.gas_cross_sections.z[1:].values >= self.surface_elevation
+        )
 
         # elif config.SPECTRAL.BAND_METHOD == "snicar-default":
         #     self.gas_cross_sections = compute_band_average(
@@ -320,10 +325,6 @@ class AtmosphereColumn:
             total_absorption * self.atmosphere_profile["dz(km)"].values[:, None] * 1e5
         )
 
-        # if z = 1, remove layer 0 ie index at 1
-        # if z = 2, remove layer 0+1 ie index at 2, etc
-        self.tau_gases = self.tau_gases[int(self.surface_elevation) :, :]
-
         return None
 
     def load_aerosol_properties(self):
@@ -363,7 +364,7 @@ class AtmosphereColumn:
         profile_aerosol_z = self.atmosphere_profile["z(km)"].values
         profile_aerosol_dz = self.atmosphere_profile["dz(km)"].values
         # set dz to 0 outside of the aerosol layer (propagating to tau=0)
-        profile_aerosol_dz[profile_aerosol_z > 3] = 0.0
+        profile_aerosol_dz[profile_aerosol_z > self.aerosol_boundary_height] = 0.0
 
         self.tau_aerosols = (
             self.aerosol_ext_cff[None, :]

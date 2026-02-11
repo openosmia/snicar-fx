@@ -20,8 +20,6 @@ from ..solvers.multi_stream_solver import solve_multi_stream_rt
 from ..solvers.two_stream_solver import solve_two_stream_rt
 from .config import Config
 
-# from line_profiler import profile
-
 
 class Session:
     """

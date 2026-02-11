@@ -63,7 +63,10 @@ class Solver(BaseModel):
         description="Number of Fourier modes to solve for azimuth dependency. Defaults to 1 (no azimuth dependency).",
     )
 
-    RELATIVE_AZIMUTH: tuple[confloat(ge=0, le=360), confloat(ge=0, le=360), confloat(ge=0.01, le=360)] | None = Field(
+    RELATIVE_AZIMUTH: (
+        tuple[confloat(ge=0, le=360), confloat(ge=0, le=360), confloat(ge=0.01, le=360)]
+        | None
+    ) = Field(
         default=(0.0, 180.0, 20.0),
         description="The relative azimuth resolution to cover.",
     )
@@ -168,7 +171,14 @@ class Spectral(BaseModel):
     )
 
     # spectral range (start, end, step) or satellite instrument
-    RESOLUTION: tuple[confloat(ge=200, le=5000), confloat(ge=200, le=5000), confloat(ge=0.001, le=100)] | Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"] = Field(
+    RESOLUTION: (
+        tuple[
+            confloat(ge=200, le=5000),
+            confloat(ge=200, le=5000),
+            confloat(ge=0.001, le=100),
+        ]
+        | Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"]
+    ) = Field(
         description="The spectral resolution to cover. If a satellite platform is passed, then all bands are solved for."
     )
 
