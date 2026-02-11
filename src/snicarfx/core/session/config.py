@@ -305,6 +305,20 @@ class Atmosphere(BaseModel):
         description="Type of atmospheric profile to use. It includes elevation, pressure, temperature, air density, as well as O3, H2O, CO2 and NO2 concentrations."
     )
 
+    # Aerosol properties to be used
+    AEROSOL_PROPERTIES: Optional[str] = Field(
+        pattern=r".*\.(nc|csv)$",
+        description="File containing the optical properties of aerosols.",
+    )
+
+    # AOD used to scale aerosol optical depth
+    INTEGRATED_AOD_550: Optional[confloat(ge=0.0, le=10.0)] = Field(
+        default=0.0,
+        description=(
+            "Aerosol Optical Depth (AOD) at 550nm integrated over the atmosphere column."
+        ),
+    )
+
     # all provided gas concentrations
     INTEGRATED_GAS_CONCENTRATIONS: IntegratedGasConcentrations | None = None
 

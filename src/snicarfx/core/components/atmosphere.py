@@ -50,6 +50,8 @@ class AtmosphereColumn:
         self.integrated_gas_concentrations = (
             config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS
         )
+        self.AOD = config.ATMOSPHERE.INTEGRATED_AOD_550
+        self.aerosol_file = config.ATMOSPHERE.AEROSOL_PROPERTIES
 
         if self.use_atmosphere:
 
@@ -327,7 +329,7 @@ class AtmosphereColumn:
         """
 
         aerosol_properties = xr.open_dataset(
-            f"{self.ROOT_PATH}/data/aerosols/aerosol_mixture_Adachietal2023_VRS_Greenland.nc"
+            f"{self.ROOT_PATH}/data/aerosols/{self.aerosol_file}"
         ).interp(wavelength=self.wavelengths, kwargs={"fill_value": "extrapolate"})
 
         return aerosol_properties
@@ -357,8 +359,6 @@ class AtmosphereColumn:
         Scale aerosols by given .
         """
 
-        AOD = 0.1
-
         self.tau_aerosols = np.zeros_like(self.tau_molecular_scatter)
 
         profile_aerosol = self.atmosphere_profile.copy()
@@ -368,7 +368,7 @@ class AtmosphereColumn:
         self.tau_aerosols = (
             self.aerosol_ext_cff[None, :]
             * profile_aerosol["dz(km)"].values[:, None]
-            * AOD
+            * self.AOD
             / self.aerosol_ext_cff_550
             / np.nansum(profile_aerosol["dz(km)"].values)
         )
