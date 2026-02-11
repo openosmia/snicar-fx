@@ -5,7 +5,6 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import pathlib
 from pydantic import BaseModel
 
 

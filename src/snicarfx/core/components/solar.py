@@ -5,7 +5,6 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import numpy as np
 import xarray as xr
 
 

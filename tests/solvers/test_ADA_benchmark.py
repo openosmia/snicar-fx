@@ -56,12 +56,7 @@ def test_multistream_outputs(
 
     # solve RTE
     results = solve_multi_stream_rt(
-        land_column,
-        atmosphere,
-        irradiance,
-        session.config.SOLVER.OUTPUT_LEVELS,
-        session.config.SOLVER.N_STREAMS,
-        session.config.SOLVER.N_FOURIER_MODES,
+        land_column, atmosphere, irradiance, session.config.SOLVER
     )
 
     # a given set of parameters (including a given wavelength)

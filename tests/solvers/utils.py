@@ -5,8 +5,8 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import xarray as xr
 import numpy as np
+import xarray as xr
 
 
 def use_data_snicaradv4(column, irradiance):

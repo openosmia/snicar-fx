@@ -6,7 +6,7 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
-from scipy.special import legendre, lpmv, factorial
+from scipy.special import factorial, legendre, lpmv
 
 
 class _MultiStreamSolver:
@@ -874,7 +874,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
                     aads.s_level_rad_down[i, 0, :] = aads.cosmic_background
                     aads.s_level_rad_downt[i, 0, :] = aads.cosmic_background
 
-            for k in range(0, aads.nbr_lyr):
+            for k in range(aads.nbr_lyr):
                 infinite_scattering = -np.matmul(
                     aads.s_level_refl_down[:, :, :, k],
                     aads.s_layer_refl[:, :, :, k],

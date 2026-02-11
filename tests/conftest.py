@@ -10,10 +10,9 @@ from itertools import product
 import pytest
 import xarray as xr
 
+from snicarfx.core.components.atmosphere import AtmosphereColumn
 from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
-from snicarfx.core.components.atmosphere import AtmosphereColumn
-from snicarfx.core.session.config import Config
 from snicarfx.core.session.session import Session
 
 TEST_INPUT_FILE = "./tests/inputs_tests.yaml"

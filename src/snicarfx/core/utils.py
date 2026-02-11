@@ -5,8 +5,8 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import xarray as xr
 import numpy as np
+import xarray as xr
 
 
 def compute_bin_average(
@@ -53,7 +53,7 @@ def compute_band_average(
 
     def _bandmean_da(da: xr.DataArray) -> xr.DataArray:
         band_means = []
-        for lo, hi in zip(wl_min, wl_max):
+        for lo, hi in zip(wl_min, wl_max, strict=False):
             da_sel = da.sel({wavelength_dim: slice(lo, hi)})
             band_mean = da_sel.mean(dim=wavelength_dim)
             band_means.append(band_mean)

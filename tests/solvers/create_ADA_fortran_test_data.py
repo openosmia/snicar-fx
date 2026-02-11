@@ -8,19 +8,17 @@ against its Python implementation.
 
 """
 
-import subprocess
-from pathlib import Path
 import shutil
+import subprocess
 from datetime import datetime
 from importlib.metadata import version
-import os
+from pathlib import Path
 
 import numpy as np
 import xarray as xr
 
 from snicarfx.core import Session
 from snicarfx.core.solvers.multi_stream_solver import (
-    solve_multi_stream_rt,
     _MultiStreamSolver,
 )
 

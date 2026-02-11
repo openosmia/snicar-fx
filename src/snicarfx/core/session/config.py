@@ -5,21 +5,20 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from typing import Literal, Tuple, Union, get_args, Optional
-import numpy as np
-
-import yaml
 import pathlib
+from typing import Literal, Union, get_args
+
+import numpy as np
+import yaml
 from pydantic import (
     BaseModel,
     Field,
-    RootModel,
     PrivateAttr,
+    RootModel,
     confloat,
     conint,
     conlist,
     model_validator,
-    computed_field,
 )
 from pydantic.fields import PydanticUndefined
 
@@ -54,23 +53,17 @@ class Solver(BaseModel):
         default=16, ge=12, le=100, description="Number of streams used by the solver."
     )
 
-    N_LEGENDRE_MOMENTS: Optional[confloat(ge=1, le=100)] = Field(
+    N_LEGENDRE_MOMENTS: confloat(ge=1, le=100) | None = Field(
         default=None,
         description="Number of Legendre moments to use in phase functions (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
     )
 
-    N_FOURIER_MODES: Optional[conint(ge=1, le=100)] = Field(
+    N_FOURIER_MODES: conint(ge=1, le=100) | None = Field(
         default=None,
         description="Number of Fourier modes to solve for azimuth dependency. Defaults to 1 (no azimuth dependency).",
     )
 
-    RELATIVE_AZIMUTH: Optional[
-        Tuple[
-            confloat(ge=0, le=360),
-            confloat(ge=0, le=360),
-            confloat(ge=0.01, le=360),
-        ]
-    ] = Field(
+    RELATIVE_AZIMUTH: tuple[confloat(ge=0, le=360), confloat(ge=0, le=360), confloat(ge=0.01, le=360)] | None = Field(
         default=(0.0, 180.0, 20.0),
         description="The relative azimuth resolution to cover.",
     )
@@ -175,14 +168,7 @@ class Spectral(BaseModel):
     )
 
     # spectral range (start, end, step) or satellite instrument
-    RESOLUTION: Union[
-        Tuple[
-            confloat(ge=200, le=5000),
-            confloat(ge=200, le=5000),
-            confloat(ge=0.001, le=100),
-        ],
-        Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"],
-    ] = Field(
+    RESOLUTION: tuple[confloat(ge=200, le=5000), confloat(ge=200, le=5000), confloat(ge=0.001, le=100)] | Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"] = Field(
         description="The spectral resolution to cover. If a satellite platform is passed, then all bands are solved for."
     )
 
@@ -238,7 +224,7 @@ class IntegratedGasConcentrations(BaseModel):
     """
 
     # O3 concentration used to scale the atmospheric profile
-    O3: Optional[confloat(ge=0.0)] = Field(
+    O3: confloat(ge=0.0) | None = Field(
         default=None,
         description=(
             "Ozone concentration used to scale the atmospheric profile."
@@ -247,7 +233,7 @@ class IntegratedGasConcentrations(BaseModel):
     )
 
     # # O2 concentration used to scale the atmospheric profile
-    O2: Optional[confloat(ge=0.0)] = Field(
+    O2: confloat(ge=0.0) | None = Field(
         default=None,
         description=(
             "Oxygen concentration used to scale the atmospheric profile."
@@ -256,7 +242,7 @@ class IntegratedGasConcentrations(BaseModel):
     )
 
     # H2O concentration used to scale the atmospheric profile
-    H2O: Optional[confloat(ge=0.0)] = Field(
+    H2O: confloat(ge=0.0) | None = Field(
         default=None,
         description=(
             "Water wapor concentration used to scale the atmospheric profile."
@@ -265,7 +251,7 @@ class IntegratedGasConcentrations(BaseModel):
     )
 
     # CO2 concentration used to scale the atmospheric profile
-    CO2: Optional[confloat(ge=0.0)] = Field(
+    CO2: confloat(ge=0.0) | None = Field(
         default=None,
         description=(
             "Carbon dioxide concentration used to scale the atmospheric profile."
@@ -274,7 +260,7 @@ class IntegratedGasConcentrations(BaseModel):
     )
 
     # NO2 concentration used to scale the atmospheric profile
-    NO2: Optional[confloat(ge=0.0)] = Field(
+    NO2: confloat(ge=0.0) | None = Field(
         default=None,
         description=(
             "Nitrogen dioxide concentration used to scale the atmospheric profile."
@@ -306,14 +292,14 @@ class Atmosphere(BaseModel):
     )
 
     # Aerosol properties to be used
-    AEROSOL_PROPERTIES: Optional[str] = Field(
+    AEROSOL_PROPERTIES: str | None = Field(
         default=None,
         pattern=r".*\.(nc|csv)$",
         description="File containing the optical properties of aerosols.",
     )
 
     # AOD used to scale aerosol optical depth
-    INTEGRATED_AOD_550: Optional[confloat(ge=0.0, le=10.0)] = Field(
+    INTEGRATED_AOD_550: confloat(ge=0.0, le=10.0) | None = Field(
         default=0.0,
         description=(
             "Aerosol Optical Depth (AOD) at 550nm integrated over the atmosphere column."

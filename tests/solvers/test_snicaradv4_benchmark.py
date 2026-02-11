@@ -8,8 +8,8 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 import xarray as xr
 
-from tests.solvers.utils import use_data_snicaradv4
 from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
+from tests.solvers.utils import use_data_snicaradv4
 
 
 def test_twostreams_outputs(

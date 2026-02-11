@@ -5,10 +5,8 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import datetime
 from dataclasses import dataclass
-from typing import Any
-import xarray as xr
+
 import numpy as np
 
 

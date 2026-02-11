@@ -339,11 +339,7 @@ class AtmosphereColumn:
 
     def set_aerosol_properties(self):
         """
-        Set optical properties of light-absorbing particles (AEROSOLs).
-
-        This method sets the properties of each AEROSOL defined in the input
-        configuration, converting their concentrations to consistent units,
-        and interpolating their properties to the model's spectral grid.
+        Set optical properties of aerosol mixture.
         """
 
         aerosol_properties = self.load_aerosol_properties()
@@ -359,7 +355,7 @@ class AtmosphereColumn:
 
     def scale_tau_aerosols(self):
         """
-        Scale aerosols by given .
+        Scale aerosols by given AOD.
         """
 
         self.tau_aerosols = np.zeros_like(self.tau_molecular_scatter)

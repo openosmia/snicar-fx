@@ -5,18 +5,22 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from ..components.land import LandColumn
-from ..components.atmosphere import AtmosphereColumn
-from ..components.solar import SolarIrradiance
-from .config import Config
-from ..solvers.two_stream_solver import solve_two_stream_rt
-from ..solvers.multi_stream_solver import solve_multi_stream_rt
 import pathlib
 import sys
-from importlib.metadata import version
-import xarray as xr
 from datetime import datetime
+from importlib.metadata import version
+
 import numpy as np
+import xarray as xr
+
+from ..components.atmosphere import AtmosphereColumn
+from ..components.land import LandColumn
+from ..components.solar import SolarIrradiance
+from ..solvers.multi_stream_solver import solve_multi_stream_rt
+from ..solvers.two_stream_solver import solve_two_stream_rt
+from .config import Config
+
+# from line_profiler import profile
 
 
 class Session:
@@ -563,7 +567,7 @@ class Session:
 
             n_bands = band_ranges.shape[0]
             averaged_rows = np.empty(
-                (np.append(arr.shape[:-1] if arr.ndim > 1 else 1, n_bands))
+                np.append(arr.shape[:-1] if arr.ndim > 1 else 1, n_bands)
             )
 
             for b, (lam_min, lam_max, _) in enumerate(band_ranges):
