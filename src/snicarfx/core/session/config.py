@@ -307,6 +307,7 @@ class Atmosphere(BaseModel):
 
     # Aerosol properties to be used
     AEROSOL_PROPERTIES: Optional[str] = Field(
+        default=None,
         pattern=r".*\.(nc|csv)$",
         description="File containing the optical properties of aerosols.",
     )

@@ -82,14 +82,17 @@ class AtmosphereColumn:
             self.load_gas_absorption_cross_sections(config)
             self.compute_gas_optical_thickness()
 
-            # set aerosol properties
-            self.set_aerosol_properties()
+            if self.AOD == 0.0:
+                self.set_atmospheric_properties_without_aerosols()
 
-            # scale aerosol with AOD
-            self.scale_tau_aerosols()
+            else:
+                # set aerosol properties
+                self.set_aerosol_properties()
 
-            # self.set_atmospheric_properties_without_aerosols()
-            self.set_atmospheric_properties_with_aerosols()
+                # scale aerosol with AOD
+                self.scale_tau_aerosols()
+
+                self.set_atmospheric_properties_with_aerosols()
 
     def set_atmospheric_profile(self):
         profile = pd.read_csv(
@@ -361,16 +364,17 @@ class AtmosphereColumn:
 
         self.tau_aerosols = np.zeros_like(self.tau_molecular_scatter)
 
-        profile_aerosol = self.atmosphere_profile.copy()
+        profile_aerosol_z = self.atmosphere_profile["z(km)"].values
+        profile_aerosol_dz = self.atmosphere_profile["dz(km)"].values
         # set dz to 0 outside of the aerosol layer (propagating to tau=0)
-        profile_aerosol[self.atmosphere_profile["z(km)"] > 30]["dz(km)"] = 0
+        profile_aerosol_dz[profile_aerosol_z > 3] = 0.0
 
         self.tau_aerosols = (
             self.aerosol_ext_cff[None, :]
-            * profile_aerosol["dz(km)"].values[:, None]
+            * profile_aerosol_dz[:, None]
             * self.AOD
             / self.aerosol_ext_cff_550
-            / np.nansum(profile_aerosol["dz(km)"].values)
+            / np.nansum(profile_aerosol_dz)
         )
 
     def set_atmospheric_properties_without_aerosols(self):
