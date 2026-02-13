@@ -239,65 +239,116 @@ class Session:
 
     def update_solver(self, *, validate=True, **kwargs):
         """
-        Update allowed solar fields.
+        Update allowed solver fields from user-defined dictionary.
         """
-
-        # Keys that are allowed to be modified
-        allowed_fields = {"TYPE"}
+        
+        # all fields allowed
+        allowed_fields = {
+            'TYPE',
+            'ATMOSPHERE_COUPLING',
+            'OUTPUT_LEVELS', 
+            'N_STREAMS', 
+            'N_LEGENDRE_MOMENTS', 
+            'N_FOURIER_MODES', 
+            'RELATIVE_AZIMUTH'
+            }
+        
         updates = self._prepare_updates(kwargs, allowed_fields)
 
         # store applied updates
         self._latest_updates["SOLVER"].update(updates)
 
-        # validate a copy of the config if requested (config is immutable)
+        # validate by creating a new instance of Solver
         if validate:
-            self.config.model_copy(update={"SOLVER": updates})
-
-        if "TYPE" in updates:
-            pass
+            self.config.SOLVER.__class__(**updates)
+        
+        # update solver parameters only if updates not empty
+        if updates: 
+            # make sure that fields that are not updated stay in config
+            merged_config = {**self.config.SOLVER.model_dump(), **updates}
+            self.config.SOLVER = self.config.model_copy(
+                update={"SOLVER": merged_config}).SOLVER
+            
+            # if type of solver or atmo coupling are included an update of the 
+            # solar irradiance is required (TOA<->BOA). 
+            
+            if 'ATMOSPHERIC_COUPLING' or 'TYPE' in updates:
+                if (self.config.SOLVER.TYPE == 'two-stream' 
+                    or not self.config.SOLVER.ATMOSPHERIC_COUPLING): 
+                    self.solar_irradiance.load_surface_irradiance()
+                    self.solar_irradiance.set_surface_irradiance(self.config)
+                else:
+                    self.solar_irradiance.load_toa_irradiance()
+                    self.solar_irradiance.set_toa_irradiance(self.config)
 
     def update_solar(self, *, validate=True, **kwargs):
         """
-        Update allowed solar fields.
+        Update allowed solar fields from user-defined dictionary.
         """
 
-        # Keys that are allowed to be modified
+        # only SZA in solar
         allowed_fields = {"SZA"}
         updates = self._prepare_updates(kwargs, allowed_fields)
 
         # store applied updates
         self._latest_updates["SOLAR"].update(updates)
 
-        # validate a copy of the config if requested (config is immutable)
+        # validate by creating a new instance of Solver
         if validate:
-            self.config.model_copy(update={"SOLAR": updates})
+            self.config.SOLAR.__class__(**updates)
 
-        # update SZA and recompute irradiance
-        if "SZA" in updates:
+        # update SZA and recompute irradiance only if updates not empty
+        if updates:
             self.solar_irradiance.sza = updates["SZA"]
-            self.solar_irradiance.set_irradiance()
+            if (self.config.SOLVER.TYPE == 'two-stream' 
+                or not self.config.SOLVER.ATMOSPHERIC_COUPLING): 
+                # surface irradiance needs to be re-calculated if SZA updated 
+                self.solar_irradiance.load_surface_irradiance()
+                self.solar_irradiance.set_surface_irradiance(self.config)
 
     def update_atmosphere(self, *, validate=True, **kwargs):
         """
-        Update allowed solar fields.
+        Update allowed atmospheric fields from user-defined dictionary.
         """
 
-        # Keys that are allowed to be modified
-        allowed_fields = {"SKY_CONDITIONS"}
+        # for now we do not change sky conditions, atmospheric profile type 
+        # & aerosol properties
+        
+        allowed_fields = {"INTEGRATED_AOD_550", 
+                          "INTEGRATED_GAS_CONCENTRATIONS.O3",
+                          "INTEGRATED_GAS_CONCENTRATIONS.H2O",
+                          "INTEGRATED_GAS_CONCENTRATIONS.NO2",
+                          }
         updates = self._prepare_updates(kwargs, allowed_fields)
 
         # store applied updates
         self._latest_updates["ATMOSPHERE"].update(updates)
 
-        # validate a copy of the config if requested (config is immutable)
+        # validate a copy of the config if requested 
         if validate:
-            self.config.model_copy(update={"ATMOSPHERE": updates})
+            self.config.ATMOSPHERE.__class__(**updates)
 
-        # update SZA and sky conditions, reload irradiance file and recompute
-        if "SKY_CONDITIONS" in updates:
-            self.solar_irradiance.sky_conditions = updates["SKY_CONDITIONS"]
-            self.solar_irradiance.load_irradiance()
-            self.solar_irradiance.set_irradiance()
+        # update only if not empty
+        if updates:
+            merged_config = {**self.config.ATMOSPHERE.model_dump(), **updates}
+            self.config.ATMOSPHERE = self.config.model_copy(
+                update={"ATMOSPHERE": merged_config}).ATMOSPHERE
+            
+            # if any gas to update, re-compute gas optical thickness
+            if any(key.startswith('INTEGRATED_GAS_CONCENTRATIONS') 
+                   for key in updates.keys()): 
+                self.atmosphere_column.compute_gas_optical_thickness()
+                
+            # if aerosols, re-compute aerosol AND atmosphere optics 
+            if self.config.ATMOSPHERE.AOD: 
+                if "INTEGRATED_AOD_550" in updates:
+                    self.atmosphere_column.scale_tau_aerosols()
+                self.atmosphere_column.set_atmospheric_properties_with_aerosols()
+            # if no aerosols, re-compute atmosphere optics w/out aerosols
+            else: 
+                self.atmosphere_column.set_atmospheric_properties_without_aerosols()
+                
+                
 
     def update_land(self, *, validate=True, **kwargs):
         """
@@ -315,17 +366,26 @@ class Session:
             "RF_TYPE",
             "SFC",
         }
+        
+        if self.config.LAND.LIGHT_ABSORBING_PARTICLES.root:
+            lap_concs = ['LIGHT_ABSORBING_PARTICLES.root["' + p + '"].CONC' 
+                          for p in self.config.LAND.LIGHT_ABSORBING_PARTICLES.root]
+            allowed_fields.update(lap_concs)
+        
         updates = self._prepare_updates(kwargs, allowed_fields)
 
         # store applied updates
         self._latest_updates["LAND"].update(updates)
 
-        # validate a copy of the config if requested (config is immutable)
+        # validate a copy of the config if requested 
         if validate:
-            self.config.model_copy(update={"LAND": updates})
+            self.config.LAND.__class__(**updates)
 
-        if "SKY_CONDITIONS" in updates:
-            pass
+        # update only if not empty
+        if updates:
+            merged_config = {**self.config.LAND.model_dump(), **updates}
+            self.config.LAND = self.config.model_copy(
+                update={"LAND": merged_config}).LAND
 
     def run(self, to_xarray=True):
         """
