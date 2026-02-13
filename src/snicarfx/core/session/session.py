@@ -254,23 +254,25 @@ class Session:
 
         return current_state
 
-    def update_solver(self, *, validate=True, **kwargs):
+    def update_solver(self, update_dic, validate=True):
         """
         Update allowed solver fields from user-defined dictionary.
         """
         
-        # all fields allowed
+        # all fields allowed except legendre moments as this would require to
+        # recalculate all optical properties at the moment, esp for the 
+        # atmosphere 
+        
         allowed_fields = {
             'TYPE',
             'ATMOSPHERE_COUPLING',
             'OUTPUT_LEVELS', 
             'N_STREAMS', 
-            'N_LEGENDRE_MOMENTS', 
             'N_FOURIER_MODES', 
             'RELATIVE_AZIMUTH'
             }
         
-        updates = self._prepare_updates(kwargs, allowed_fields)
+        updates = self._prepare_updates(update_dic, allowed_fields)
 
         # store applied updates
         self._latest_updates["SOLVER"].update(updates)
@@ -279,33 +281,32 @@ class Session:
         if validate:
             self.config.SOLVER.__class__(**updates)
         
-        # update solver parameters only if updates not empty
+        # # update solver parameters only if updates not empty
         if updates: 
-            # make sure that fields that are not updated stay in config
-            merged_config = {**self.config.SOLVER.model_dump(), **updates}
-            self.config.SOLVER = self.config.model_copy(
-                update={"SOLVER": merged_config}).SOLVER
             
-            # if type of solver or atmo coupling are included an update of the 
-            # solar irradiance is required (TOA<->BOA). 
+            if 'TYPE' in updates:
+                self.config.SOLVER.TYPE = updates['TYPE']
+            if 'ATMOSPHERE_COUPLING' in updates: 
+                self.config.SOLVER.ATMOSPHERE_COUPLING = updates['ATMOSPHERE_COUPLING']
+                self.atmosphere_column.use_atmosphere = False
+            if 'OUTPUT_LEVELS' in updates: 
+                self.config.SOLVER.OUTPUT_LEVELS = updates['OUTPUT_LEVELS']
+            if 'N_STREAMS' in updates: 
+                self.config.SOLVER.N_STREAMS = updates['N_STREAMS']
+            if 'N_FOURIER_MODES' in updates: 
+                self.config.SOLVER.N_FOURIER_MODES = updates['N_FOURIER_MODES']
+            if 'RELATIVE_AZIMUTH' in updates: 
+                self.config.SOLVER.RELATIVE_AZIMUTH = updates['RELATIVE_AZIMUTH']
             
-            if 'ATMOSPHERIC_COUPLING' or 'TYPE' in updates:
-                if (self.config.SOLVER.TYPE == 'two-stream' 
-                    or not self.config.SOLVER.ATMOSPHERIC_COUPLING): 
-                    self.solar_irradiance.load_surface_irradiance()
-                    self.solar_irradiance.set_surface_irradiance(self.config)
-                else:
-                    self.solar_irradiance.load_toa_irradiance()
-                    self.solar_irradiance.set_toa_irradiance(self.config)
 
-    def update_solar(self, *, validate=True, **kwargs):
+    def update_solar(self, update_dic, validate=True):
         """
         Update allowed solar fields from user-defined dictionary.
         """
 
         # only SZA in solar
         allowed_fields = {"SZA"}
-        updates = self._prepare_updates(kwargs, allowed_fields)
+        updates = self._prepare_updates(update_dic, allowed_fields)
 
         # store applied updates
         self._latest_updates["SOLAR"].update(updates)
@@ -318,12 +319,15 @@ class Session:
         if updates:
             self.solar_irradiance.sza = updates["SZA"]
             if (self.config.SOLVER.TYPE == 'two-stream' 
-                or not self.config.SOLVER.ATMOSPHERIC_COUPLING): 
+                or not self.config.SOLVER.ATMOSPHERE_COUPLING): 
                 # surface irradiance needs to be re-calculated if SZA updated 
                 self.solar_irradiance.load_surface_irradiance()
                 self.solar_irradiance.set_surface_irradiance(self.config)
+                
+            if "band-" in self.config.SPECTRAL.MODE:
+                self.compute_band_average()
 
-    def update_atmosphere(self, *, validate=True, **kwargs):
+    def update_atmosphere(self, update_dic, validate=True):
         """
         Update allowed atmospheric fields from user-defined dictionary.
         """
@@ -332,11 +336,9 @@ class Session:
         # & aerosol properties
         
         allowed_fields = {"INTEGRATED_AOD_550", 
-                          "INTEGRATED_GAS_CONCENTRATIONS.O3",
-                          "INTEGRATED_GAS_CONCENTRATIONS.H2O",
-                          "INTEGRATED_GAS_CONCENTRATIONS.NO2",
+                          "INTEGRATED_GAS_CONCENTRATIONS",
                           }
-        updates = self._prepare_updates(kwargs, allowed_fields)
+        updates = self._prepare_updates(update_dic, allowed_fields)
 
         # store applied updates
         self._latest_updates["ATMOSPHERE"].update(updates)
@@ -347,51 +349,50 @@ class Session:
 
         # update only if not empty
         if updates:
-            merged_config = {**self.config.ATMOSPHERE.model_dump(), **updates}
-            self.config.ATMOSPHERE = self.config.model_copy(
-                update={"ATMOSPHERE": merged_config}).ATMOSPHERE
-            
+
+            if "INTEGRATED_AOD_550" in updates:
+                # load aerosols properties if not in session already
+                if not self.atmosphere_column.AOD:
+                    self.atmosphere_column.set_aerosol_properties()
+                # update AOD (final OP calculations after gas update)
+                self.atmosphere_column.AOD = updates["INTEGRATED_AOD_550"]
+                self.atmosphere_column.scale_tau_aerosols()
+                
             # if any gas to update, re-compute gas optical thickness
-            if any(key.startswith('INTEGRATED_GAS_CONCENTRATIONS') 
-                   for key in updates.keys()): 
+            if "INTEGRATED_GAS_CONCENTRATIONS" in updates:
+                self.atmosphere_column.integrated_gas_concentrations = updates["INTEGRATED_GAS_CONCENTRATIONS"]
+                self.atmosphere_column.scale_atmospheric_profile()
                 self.atmosphere_column.compute_gas_optical_thickness()
                 
             # if aerosols, re-compute aerosol AND atmosphere optics 
-            if self.config.ATMOSPHERE.AOD: 
-                if "INTEGRATED_AOD_550" in updates:
-                    self.atmosphere_column.scale_tau_aerosols()
+            if self.atmosphere_column.AOD: 
                 self.atmosphere_column.set_atmospheric_properties_with_aerosols()
             # if no aerosols, re-compute atmosphere optics w/out aerosols
             else: 
                 self.atmosphere_column.set_atmospheric_properties_without_aerosols()
                 
-                
+            if "band-" in self.config.SPECTRAL.MODE:
+                self.compute_band_average()
 
-    def update_land(self, *, validate=True, **kwargs):
+    def update_land(self, update_dic, validate=True):
         """
         Update allowed solar fields.
         """
 
         # Keys that are allowed to be modified
         allowed_fields = {
-            "THICKNESS",
             "LAYER_TYPE",
-            "DENSITY",
-            "SPECIFIC_SURFACE_AREA",
-            "LWC",
             "GRAIN_SHAPE",
             "RF_TYPE",
+            "LWC",
+            "THICKNESS",
+            "SPECIFIC_SURFACE_AREA",
+            "DENSITY",
+            
             "LIGHT_ABSORBING_PARTICLES"
         }
-        
-        # (!!) LAPs must be provided as a nested dictionary: 
-            # 'LIGHT_ABSORBING_PARTICLES': {'BC': 
-            #                                     {'FILE': 'file.nc',
-            #                                      'CONC': [0.0, 0.0, 0.0]}
-            #                               }
-            
        
-        updates = self._prepare_updates(kwargs, allowed_fields)
+        updates = self._prepare_updates(update_dic, allowed_fields)
         
         # store applied updates
         self._latest_updates["LAND"].update(updates)
@@ -402,21 +403,38 @@ class Session:
 
         # update only if not empty
         if updates:
-            merged_config = {**self.config.LAND.model_dump(), **updates}
             
-            self.config.LAND = self.config.model_copy(
-                update={"LAND": merged_config}).LAND
+            # update arguments of the land column class
+            if "THICKNESS" in updates:
+                self.land_column.thickness_profile = updates["THICKNESS"]
+            if "LAYER_TYPE" in updates:
+                self.land_column.layer_type = updates["LAYER_TYPE"]
+            if "DENSITY" in updates:
+                self.land_column.density = updates["DENSITY"]
+            if "SPECIFIC_SURFACE_AREA" in updates:
+                self.land_column.ssa = updates["SPECIFIC_SURFACE_AREA"]
+            if "LWC" in updates:
+                self.land_column.lwc = updates["LWC"]
+            if "GRAIN_SHAPE" in updates:
+                self.land_column.grain_shape = updates["GRAIN_SHAPE"]
+            if "RF_TYPE" in updates: 
+                self.land_column.rf_type = updates["RF_TYPE"]
+                self.land_column.set_refractive_index_and_diffuse_fresnel_coeffs()
             
             # all allowed parameters require to re-calculate clean column ops
             self.land_column.set_column_ops_without_laps()
             
             # if there are particles we need to update the properties even if 
-            # we do not change the particle concentrations
-            if self.config.LAND.LIGHT_ABSORBING_PARTICLES.root:
-                self.update_column_ops_with_laps()
+            # we do not change the particle concentrations as the clean snow/ice
+            # has changed
+            if self.config.LAND.LIGHT_ABSORBING_PARTICLES.root.keys():
+                self.land_column.update_column_ops_with_laps()
             
             # finally update legendre moments
-            self.set_legendre_moments()
+            self.land_column.set_legendre_moments()
+            
+            if "band-" in self.config.SPECTRAL.MODE:
+                self.compute_band_average()
             
 
     def run(self, to_xarray=True):
