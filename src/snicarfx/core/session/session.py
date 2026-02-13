@@ -222,7 +222,24 @@ class Session:
                 "These fields cannot be changed at runtime. "
                 "Please modify them in the input YAML file."
             )
-
+        
+        # specific situation for LAPs because of nested structure
+        if "LIGHT_ABSORBING_PARTICLES" in set(kwargs):
+            # check that no additional LAP or change of file occurred
+            current_laps = self.config.LAND.LIGHT_ABSORBING_PARTICLES.root.keys()
+            current_laps_files = [p.FILE for p 
+                            in self.config.LAND.LIGHT_ABSORBING_PARTICLES.root.values()]
+            if (any(key not in current_laps 
+                   for key in kwargs['LIGHT_ABSORBING_PARTICLES'].keys())
+                or
+                any(p['FILE'] not in current_laps_files 
+                       for p in kwargs['LIGHT_ABSORBING_PARTICLES'].values()) 
+                ):
+                raise ValueError(
+                    "LAP number and files cannot be changed at runtime. "
+                    "Please modify them in the input YAML file. "
+                )
+                
         return {k: v for k, v in kwargs.items() if v is not None}
 
     def _write_current_state(self):
@@ -364,16 +381,18 @@ class Session:
             "LWC",
             "GRAIN_SHAPE",
             "RF_TYPE",
-            "SFC",
+            "LIGHT_ABSORBING_PARTICLES"
         }
         
-        if self.config.LAND.LIGHT_ABSORBING_PARTICLES.root:
-            lap_concs = ['LIGHT_ABSORBING_PARTICLES.root["' + p + '"].CONC' 
-                          for p in self.config.LAND.LIGHT_ABSORBING_PARTICLES.root]
-            allowed_fields.update(lap_concs)
-        
+        # (!!) LAPs must be provided as a nested dictionary: 
+            # 'LIGHT_ABSORBING_PARTICLES': {'BC': 
+            #                                     {'FILE': 'file.nc',
+            #                                      'CONC': [0.0, 0.0, 0.0]}
+            #                               }
+            
+       
         updates = self._prepare_updates(kwargs, allowed_fields)
-
+        
         # store applied updates
         self._latest_updates["LAND"].update(updates)
 
@@ -384,8 +403,21 @@ class Session:
         # update only if not empty
         if updates:
             merged_config = {**self.config.LAND.model_dump(), **updates}
+            
             self.config.LAND = self.config.model_copy(
                 update={"LAND": merged_config}).LAND
+            
+            # all allowed parameters require to re-calculate clean column ops
+            self.land_column.set_column_ops_without_laps()
+            
+            # if there are particles we need to update the properties even if 
+            # we do not change the particle concentrations
+            if self.config.LAND.LIGHT_ABSORBING_PARTICLES.root:
+                self.update_column_ops_with_laps()
+            
+            # finally update legendre moments
+            self.set_legendre_moments()
+            
 
     def run(self, to_xarray=True):
         """

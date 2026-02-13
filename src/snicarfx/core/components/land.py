@@ -299,9 +299,6 @@ class LandColumn:
         and interpolating their properties to the model's spectral grid.
         """
 
-        self.lap_concentrations = (
-            np.array([obj.CONC for obj in self.laps.values()]) * 1e-9
-        ).T
 
         self.lap_ss_alb = self.load_lap_properties("ss_alb")
         self.lap_asm_prm = self.load_lap_properties("asm_prm")
@@ -317,6 +314,10 @@ class LandColumn:
         formulas. It adjusts optical thickness, single scattering albedo, and
         asymmetry parameters.
         """
+        
+        self.lap_concentrations = (
+            np.array([obj.CONC for obj in self.laps.values()]) * 1e-9
+        ).T
 
         # combine properties of all LAPs
         lap_mass = np.array(self.layer_mass)[:, np.newaxis] * self.lap_concentrations
