@@ -192,6 +192,8 @@ class AtmosphereColumn:
         lambda_cm = self.wavelengths * 1e-7
         lambda_um = self.wavelengths * 1e-3
 
+        co2_ppm = co2_ppm[:, None]
+
         # Number density of air at standard conditions (mol/cm3)
         N_s = 2.546899e19
 
@@ -234,31 +236,25 @@ class AtmosphereColumn:
         phase function of air molecules for each layer.
         """
 
-        for lyr in range(self.nbr_lyr):
+        # convert co2 number density to ppm
+        co2_ppm = (
+            self.atmosphere_profile["co2(cm-3)"].values
+            / self.atmosphere_profile["air(cm-3)"].values
+        ) * 1e6
 
-            # convert co2 number density to ppm
+        rayleigh_cross_section = self.compute_rayleigh_cross_section_bodhaine(co2_ppm)
 
-            co2_ppm = (
-                self.atmosphere_profile["co2(cm-3)"][lyr]
-                / self.atmosphere_profile["air(cm-3)"][lyr]
-            ) * 1e6
-
-            rayleigh_cross_section = self.compute_rayleigh_cross_section_bodhaine(
-                co2_ppm
-            )
-
-            # molecular cross section is in cm2 / mol
-            # molecular nb density from mol/cm3 to mol/m3
-            # layer depth from km to m)
-
-            self.tau_molecular_scatter[lyr, :] = (
-                rayleigh_cross_section
-                * 1e-4
-                * self.atmosphere_profile["air(cm-3)"][lyr]
-                * 1e6
-                * self.atmosphere_profile["dz(km)"][lyr]
-                * 1e3
-            )
+        # molecular cross section is in cm2 / mol
+        # molecular nb density from mol/cm3 to mol/m3
+        # layer depth from km to m)
+        self.tau_molecular_scatter = (
+            rayleigh_cross_section
+            * 1e-4
+            * self.atmosphere_profile["air(cm-3)"].values[:, None]
+            * 1e6
+            * self.atmosphere_profile["dz(km)"].values[:, None]
+            * 1e3
+        )
 
         return None
 
