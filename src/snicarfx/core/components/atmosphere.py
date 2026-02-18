@@ -46,16 +46,15 @@ class AtmosphereColumn:
 
         self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
-        
+
         self.AOD = config.ATMOSPHERE.INTEGRATED_AOD_550
         self.aerosol_file = config.ATMOSPHERE.AEROSOL_PROPERTIES
 
         if self.use_atmosphere:
-            
-            if config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump(): 
-                self.integrated_gas_concentrations = (
-                    config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
-                )
+
+            self.integrated_gas_concentrations = (
+                config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
+            )
 
             self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
 
@@ -72,12 +71,12 @@ class AtmosphereColumn:
             # init the ssps
             self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
             self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
-            
+
             self.tau_molecular_scatter = np.zeros((self.nbr_lyr, self.nbr_wvl))
 
             # compute rayleigh scattering (tau + legendre moments)
             self.compute_rayleigh_scattering()
-            
+
             self.set_rayleigh_legendre_moments()
 
             # load gas cross sections
@@ -152,26 +151,28 @@ class AtmosphereColumn:
             "NO2": 0.04601,  # Nitrogen dioxide
         }
 
+        for (
+            gas_name,
+            integrated_gas_column,
+        ) in self.integrated_gas_concentrations.items():
 
-        for gas_name, integrated_gas_column in self.integrated_gas_concentrations.items():
-            
-            if integrated_gas_column is not None: 
+            if integrated_gas_column is not None:
 
                 # match profile column name
                 profile_key = f"{gas_name.lower()}(cm-3)"
-    
+
                 # convert profile to molecules/m3
                 n = self.atmosphere_profile[profile_key].values * 1e6
                 dz = self.atmosphere_profile["dz(km)"].values * 1e3
-    
+
                 # initial column in kg/m²
                 current_column = (
                     np.sum(n * dz) * MOLECULAR_MASSES[gas_name] / AVOGADRO_NUMBER
                 )
-    
+
                 # scale factor
                 scale_factor = integrated_gas_column / current_column
-    
+
                 # apply scaling (back to cm⁻³)
                 self.atmosphere_profile[profile_key] *= scale_factor
 
@@ -259,19 +260,16 @@ class AtmosphereColumn:
                 * 1e3
             )
 
-        
-
         return None
-    
+
     def set_rayleigh_legendre_moments(self):
-        
+
         self.rayleigh_legendre_moments = np.zeros(
             (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
         )
-        
+
         # phase coeffs of order > 3 are null (already init at 0)
         self.rayleigh_legendre_moments[:3, :, :] = np.array([1, 0, 0.1])[:, None, None]
-        
 
     def load_gas_absorption_cross_sections(self, config):
 
