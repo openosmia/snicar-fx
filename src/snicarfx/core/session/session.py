@@ -19,7 +19,6 @@ from ..components.solar import SolarIrradiance
 from ..solvers.multi_stream_solver import solve_multi_stream_rt
 from ..solvers.two_stream_solver import solve_two_stream_rt
 from .config import Config
-import time
 
 
 class Session:
@@ -33,8 +32,6 @@ class Session:
     """
 
     def __init__(self, input_file: str):
-
-        start = time.perf_counter()
 
         # parse configuration file
         self.config = Config.from_yaml(input_file)
@@ -329,9 +326,45 @@ class Session:
                 # surface irradiance needs to be re-calculated if SZA updated
                 self.solar_irradiance.load_surface_irradiance()
                 self.solar_irradiance.set_surface_irradiance(self.config)
+                
+                if self.config.SPECTRAL.MODE == "band-snicar-default":
+                    solar_flat_means = self.compute_flat_band_average(
+                        self.solar_irradiance,
+                        self.config._wavelengths_solar,
+                        self._band_ranges,
+                        var_names=["flx_slr"],
+                    )
+                    self.solar_irradiance.flx_slr = solar_flat_means["flx_slr"]
+                    
+                    if self.config.SOLVER.TYPE == "two-stream":
+                        solar_flat_means = self.compute_flat_band_average(
+                            self.solar_irradiance,
+                            self.config._wavelengths_solar,
+                            self._band_ranges,
+                            var_names=["fs", "fd"],
+                        )
+                        self.solar_irradiance.fs = solar_flat_means["fs"]
+                        self.solar_irradiance.fd = solar_flat_means["fd"]
+                        
+                elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
+                    solar_weighted_means = self.compute_solar_weighted_average(
+                        self.solar_irradiance,
+                        self.config._wavelengths_solar,
+                        self._band_ranges,
+                        var_names=["flx_slr"],
+                    )
+                    self.solar_irradiance.flx_slr = solar_weighted_means["flx_slr"].flatten()
+                    
+                    if self.config.SOLVER.TYPE == "two-stream":
+                        solar_weighted_means = self.compute_solar_weighted_average(
+                            self.solar_irradiance,
+                            self.config._wavelengths_solar,
+                            self._band_ranges,
+                            var_names=["fs", "fd"],
+                        )
+                        self.solar_irradiance.fs = solar_weighted_means["fs"].flatten()
+                        self.solar_irradiance.fd = solar_weighted_means["fd"].flatten()
 
-            if "band-" in self.config.SPECTRAL.MODE:
-                self.compute_band_average()
 
     def update_atmosphere(self, update_dic, validate=True):
         """
@@ -380,9 +413,6 @@ class Session:
             else:
                 self.atmosphere_column.set_atmospheric_properties_without_aerosols()
 
-            if "band-" in self.config.SPECTRAL.MODE:
-                self.compute_band_average()
-
     def update_land(self, update_dic, validate=True):
         """
         Update allowed solar fields.
@@ -428,6 +458,13 @@ class Session:
             if "RF_TYPE" in updates:
                 self.land_column.rf_type = updates["RF_TYPE"]
                 self.land_column.set_refractive_index_and_diffuse_fresnel_coeffs()
+            if "LIGHT_ABSORBING_PARTICLES" in updates:
+                self.land_column.lap_concentrations = (
+                    np.array([obj["CONC"] 
+                              for obj in updates[
+                                      "LIGHT_ABSORBING_PARTICLES"].values()
+                              ]) * 1e-9
+                ).T
 
             # all allowed parameters require to re-calculate clean column ops
             self.land_column.set_column_ops_without_laps()
@@ -441,8 +478,6 @@ class Session:
             # finally update legendre moments
             self.land_column.set_legendre_moments()
 
-            if "band-" in self.config.SPECTRAL.MODE:
-                self.compute_band_average()
 
     def run(self, to_xarray=True):
         """
@@ -627,6 +662,44 @@ class Session:
         # overwrite high-resolution wavelength array (used for
         # computation) with center wavelengths
         self.config._wavelengths = self._band_ranges[:, -1]
+        
+    def compute_flat_band_average(self, component, wavelengths, band_ranges, var_names):
+        """
+        Flat (unweighted) band average on spectral variables on
+        given variables of a component object.
+        """
+
+        band_means = {}
+
+        for name in var_names:
+
+            arr = getattr(component, name)
+            original_shape = arr.shape[:-1]
+            arr_flat = arr.reshape(-1, arr.shape[-1])
+
+            n_bands = band_ranges.shape[0]
+            averaged_rows = np.empty((arr_flat.shape[0], n_bands))
+
+            for b, (lam_min, lam_max, _) in enumerate(band_ranges):
+                i_start = np.searchsorted(wavelengths, lam_min, side="left")
+                i_end = np.searchsorted(wavelengths, lam_max, side="right")
+                i_start = max(i_start, 0)
+                i_end = min(i_end, arr_flat.shape[1])
+
+                if i_end - i_start < 2:
+                    averaged_rows[:, b] = arr_flat[:, i_start]
+                else:
+                    wl_slice = wavelengths[i_start:i_end]
+                    values_slice = arr_flat[:, i_start:i_end]
+
+                    # trapezoidal integration along last axis (wavelength)
+                    integral = np.trapz(values_slice, wl_slice, axis=1)
+                    width = wl_slice[-1] - wl_slice[0]
+                    averaged_rows[:, b] = integral / width
+
+            band_means[name] = averaged_rows.reshape(*original_shape, n_bands)
+
+        return band_means
 
     def compute_solar_weighted_average(
         self, column, wavelengths, band_ranges, var_names
