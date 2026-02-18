@@ -538,7 +538,7 @@ class Session:
                 albedo_variables[var_name] = ("wavelength", data)
 
             elif "directional_" in var_name:
-                if self.config.SOLVER.N_FOURIER_MODES == 1:
+                if "m0" in var_name: 
                     directional_variables[var_name] = (
                         ("viewing_angle", "wavelength"),
                         data,
@@ -588,7 +588,7 @@ class Session:
         )
         ds["viewing_angle"].attrs.update(
             {
-                "description": "Result viewing angle. Defined from 0 to 90 degrees, as 90-180 degrees is covered by the opposite azimuth angle.",
+                "description": "Viewing polar angle.",
                 "units": "degrees",
             }
         )
@@ -596,7 +596,7 @@ class Session:
         if self.config.SOLVER.N_FOURIER_MODES > 1:
             ds["azimuth_angle"].attrs.update(
                 {
-                    "description": "Azimuth angle relative to the prescribed solar azimuth angle.",
+                    "description": "Viewing azimuth angle relative to the solar azimuth angle.",
                     "units": "degrees",
                 }
             )

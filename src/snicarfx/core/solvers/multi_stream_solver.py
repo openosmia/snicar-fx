@@ -648,7 +648,7 @@ class _MultiStreamSolver:
                 / (E_diff + E_dir)
             ).flatten()
 
-            results["directional_reflectance_boa"] = (
+            results["directional_reflectance_boa_m0"] = (
                 self.s_level_rad_up_moments[:, self.surface_idx, :, 0] * np.pi
             ) / (E_diff + E_dir)
 
@@ -706,11 +706,11 @@ class _MultiStreamSolver:
                 / (E_diff + E_dir)
             ).flatten()
 
-            results["directional_radiance_toa"] = self.s_level_rad_up_moments[
+            results["directional_radiance_toa_m0"] = self.s_level_rad_up_moments[
                 :, 0, :, 0
             ]
 
-            results["directional_reflectance_toa"] = (
+            results["directional_reflectance_toa_m0"] = (
                 self.s_level_rad_up_moments[:, 0, :, 0] * np.pi
             ) / (E_diff + E_dir)
 
