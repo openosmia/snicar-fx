@@ -666,7 +666,7 @@ class _MultiStreamSolver:
                     axis=-2,
                 )
 
-                s_level_refl_up_boa = s_level_rad_up_boa / (
+                s_level_refl_up_boa = s_level_rad_up_boa * np.pi / (
                     E_diff[None, :, None] + E_dir[None, :, None]
                 )
 
@@ -728,7 +728,7 @@ class _MultiStreamSolver:
                     axis=-2,
                 )
 
-                s_level_refl_up_toa = s_level_rad_up_toa / (
+                s_level_refl_up_toa = s_level_rad_up_toa * np.pi / (
                     E_diff[None, :, None] + E_dir[None, :, None]
                 )
 
