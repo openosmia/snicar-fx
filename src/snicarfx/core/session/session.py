@@ -19,6 +19,7 @@ from ..components.solar import SolarIrradiance
 from ..solvers.multi_stream_solver import solve_multi_stream_rt
 from ..solvers.two_stream_solver import solve_two_stream_rt
 from .config import Config
+import time
 
 
 class Session:
@@ -32,6 +33,8 @@ class Session:
     """
 
     def __init__(self, input_file: str):
+
+        start = time.perf_counter()
 
         # parse configuration file
         self.config = Config.from_yaml(input_file)
@@ -222,24 +225,26 @@ class Session:
                 "These fields cannot be changed at runtime. "
                 "Please modify them in the input YAML file."
             )
-        
+
         # specific situation for LAPs because of nested structure
         if "LIGHT_ABSORBING_PARTICLES" in set(kwargs):
             # check that no additional LAP or change of file occurred
             current_laps = self.config.LAND.LIGHT_ABSORBING_PARTICLES.root.keys()
-            current_laps_files = [p.FILE for p 
-                            in self.config.LAND.LIGHT_ABSORBING_PARTICLES.root.values()]
-            if (any(key not in current_laps 
-                   for key in kwargs['LIGHT_ABSORBING_PARTICLES'].keys())
-                or
-                any(p['FILE'] not in current_laps_files 
-                       for p in kwargs['LIGHT_ABSORBING_PARTICLES'].values()) 
-                ):
+            current_laps_files = [
+                p.FILE for p in self.config.LAND.LIGHT_ABSORBING_PARTICLES.root.values()
+            ]
+            if any(
+                key not in current_laps
+                for key in kwargs["LIGHT_ABSORBING_PARTICLES"].keys()
+            ) or any(
+                p["FILE"] not in current_laps_files
+                for p in kwargs["LIGHT_ABSORBING_PARTICLES"].values()
+            ):
                 raise ValueError(
                     "LAP number and files cannot be changed at runtime. "
                     "Please modify them in the input YAML file. "
                 )
-                
+
         return {k: v for k, v in kwargs.items() if v is not None}
 
     def _write_current_state(self):
@@ -258,20 +263,20 @@ class Session:
         """
         Update allowed solver fields from user-defined dictionary.
         """
-        
+
         # all fields allowed except legendre moments as this would require to
-        # recalculate all optical properties at the moment, esp for the 
-        # atmosphere 
-        
+        # recalculate all optical properties at the moment, esp for the
+        # atmosphere
+
         allowed_fields = {
-            'TYPE',
-            'ATMOSPHERE_COUPLING',
-            'OUTPUT_LEVELS', 
-            'N_STREAMS', 
-            'N_FOURIER_MODES', 
-            'RELATIVE_AZIMUTH'
-            }
-        
+            "TYPE",
+            "ATMOSPHERE_COUPLING",
+            "OUTPUT_LEVELS",
+            "N_STREAMS",
+            "N_FOURIER_MODES",
+            "RELATIVE_AZIMUTH",
+        }
+
         updates = self._prepare_updates(update_dic, allowed_fields)
 
         # store applied updates
@@ -280,24 +285,23 @@ class Session:
         # validate by creating a new instance of Solver
         if validate:
             self.config.SOLVER.__class__(**updates)
-        
+
         # # update solver parameters only if updates not empty
-        if updates: 
-            
-            if 'TYPE' in updates:
-                self.config.SOLVER.TYPE = updates['TYPE']
-            if 'ATMOSPHERE_COUPLING' in updates: 
-                self.config.SOLVER.ATMOSPHERE_COUPLING = updates['ATMOSPHERE_COUPLING']
+        if updates:
+
+            if "TYPE" in updates:
+                self.config.SOLVER.TYPE = updates["TYPE"]
+            if "ATMOSPHERE_COUPLING" in updates:
+                self.config.SOLVER.ATMOSPHERE_COUPLING = updates["ATMOSPHERE_COUPLING"]
                 self.atmosphere_column.use_atmosphere = False
-            if 'OUTPUT_LEVELS' in updates: 
-                self.config.SOLVER.OUTPUT_LEVELS = updates['OUTPUT_LEVELS']
-            if 'N_STREAMS' in updates: 
-                self.config.SOLVER.N_STREAMS = updates['N_STREAMS']
-            if 'N_FOURIER_MODES' in updates: 
-                self.config.SOLVER.N_FOURIER_MODES = updates['N_FOURIER_MODES']
-            if 'RELATIVE_AZIMUTH' in updates: 
-                self.config.SOLVER.RELATIVE_AZIMUTH = updates['RELATIVE_AZIMUTH']
-            
+            if "OUTPUT_LEVELS" in updates:
+                self.config.SOLVER.OUTPUT_LEVELS = updates["OUTPUT_LEVELS"]
+            if "N_STREAMS" in updates:
+                self.config.SOLVER.N_STREAMS = updates["N_STREAMS"]
+            if "N_FOURIER_MODES" in updates:
+                self.config.SOLVER.N_FOURIER_MODES = updates["N_FOURIER_MODES"]
+            if "RELATIVE_AZIMUTH" in updates:
+                self.config.SOLVER.RELATIVE_AZIMUTH = updates["RELATIVE_AZIMUTH"]
 
     def update_solar(self, update_dic, validate=True):
         """
@@ -318,12 +322,14 @@ class Session:
         # update SZA and recompute irradiance only if updates not empty
         if updates:
             self.solar_irradiance.sza = updates["SZA"]
-            if (self.config.SOLVER.TYPE == 'two-stream' 
-                or not self.config.SOLVER.ATMOSPHERE_COUPLING): 
-                # surface irradiance needs to be re-calculated if SZA updated 
+            if (
+                self.config.SOLVER.TYPE == "two-stream"
+                or not self.config.SOLVER.ATMOSPHERE_COUPLING
+            ):
+                # surface irradiance needs to be re-calculated if SZA updated
                 self.solar_irradiance.load_surface_irradiance()
                 self.solar_irradiance.set_surface_irradiance(self.config)
-                
+
             if "band-" in self.config.SPECTRAL.MODE:
                 self.compute_band_average()
 
@@ -332,18 +338,19 @@ class Session:
         Update allowed atmospheric fields from user-defined dictionary.
         """
 
-        # for now we do not change sky conditions, atmospheric profile type 
+        # for now we do not change sky conditions, atmospheric profile type
         # & aerosol properties
-        
-        allowed_fields = {"INTEGRATED_AOD_550", 
-                          "INTEGRATED_GAS_CONCENTRATIONS",
-                          }
+
+        allowed_fields = {
+            "INTEGRATED_AOD_550",
+            "INTEGRATED_GAS_CONCENTRATIONS",
+        }
         updates = self._prepare_updates(update_dic, allowed_fields)
 
         # store applied updates
         self._latest_updates["ATMOSPHERE"].update(updates)
 
-        # validate a copy of the config if requested 
+        # validate a copy of the config if requested
         if validate:
             self.config.ATMOSPHERE.__class__(**updates)
 
@@ -357,20 +364,22 @@ class Session:
                 # update AOD (final OP calculations after gas update)
                 self.atmosphere_column.AOD = updates["INTEGRATED_AOD_550"]
                 self.atmosphere_column.scale_tau_aerosols()
-                
+
             # if any gas to update, re-compute gas optical thickness
             if "INTEGRATED_GAS_CONCENTRATIONS" in updates:
-                self.atmosphere_column.integrated_gas_concentrations = updates["INTEGRATED_GAS_CONCENTRATIONS"]
+                self.atmosphere_column.integrated_gas_concentrations = updates[
+                    "INTEGRATED_GAS_CONCENTRATIONS"
+                ]
                 self.atmosphere_column.scale_atmospheric_profile()
                 self.atmosphere_column.compute_gas_optical_thickness()
-                
-            # if aerosols, re-compute aerosol AND atmosphere optics 
-            if self.atmosphere_column.AOD: 
+
+            # if aerosols, re-compute aerosol AND atmosphere optics
+            if self.atmosphere_column.AOD:
                 self.atmosphere_column.set_atmospheric_properties_with_aerosols()
             # if no aerosols, re-compute atmosphere optics w/out aerosols
-            else: 
+            else:
                 self.atmosphere_column.set_atmospheric_properties_without_aerosols()
-                
+
             if "band-" in self.config.SPECTRAL.MODE:
                 self.compute_band_average()
 
@@ -388,22 +397,21 @@ class Session:
             "THICKNESS",
             "SPECIFIC_SURFACE_AREA",
             "DENSITY",
-            
-            "LIGHT_ABSORBING_PARTICLES"
+            "LIGHT_ABSORBING_PARTICLES",
         }
-       
+
         updates = self._prepare_updates(update_dic, allowed_fields)
-        
+
         # store applied updates
         self._latest_updates["LAND"].update(updates)
 
-        # validate a copy of the config if requested 
+        # validate a copy of the config if requested
         if validate:
             self.config.LAND.__class__(**updates)
 
         # update only if not empty
         if updates:
-            
+
             # update arguments of the land column class
             if "THICKNESS" in updates:
                 self.land_column.thickness_profile = updates["THICKNESS"]
@@ -417,25 +425,24 @@ class Session:
                 self.land_column.lwc = updates["LWC"]
             if "GRAIN_SHAPE" in updates:
                 self.land_column.grain_shape = updates["GRAIN_SHAPE"]
-            if "RF_TYPE" in updates: 
+            if "RF_TYPE" in updates:
                 self.land_column.rf_type = updates["RF_TYPE"]
                 self.land_column.set_refractive_index_and_diffuse_fresnel_coeffs()
-            
+
             # all allowed parameters require to re-calculate clean column ops
             self.land_column.set_column_ops_without_laps()
-            
-            # if there are particles we need to update the properties even if 
+
+            # if there are particles we need to update the properties even if
             # we do not change the particle concentrations as the clean snow/ice
             # has changed
             if self.config.LAND.LIGHT_ABSORBING_PARTICLES.root.keys():
                 self.land_column.update_column_ops_with_laps()
-            
+
             # finally update legendre moments
             self.land_column.set_legendre_moments()
-            
+
             if "band-" in self.config.SPECTRAL.MODE:
                 self.compute_band_average()
-            
 
     def run(self, to_xarray=True):
         """
@@ -538,7 +545,7 @@ class Session:
                 albedo_variables[var_name] = ("wavelength", data)
 
             elif "directional_" in var_name:
-                if "m0" in var_name: 
+                if "m0" in var_name:
                     directional_variables[var_name] = (
                         ("viewing_angle", "wavelength"),
                         data,
@@ -621,44 +628,6 @@ class Session:
         # computation) with center wavelengths
         self.config._wavelengths = self._band_ranges[:, -1]
 
-    def compute_flat_band_average(self, component, wavelengths, band_ranges, var_names):
-        """
-        Flat (unweighted) band average on spectral variables on
-        given variables of a component object.
-        """
-
-        band_means = {}
-
-        for name in var_names:
-
-            arr = getattr(component, name)
-            original_shape = arr.shape[:-1]
-            arr_flat = arr.reshape(-1, arr.shape[-1])
-
-            n_bands = band_ranges.shape[0]
-            averaged_rows = np.empty((arr_flat.shape[0], n_bands))
-
-            for b, (lam_min, lam_max, _) in enumerate(band_ranges):
-                i_start = np.searchsorted(wavelengths, lam_min, side="left")
-                i_end = np.searchsorted(wavelengths, lam_max, side="right")
-                i_start = max(i_start, 0)
-                i_end = min(i_end, arr_flat.shape[1])
-
-                if i_end - i_start < 2:
-                    averaged_rows[:, b] = arr_flat[:, i_start]
-                else:
-                    wl_slice = wavelengths[i_start:i_end]
-                    values_slice = arr_flat[:, i_start:i_end]
-
-                    # trapezoidal integration along last axis (wavelength)
-                    integral = np.trapz(values_slice, wl_slice, axis=1)
-                    width = wl_slice[-1] - wl_slice[0]
-                    averaged_rows[:, b] = integral / width
-
-            band_means[name] = averaged_rows.reshape(*original_shape, n_bands)
-
-        return band_means
-
     def compute_solar_weighted_average(
         self, column, wavelengths, band_ranges, var_names
     ):
@@ -666,44 +635,49 @@ class Session:
         Solar weighted average on spectral variables on given
         variables of a component object.
         """
-
         band_means = {}
 
+        # Cache frequently accessed attributes
+        solar_flux = self.solar_irradiance.flx_slr
+        srf = self._spectral_response_function
+        solar_weighted_srf = solar_flux[None, :] * srf
+
+        # Precompute denominator integral
+        denominator_integral = np.trapezoid(solar_weighted_srf, x=wavelengths, axis=-1)
+
         for name in var_names:
-
             arr = getattr(column, name)
+            n_bands = len(band_ranges)
+            original_shape = arr.shape[:-1] if arr.ndim > 1 else ()
 
-            n_bands = band_ranges.shape[0]
-            averaged_rows = np.empty(
-                np.append(arr.shape[:-1] if arr.ndim > 1 else 1, n_bands)
-            )
+            # Reshape to (n_flat, n_wl) for broadcasting
+            if arr.ndim > 1:
+                arr_flat = arr.reshape(-1, arr.shape[-1])
+            else:
+                arr_flat = arr[None, :]
 
-            for b, (lam_min, lam_max, _) in enumerate(band_ranges):
+            # Compute numerator and denominator
+            if name in ["flx_slr", "fs", "fd"]:
+                numerator = solar_weighted_srf
+                denominator = srf
+                # Recompute denominator integral for these
+                denominator_integral_local = np.trapezoid(
+                    denominator, x=wavelengths, axis=-1
+                )
+            else:
+                numerator = solar_weighted_srf * arr_flat[:, None, :]
+                denominator = solar_weighted_srf
+                denominator_integral_local = denominator_integral
 
-                if name in ["flx_slr", "fs", "fd"]:
-                    numerator = (
-                        self.solar_irradiance.flx_slr
-                        * self._spectral_response_function[b, :]
-                    )
-                    denominator = self._spectral_response_function[b, :]
+            # Integrate along wavelength axis
+            numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
+            averaged_rows = numerator_integral / denominator_integral_local[None, :]
 
-                else:
-                    numerator = (
-                        self.solar_irradiance.flx_slr
-                        * self._spectral_response_function[b, :]
-                        * arr
-                    )
-
-                    denominator = (
-                        self.solar_irradiance.flx_slr
-                        * self._spectral_response_function[b, :]
-                    )
-
-                # trapezoidal integration along last axis (wavelength)
-                numerator_integral = np.trapezoid(numerator, wavelengths, axis=-1)
-                denominator_integral = np.trapezoid(denominator, wavelengths, axis=-1)
-
-                averaged_rows[..., b] = numerator_integral / denominator_integral
+            # Reshape back
+            if arr.ndim > 1:
+                averaged_rows = averaged_rows.reshape(*original_shape, n_bands)
+            else:
+                averaged_rows = averaged_rows.flatten()
 
             band_means[name] = averaged_rows
 
