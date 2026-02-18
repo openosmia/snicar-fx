@@ -46,14 +46,16 @@ class AtmosphereColumn:
 
         self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
-
-        self.integrated_gas_concentrations = (
-            config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
-        )
+        
         self.AOD = config.ATMOSPHERE.INTEGRATED_AOD_550
         self.aerosol_file = config.ATMOSPHERE.AEROSOL_PROPERTIES
 
         if self.use_atmosphere:
+            
+            if config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump(): 
+                self.integrated_gas_concentrations = (
+                    config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
+                )
 
             self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
 
