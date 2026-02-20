@@ -158,8 +158,6 @@ class AtmosphereColumn:
 
         gas_keys = [f"{g.lower()}(cm-3)" for g in valid_gases.keys()]
 
-        
-
         # convert profile to molecules/m3
         n_gas = self.atmosphere_profile[gas_keys].values * 1e6
         dz = self.atmosphere_profile["dz(km)"].values * 1e3
@@ -173,7 +171,6 @@ class AtmosphereColumn:
         scale_factors = np.array(
             [valid_gases[g] / c for g, c in zip(valid_gases.keys(), current_columns)]
         )
-
 
         # Apply scaling (back to cm⁻³)
         self.atmosphere_profile[gas_keys] *= scale_factors
