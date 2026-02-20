@@ -376,11 +376,19 @@ class AtmosphereColumn:
             / np.nansum(profile_aerosol_dz)
         )
 
+    def prevent_pure_scattering(self):
+        """
+        Prevent single scattering albedo to be 1 which creates
+        numerical instabilities.
+        """
+        self.ss_alb = np.clip(self.ss_alb, None, 1.0 - 1e-7)
+
     def set_atmospheric_properties_without_aerosols(self):
 
         self.tau = self.tau_molecular_scatter + self.tau_gases
         self.ss_alb = self.tau_molecular_scatter / (self.tau)
         self.legendre_moments = self.rayleigh_legendre_moments
+        self.prevent_pure_scattering()
 
         return None
 
@@ -399,5 +407,7 @@ class AtmosphereColumn:
             (self.aerosol_legendre_moments[:, None, :] * aerosol_tau_ss_alb)
             + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
         ) / (self.tau_molecular_scatter[None, :, :] + aerosol_tau_ss_alb)
+
+        self.prevent_pure_scattering()
 
         return None

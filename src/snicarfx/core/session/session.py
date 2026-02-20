@@ -50,14 +50,6 @@ class Session:
         if "band-" in self.config.SPECTRAL.MODE:
             self.compute_band_average()
 
-        # store history of updates
-        self._latest_updates = {
-            "SOLVER": {},
-            "SOLAR": {},
-            "ATMOSPHERE": {},
-            "LAND": {},
-        }
-
         # save outputs
         self.outputs = None
 
@@ -242,89 +234,85 @@ class Session:
                     "Please modify them in the input YAML file. "
                 )
 
-        return {k: v for k, v in kwargs.items() if v is not None}
-
     def _write_current_state(self):
         """Write current session state to dictionnary, to be addded to
-        the input file"""
+        the output file"""
 
         current_state = self.config.dict()
 
-        # merge applied updates on top of the static config
-        for section, section_updates in self._latest_updates.items():
-            current_state[section].update(section_updates)
-
         return current_state
 
-    def update_solver(self, update_dic, validate=True):
+    def update_solver(self, updates, validate=True):
         """
         Update allowed solver fields from user-defined dictionary.
+
+        All fields allowed except legendre moments and atmosphere
+        coupling as this would require to recalculate all optical
+        properties at the moment, especially for the atmosphere.
+
         """
-
-        # all fields allowed except legendre moments as this would require to
-        # recalculate all optical properties at the moment, esp for the
-        # atmosphere
-
-        allowed_fields = {
-            "TYPE",
-            "ATMOSPHERE_COUPLING",
-            "OUTPUT_LEVELS",
-            "N_STREAMS",
-            "N_FOURIER_MODES",
-            "RELATIVE_AZIMUTH",
-        }
-
-        updates = self._prepare_updates(update_dic, allowed_fields)
-
-        # store applied updates
-        self._latest_updates["SOLVER"].update(updates)
 
         # validate by creating a new instance of Solver
         if validate:
+            allowed_fields = {
+                "TYPE",
+                "OUTPUT_LEVELS",
+                "N_STREAMS",
+                "N_FOURIER_MODES",
+                "RELATIVE_AZIMUTH",
+            }
+            self._prepare_updates(updates, allowed_fields)
             self.config.SOLVER.__class__(**updates)
 
-        # # update solver parameters only if updates not empty
+        # update solver parameters only if updates not empty
+        # explicit conditions for all keys in case they require
+        # further processing
         if updates:
 
             if "TYPE" in updates:
                 self.config.SOLVER.TYPE = updates["TYPE"]
-            if "ATMOSPHERE_COUPLING" in updates:
-                self.config.SOLVER.ATMOSPHERE_COUPLING = updates["ATMOSPHERE_COUPLING"]
-                self.atmosphere_column.use_atmosphere = False
+
             if "OUTPUT_LEVELS" in updates:
                 self.config.SOLVER.OUTPUT_LEVELS = updates["OUTPUT_LEVELS"]
+
             if "N_STREAMS" in updates:
                 self.config.SOLVER.N_STREAMS = updates["N_STREAMS"]
+
             if "N_FOURIER_MODES" in updates:
                 self.config.SOLVER.N_FOURIER_MODES = updates["N_FOURIER_MODES"]
+
             if "RELATIVE_AZIMUTH" in updates:
                 self.config.SOLVER.RELATIVE_AZIMUTH = updates["RELATIVE_AZIMUTH"]
 
-    def update_solar(self, update_dic, validate=True):
+    def update_solar(self, updates, validate=True):
         """
         Update allowed solar fields from user-defined dictionary.
+
+        All fields, hence SZA only.
         """
-
-        # only SZA in solar
-        allowed_fields = {"SZA"}
-        updates = self._prepare_updates(update_dic, allowed_fields)
-
-        # store applied updates
-        self._latest_updates["SOLAR"].update(updates)
 
         # validate by creating a new instance of Solver
         if validate:
+            allowed_fields = {"SZA"}
+
+            if (
+                not self.config.SOLVER.ATMOSPHERE_COUPLING
+                and self.config.SPECTRAL.MODE == "band-solar-weighted-mean"
+            ):
+                raise ValueError(
+                    "Updating SZA without atmosphere coupling using band-solar-weighted-mean spectral mode requires a new input file."
+                )
+
+            self._prepare_updates(updates, allowed_fields)
             self.config.SOLAR.__class__(**updates)
 
         # update SZA and recompute irradiance only if updates not empty
         if updates:
             self.solar_irradiance.sza = updates["SZA"]
-            if (
-                self.config.SOLVER.TYPE == "two-stream"
-                or not self.config.SOLVER.ATMOSPHERE_COUPLING
-            ):
+
+            if not self.config.SOLVER.ATMOSPHERE_COUPLING:
+
                 # surface irradiance needs to be re-calculated if SZA updated
-                self.solar_irradiance.load_surface_irradiance()
                 self.solar_irradiance.set_surface_irradiance(self.config)
 
                 if self.config.SPECTRAL.MODE == "band-snicar-default":
@@ -346,27 +334,6 @@ class Session:
                         self.solar_irradiance.fs = solar_flat_means["fs"]
                         self.solar_irradiance.fd = solar_flat_means["fd"]
 
-                elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
-                    solar_weighted_means = self.compute_solar_weighted_average(
-                        self.solar_irradiance,
-                        self.config._wavelengths_solar,
-                        self._band_ranges,
-                        var_names=["flx_slr"],
-                    )
-                    self.solar_irradiance.flx_slr = solar_weighted_means[
-                        "flx_slr"
-                    ].flatten()
-
-                    if self.config.SOLVER.TYPE == "two-stream":
-                        solar_weighted_means = self.compute_solar_weighted_average(
-                            self.solar_irradiance,
-                            self.config._wavelengths_solar,
-                            self._band_ranges,
-                            var_names=["fs", "fd"],
-                        )
-                        self.solar_irradiance.fs = solar_weighted_means["fs"].flatten()
-                        self.solar_irradiance.fd = solar_weighted_means["fd"].flatten()
-
     def update_atmosphere(self, update_dic, validate=True):
         """
         Update allowed atmospheric fields from user-defined dictionary.
@@ -380,9 +347,6 @@ class Session:
             "INTEGRATED_GAS_CONCENTRATIONS",
         }
         updates = self._prepare_updates(update_dic, allowed_fields)
-
-        # store applied updates
-        self._latest_updates["ATMOSPHERE"].update(updates)
 
         # validate a copy of the config if requested
         if validate:
@@ -432,9 +396,6 @@ class Session:
         }
 
         updates = self._prepare_updates(update_dic, allowed_fields)
-
-        # store applied updates
-        self._latest_updates["LAND"].update(updates)
 
         # validate a copy of the config if requested
         if validate:
