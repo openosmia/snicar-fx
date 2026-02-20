@@ -7,6 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 from scipy.special import factorial, legendre, lpmv, eval_legendre
+from numpy.linalg import solve
 
 
 class _MultiStreamSolver:
@@ -335,7 +336,7 @@ class _MultiStreamSolver:
         eig_value_diag = np.eye(self.n_angles)[None, :, :] * eig_value[:, None, :]
         eig_veva = np.matmul(eig_vecs, eig_value_diag)
 
-        eig_vef = np.linalg.solve(np.moveaxis(pp - pm, -1, 0), eig_veva)
+        eig_vef = solve(np.moveaxis(pp - pm, -1, 0), eig_veva)
 
         # Compute layer reflection (Gp) and transmission (Gm) matrices
         gp = (eig_vecs + eig_vef) / 2.0
@@ -346,7 +347,7 @@ class _MultiStreamSolver:
         a1 = gp * exp_x[:, None, :]
         a4 = gm * exp_x[:, None, :]
 
-        a2 = np.linalg.solve(gm, a1)
+        a2 = solve(gm, a1)
         a3 = np.matmul(gp, a2)
         a5 = np.matmul(a1, a2)
         a6 = np.matmul(a4, a2)
@@ -357,9 +358,9 @@ class _MultiStreamSolver:
         a4_m_a3_t = np.moveaxis(a4 - a3, -1, 1)
         gp_m_a6_t = np.moveaxis(gp - a6, -1, 1)
 
-        trans = np.linalg.solve(gm_a5_t, a4_m_a3_t)
+        trans = solve(gm_a5_t, a4_m_a3_t)
 
-        refl = np.linalg.solve(gm_a5_t, gp_m_a6_t)
+        refl = solve(gm_a5_t, gp_m_a6_t)
 
         trans_t = np.moveaxis(trans, -1, 1)
         refl_t = np.moveaxis(refl, -1, 1)
@@ -418,7 +419,7 @@ class _MultiStreamSolver:
             n = np.arange(self.n_angles, n2)
             v0[n, n, :] -= 1.0 - self.cos_angle[:, None] / self.cos_sun
 
-            solar1 = np.linalg.solve(
+            solar1 = solve(
                 np.moveaxis(v0[:n2_1, :n2_1, :], -1, 0),
                 np.moveaxis(solar[:n2_1, None, :], -1, 0),
             )
@@ -666,8 +667,10 @@ class _MultiStreamSolver:
                     axis=-2,
                 )
 
-                s_level_refl_up_boa = s_level_rad_up_boa * np.pi / (
-                    E_diff[None, :, None] + E_dir[None, :, None]
+                s_level_refl_up_boa = (
+                    s_level_rad_up_boa
+                    * np.pi
+                    / (E_diff[None, :, None] + E_dir[None, :, None])
                 )
 
                 # radiance as a func of phi & mu at the bottom of the atmosphere (BOA)
@@ -728,8 +731,10 @@ class _MultiStreamSolver:
                     axis=-2,
                 )
 
-                s_level_refl_up_toa = s_level_rad_up_toa * np.pi / (
-                    E_diff[None, :, None] + E_dir[None, :, None]
+                s_level_refl_up_toa = (
+                    s_level_rad_up_toa
+                    * np.pi
+                    / (E_diff[None, :, None] + E_dir[None, :, None])
                 )
 
                 # radiance as a func of phi & mu at the top of the atmosphere (TOA)
@@ -820,7 +825,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
             infinite_scattering[:, n, n] += 1
 
             inv_gamma_t = np.moveaxis(
-                np.linalg.solve(
+                solve(
                     np.moveaxis(infinite_scattering, 1, 2),
                     np.moveaxis(aads.s_layer_trans[:, :, :, k], 2, 1),
                 ),
@@ -885,7 +890,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
                 infinite_scattering[:, n, n] += 1
 
                 inv_gamma_t = np.moveaxis(
-                    np.linalg.solve(
+                    solve(
                         np.moveaxis(infinite_scattering, 1, 2),
                         np.moveaxis(aads.s_layer_trans[:, :, :, k], 2, 1),
                     ),

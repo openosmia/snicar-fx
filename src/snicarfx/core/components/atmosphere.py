@@ -134,7 +134,7 @@ class AtmosphereColumn:
 
         return profile
 
-    def scale_atmospheric_profile(self):
+    def scale_atmospheric_profile_old(self):
         """
         Scale atmospheric profile by given integrated gas concentrations.
         """
@@ -175,6 +175,48 @@ class AtmosphereColumn:
 
                 # apply scaling (back to cm⁻³)
                 self.atmosphere_profile[profile_key] *= scale_factor
+
+    def scale_atmospheric_profile(self):
+        """
+        Scale atmospheric profile by given integrated gas concentrations.
+        """
+
+        AVOGADRO_NUMBER = 6.02214076e23
+
+        # molecular masses of gases of interest (kg/mol)
+        MOLECULAR_MASSES = {
+            "O3": 0.048,
+            "O2": 0.032,
+            "H2O": 0.018015,
+            "CO2": 0.04401,
+            "NO2": 0.04601,
+        }
+
+        # Filter out gases with None concentration
+        valid_gases = {
+            g: val
+            for g, val in self.integrated_gas_concentrations.items()
+            if val is not None
+        }
+
+        gas_keys = [f"{g.lower()}(cm-3)" for g in valid_gases.keys()]
+
+        # convert profile to molecules/m3
+        n_gas = self.atmosphere_profile[gas_keys].values * 1e6
+        dz = self.atmosphere_profile["dz(km)"].values * 1e3
+
+        # Compute current columns (kg/m²) for all valid gases
+        current_columns = np.sum(n_gas * dz[:, None], axis=0) * np.array(
+            [MOLECULAR_MASSES[g] / AVOGADRO_NUMBER for g in valid_gases.keys()]
+        )
+
+        # Scale factors
+        scale_factors = np.array(
+            [valid_gases[g] / c for g, c in zip(valid_gases.keys(), current_columns)]
+        )
+
+        # Apply scaling (back to cm⁻³)
+        self.atmosphere_profile[gas_keys] *= scale_factors
 
     def compute_rayleigh_cross_section_bodhaine(self, co2_ppm):
         """
