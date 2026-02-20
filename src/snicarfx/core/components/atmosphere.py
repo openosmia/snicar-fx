@@ -134,48 +134,6 @@ class AtmosphereColumn:
 
         return profile
 
-    def scale_atmospheric_profile_old(self):
-        """
-        Scale atmospheric profile by given integrated gas concentrations.
-        """
-
-        # Avogadro number
-        AVOGADRO_NUMBER = 6.02214076e23
-
-        # molecular masses of gases of interest (kg/mol)
-        MOLECULAR_MASSES = {
-            "O3": 0.048,  # Ozone
-            "O2": 0.032,  # Oxygen
-            "H2O": 0.018015,  # Water vapor
-            "CO2": 0.04401,  # Carbon dioxide
-            "NO2": 0.04601,  # Nitrogen dioxide
-        }
-
-        for (
-            gas_name,
-            integrated_gas_column,
-        ) in self.integrated_gas_concentrations.items():
-
-            if integrated_gas_column is not None:
-
-                # match profile column name
-                profile_key = f"{gas_name.lower()}(cm-3)"
-
-                # convert profile to molecules/m3
-                n = self.atmosphere_profile[profile_key].values * 1e6
-                dz = self.atmosphere_profile["dz(km)"].values * 1e3
-
-                # initial column in kg/m²
-                current_column = (
-                    np.sum(n * dz) * MOLECULAR_MASSES[gas_name] / AVOGADRO_NUMBER
-                )
-
-                # scale factor
-                scale_factor = integrated_gas_column / current_column
-
-                # apply scaling (back to cm⁻³)
-                self.atmosphere_profile[profile_key] *= scale_factor
-
     def scale_atmospheric_profile(self):
         """
         Scale atmospheric profile by given integrated gas concentrations.
@@ -421,9 +379,7 @@ class AtmosphereColumn:
     def set_atmospheric_properties_without_aerosols(self):
 
         self.tau = self.tau_molecular_scatter + self.tau_gases
-        self.ss_alb = self.tau_molecular_scatter / (
-            self.tau_gases + self.tau_molecular_scatter
-        )
+        self.ss_alb = self.tau_molecular_scatter / (self.tau)
         self.legendre_moments = self.rayleigh_legendre_moments
 
         return None
@@ -434,18 +390,14 @@ class AtmosphereColumn:
 
         self.ss_alb = (
             self.tau_molecular_scatter + self.aerosol_ss_alb * self.tau_aerosols
-        ) / (self.tau_gases + self.tau_molecular_scatter + self.tau_aerosols)
+        ) / (self.tau)
 
-        self.legendre_moments = (
-            (
-                self.aerosol_legendre_moments[:, None, :]
-                * self.tau_aerosols[None, :, :]
-                * self.aerosol_ss_alb[None, None, :]
-            )
-            + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
-        ) / (
-            self.tau_molecular_scatter[None, :, :]
-            + self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]
+        aerosol_tau_ss_alb = (
+            self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]
         )
+        self.legendre_moments = (
+            (self.aerosol_legendre_moments[:, None, :] * aerosol_tau_ss_alb)
+            + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
+        ) / (self.tau_molecular_scatter[None, :, :] + aerosol_tau_ss_alb)
 
         return None

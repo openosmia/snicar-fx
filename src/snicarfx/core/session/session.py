@@ -326,7 +326,7 @@ class Session:
                 # surface irradiance needs to be re-calculated if SZA updated
                 self.solar_irradiance.load_surface_irradiance()
                 self.solar_irradiance.set_surface_irradiance(self.config)
-                
+
                 if self.config.SPECTRAL.MODE == "band-snicar-default":
                     solar_flat_means = self.compute_flat_band_average(
                         self.solar_irradiance,
@@ -335,7 +335,7 @@ class Session:
                         var_names=["flx_slr"],
                     )
                     self.solar_irradiance.flx_slr = solar_flat_means["flx_slr"]
-                    
+
                     if self.config.SOLVER.TYPE == "two-stream":
                         solar_flat_means = self.compute_flat_band_average(
                             self.solar_irradiance,
@@ -345,7 +345,7 @@ class Session:
                         )
                         self.solar_irradiance.fs = solar_flat_means["fs"]
                         self.solar_irradiance.fd = solar_flat_means["fd"]
-                        
+
                 elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
                     solar_weighted_means = self.compute_solar_weighted_average(
                         self.solar_irradiance,
@@ -353,8 +353,10 @@ class Session:
                         self._band_ranges,
                         var_names=["flx_slr"],
                     )
-                    self.solar_irradiance.flx_slr = solar_weighted_means["flx_slr"].flatten()
-                    
+                    self.solar_irradiance.flx_slr = solar_weighted_means[
+                        "flx_slr"
+                    ].flatten()
+
                     if self.config.SOLVER.TYPE == "two-stream":
                         solar_weighted_means = self.compute_solar_weighted_average(
                             self.solar_irradiance,
@@ -364,7 +366,6 @@ class Session:
                         )
                         self.solar_irradiance.fs = solar_weighted_means["fs"].flatten()
                         self.solar_irradiance.fd = solar_weighted_means["fd"].flatten()
-
 
     def update_atmosphere(self, update_dic, validate=True):
         """
@@ -460,10 +461,13 @@ class Session:
                 self.land_column.set_refractive_index_and_diffuse_fresnel_coeffs()
             if "LIGHT_ABSORBING_PARTICLES" in updates:
                 self.land_column.lap_concentrations = (
-                    np.array([obj["CONC"] 
-                              for obj in updates[
-                                      "LIGHT_ABSORBING_PARTICLES"].values()
-                              ]) * 1e-9
+                    np.array(
+                        [
+                            obj["CONC"]
+                            for obj in updates["LIGHT_ABSORBING_PARTICLES"].values()
+                        ]
+                    )
+                    * 1e-9
                 ).T
 
             # all allowed parameters require to re-calculate clean column ops
@@ -477,7 +481,6 @@ class Session:
 
             # finally update legendre moments
             self.land_column.set_legendre_moments()
-
 
     def run(self, to_xarray=True):
         """
@@ -662,7 +665,7 @@ class Session:
         # overwrite high-resolution wavelength array (used for
         # computation) with center wavelengths
         self.config._wavelengths = self._band_ranges[:, -1]
-        
+
     def compute_flat_band_average(self, component, wavelengths, band_ranges, var_names):
         """
         Flat (unweighted) band average on spectral variables on
@@ -710,16 +713,14 @@ class Session:
         """
         band_means = {}
 
-        # Cache frequently accessed attributes
-        solar_flux = self.solar_irradiance.flx_slr
-        srf = self._spectral_response_function
-        solar_weighted_srf = solar_flux[None, :] * srf
-
         # Precompute denominator integral
-        denominator_integral = np.trapezoid(solar_weighted_srf, x=wavelengths, axis=-1)
+        denominator_integral = np.trapezoid(
+            self._spectral_response_function_sw, x=wavelengths, axis=-1
+        )
 
         for name in var_names:
             arr = getattr(column, name)
+
             n_bands = len(band_ranges)
             original_shape = arr.shape[:-1] if arr.ndim > 1 else ()
 
@@ -731,15 +732,15 @@ class Session:
 
             # Compute numerator and denominator
             if name in ["flx_slr", "fs", "fd"]:
-                numerator = solar_weighted_srf
-                denominator = srf
+                numerator = self._spectral_response_function_sw
+                denominator = self._spectral_response_function
                 # Recompute denominator integral for these
                 denominator_integral_local = np.trapezoid(
                     denominator, x=wavelengths, axis=-1
                 )
             else:
-                numerator = solar_weighted_srf * arr_flat[:, None, :]
-                denominator = solar_weighted_srf
+                numerator = self._spectral_response_function_sw * arr_flat[:, None, :]
+                denominator = self._spectral_response_function_sw
                 denominator_integral_local = denominator_integral
 
             # Integrate along wavelength axis
@@ -794,6 +795,14 @@ class Session:
                 ]
 
         elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
+
+            # only compute if it hasn't been yet
+            if not hasattr(self, "_spectral_response_function_sw"):
+                # cache solar weighted SRF
+                self._spectral_response_function_sw = (
+                    self.solar_irradiance.flx_slr[None, :]
+                    * self._spectral_response_function
+                )
 
             # average atmosphere variables
             if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
