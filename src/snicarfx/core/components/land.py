@@ -95,37 +95,48 @@ class LandColumn:
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr, self.nbr_wvl))
 
-        self.set_refractive_index_and_diffuse_fresnel_coeffs()
+        self.set_refractive_index()
+        if config.SOLVER.TYPE == "two-stream":
+            self.set_diffuse_fresnel_coeffs()
+
         self.set_column_ops_without_laps()
 
         if config.LAND.LIGHT_ABSORBING_PARTICLES is not None:
             self.laps = config.LAND.LIGHT_ABSORBING_PARTICLES.root
             self.set_lap_properties()
             self.update_column_ops_with_laps()
-            
+
         self.set_legendre_moments()
 
-    def set_refractive_index_and_diffuse_fresnel_coeffs(self):
+    def set_refractive_index(self):
         """
-        Load and set refractive indices and diffuse Fresnel coefficients.
+        Load and set refractive indices.
 
-        This method loads high-resolution ice/water refractive index data as
-        well as diffuse Fresnel reflection coefficients, and interpolates them
-        to the model's spectral resolution.
+        This method loads high-resolution ice/water refractive index
+        and interpolates them to the model's spectral resolution.
+
         """
 
-        refidx_file = xr.open_dataset(f"{self.ROOT_PATH}/data/refractive_indices.nc")
-        fresnel_diffuse_file = xr.open_dataset(
-            f"{self.ROOT_PATH}/data/fresnel_diffuse_coefficients.nc"
-        )
-
-        refidx_file = refidx_file.interp(wvl=self._wavelengths)
-        fresnel_diffuse_file = fresnel_diffuse_file.interp(wvl=self._wavelengths)
-
+        refidx_file = xr.open_dataset(
+            f"{self.ROOT_PATH}/data/refractive_indices.nc"
+        ).interp(wvl=self._wavelengths)
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values
         self.ref_idx_im = refidx_file[str("im_" + self.rf_type)].values
         self.ref_idx_im_water = refidx_file["im_Row20"].values
 
+    def set_diffuse_fresnel_coeffs(self):
+        """
+        Load and set diffuse Fresnel coefficients.
+
+        This method loads high-resolution diffuse Fresnel reflection
+        coefficients, and interpolates them to the model's spectral
+        resolution.
+
+        """
+
+        fresnel_diffuse_file = xr.open_dataset(
+            f"{self.ROOT_PATH}/data/fresnel_diffuse_coefficients.nc"
+        ).interp(wvl=self._wavelengths)
         self.fl_r_dif_a = fresnel_diffuse_file[
             str("R_dif_fa_ice_" + self.rf_type)
         ].values
@@ -171,16 +182,15 @@ class LandColumn:
 
                 self.ss_alb[lyr, :] = scattering_cff / (scattering_cff + abs_cff)
 
-                
                 # Kokhanovsky 2002 - spherical bubbles
                 self.asm_prm[lyr, :] = 0.49274 + 0.44466 / (
                     0.69233 * np.sqrt(np.pi / 2)
                 ) * np.exp(-2 * ((1 / self.ref_idx_re - 1.04882) / 0.69233) ** 2)
 
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
-                
+
                 if self.grain_shape[lyr] == 1:
-                    # correction low end of Dadic 2013 
+                    # correction low end of Dadic 2013
                     self.asm_prm[lyr, :] = self.asm_prm[lyr, :] * 0.94
 
                 self.ext_cff[lyr, :] = scattering_cff + abs_cff
@@ -240,11 +250,11 @@ class LandColumn:
                     # Robledano 2023 measurements
                     self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.815
                     b = self.ref_idx_re**2
-                    
-                    if np.max(self._wavelengths) >= 1.4e-6: 
+
+                    if np.max(self._wavelengths) >= 1.4e-6:
                         # find the closest index
                         idx_1400nm = np.argmin(abs(self._wavelengths - 1.4e-6))
-                        
+
                         # calculate spherical asymmetry param
                         eta = (
                             0.3639
@@ -254,12 +264,12 @@ class LandColumn:
                         ginf = 1.008 - 0.11 * (self.ref_idx_re - 1)
                         g0 = 1.006 - 0.3641 * (self.ref_idx_re - 1)
                         asm_prm_spheres = ginf - (ginf - g0) * np.exp(-z * eta)
-                        
-                        self.asm_prm[lyr, idx_1400nm:] = (
-                            asm_prm_spheres[idx_1400nm:] 
-                            - 
-                            abs(self.asm_prm[lyr, idx_1400nm] - asm_prm_spheres[idx_1400nm])
-                            )
+
+                        self.asm_prm[lyr, idx_1400nm:] = asm_prm_spheres[
+                            idx_1400nm:
+                        ] - abs(
+                            self.asm_prm[lyr, idx_1400nm] - asm_prm_spheres[idx_1400nm]
+                        )
 
                 # Eq. 2.45 in Kokhanovsky 2001
                 rho = 0.0123 + 0.1622 * (self.ref_idx_re - 1)
@@ -268,25 +278,18 @@ class LandColumn:
                 # Eq. 7 in Kokhanovsky and Macke 1997 (ss_alb = (1-Cabs)/Cext)
                 self.ss_alb[lyr, :] = 1 - 0.5 * (1 - rho) * (1 - np.exp(-z * phi))
 
-    def load_lap_properties(self, var_name):
+    def load_lap_properties(self):
         """
         Load optical properties of light-absorbing particles (LAPs) depending
         on computation mode.
         """
 
-        data = np.stack(
-            [
-                xr.open_dataset(
-                    f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
-                )
-                .interp(wvl=self._wavelengths, kwargs={"fill_value": "extrapolate"})[
-                    var_name
-                ]
-                .values
-                for lap, cfg in self.laps.items()
-            ],
-            axis=0,
-        )
+        data = {
+            lap: xr.open_dataset(
+                f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
+            ).interp(wvl=self._wavelengths, kwargs={"fill_value": "extrapolate"})
+            for lap, cfg in self.laps.items()
+        }
 
         return data
 
@@ -298,14 +301,25 @@ class LandColumn:
         configuration, converting their concentrations to consistent units,
         and interpolating their properties to the model's spectral grid.
         """
-        
+
         self.lap_concentrations = (
             np.array([obj.CONC for obj in self.laps.values()]) * 1e-9
         ).T
 
-        self.lap_ss_alb = self.load_lap_properties("ss_alb")
-        self.lap_asm_prm = self.load_lap_properties("asm_prm")
-        self.lap_ext_cff = self.load_lap_properties("ext_cff_mss")
+        lap_properties = self.load_lap_properties()
+
+        self.lap_ss_alb = np.vstack(
+            [lap_properties[lap]["ss_alb"].values for lap, cfg in self.laps.items()]
+        )
+        self.lap_asm_prm = np.vstack(
+            [lap_properties[lap]["asm_prm"].values for lap, cfg in self.laps.items()]
+        )
+        self.lap_ext_cff = np.vstack(
+            [
+                lap_properties[lap]["ext_cff_mss"].values
+                for lap, cfg in self.laps.items()
+            ]
+        )
 
     def update_column_ops_with_laps(self):
         """
@@ -345,14 +359,9 @@ class LandColumn:
         self.asm_prm = (1 / (self.tau * (self.ss_alb))) * (
             asm_prm_all_laps + (asm_prm_clean * ss_alb_clean * tau_clean)
         )
-        
+
     def set_legendre_moments(self):
-            
+
         self.legendre_moments = (
-            self.asm_prm[None, :, :] ** np.arange(
-                self.n_expansion)[:, None, None]
-            )
-        
-    
-            
-            
+            self.asm_prm[None, :, :] ** np.arange(self.n_expansion)[:, None, None]
+        )
