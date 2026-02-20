@@ -271,6 +271,7 @@ class Session:
                     },
                 }
             )
+            self.config.SOLVER = updated_config.SOLVER
 
         # update solver parameters only if updates not empty
         # explicit conditions for all keys in case they require
@@ -321,6 +322,7 @@ class Session:
                     },
                 }
             )
+            self.config.SOLAR = updated_config.SOLAR
 
         # update SZA and recompute irradiance only if updates not empty
         if updates:
@@ -359,6 +361,7 @@ class Session:
                     },
                 }
             )
+            self.config.ATMOSPHERE = updated_config.ATMOSPHERE
 
         # update only if not empty
         if updates:
@@ -422,6 +425,7 @@ class Session:
                     },
                 }
             )
+            self.config.LAND = updated_config.LAND
 
         # update only if not empty
         if updates:

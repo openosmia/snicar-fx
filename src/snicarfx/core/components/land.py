@@ -88,10 +88,6 @@ class LandColumn:
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
 
         # ssps
-        self.ss_alb = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.ext_cff = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.tau = np.ones((self.nbr_lyr, self.nbr_wvl))
-        self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr, self.nbr_wvl))
 
@@ -157,6 +153,10 @@ class LandColumn:
         """
 
         self.layer_mass = np.array(self.density) * np.array(self.thickness_profile)
+        self.ss_alb = np.ones((self.nbr_lyr, self.nbr_wvl))
+        self.ext_cff = np.ones((self.nbr_lyr, self.nbr_wvl))
+        self.tau = np.ones((self.nbr_lyr, self.nbr_wvl))
+        self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
 
         for lyr in range(self.nbr_lyr):
 
