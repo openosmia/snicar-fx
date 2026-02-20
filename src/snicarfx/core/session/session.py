@@ -231,7 +231,7 @@ class Session:
             ):
                 raise ValueError(
                     "LAP number and files cannot be changed at runtime. "
-                    "Please modify them in the input YAML file. "
+                    "Please modify them in the input file. "
                 )
 
     def _write_current_state(self):
@@ -246,9 +246,10 @@ class Session:
         """
         Update allowed solver fields from user-defined dictionary.
 
-        All fields allowed except legendre moments and atmosphere
-        coupling as this would require to recalculate all optical
-        properties at the moment, especially for the atmosphere.
+        All fields allowed except legendre moments, atmosphere
+        coupling and the number of streams as this would require to
+        recalculate all optical properties at the moment, especially
+        for the atmosphere.
 
         """
 
@@ -257,12 +258,19 @@ class Session:
             allowed_fields = {
                 "TYPE",
                 "OUTPUT_LEVELS",
-                "N_STREAMS",
                 "N_FOURIER_MODES",
                 "RELATIVE_AZIMUTH",
             }
             self._prepare_updates(updates, allowed_fields)
-            self.config.SOLVER.__class__(**updates)
+            updated_config = Config.model_validate(
+                {
+                    **self.config.model_dump(),
+                    "SOLVER": {
+                        **self.config.SOLVER.model_dump(),
+                        **updates,
+                    },
+                }
+            )
 
         # update solver parameters only if updates not empty
         # explicit conditions for all keys in case they require
@@ -304,7 +312,15 @@ class Session:
                 )
 
             self._prepare_updates(updates, allowed_fields)
-            self.config.SOLAR.__class__(**updates)
+            updated_config = Config.model_validate(
+                {
+                    **self.config.model_dump(),
+                    "SOLAR": {
+                        **self.config.SOLAR.model_dump(),
+                        **updates,
+                    },
+                }
+            )
 
         # update SZA and recompute irradiance only if updates not empty
         if updates:
@@ -334,7 +350,15 @@ class Session:
             }
 
             self._prepare_updates(updates, allowed_fields)
-            self.config.ATMOSPHERE.__class__(**updates)
+            updated_config = Config.model_validate(
+                {
+                    **self.config.model_dump(),
+                    "ATMOSPHERE": {
+                        **self.config.ATMOSPHERE.model_dump(),
+                        **updates,
+                    },
+                }
+            )
 
         # update only if not empty
         if updates:
@@ -389,7 +413,15 @@ class Session:
             }
 
             self._prepare_updates(updates, allowed_fields)
-            self.config.LAND.__class__(**updates)
+            updated_config = Config.model_validate(
+                {
+                    **self.config.model_dump(),
+                    "LAND": {
+                        **self.config.LAND.model_dump(),
+                        **updates,
+                    },
+                }
+            )
 
         # update only if not empty
         if updates:
@@ -409,7 +441,10 @@ class Session:
                 self.land_column.grain_shape = updates["GRAIN_SHAPE"]
             if "RF_TYPE" in updates:
                 self.land_column.rf_type = updates["RF_TYPE"]
-                self.land_column.set_refractive_index_and_diffuse_fresnel_coeffs()
+                self.land_column.set_refractive_index()
+                if self.config.SOLVER.TYPE == "two-stream":
+                    self.land_column.set_diffuse_fresnel_coeffs()
+
             if "LIGHT_ABSORBING_PARTICLES" in updates:
                 self.land_column.lap_concentrations = (
                     np.array(

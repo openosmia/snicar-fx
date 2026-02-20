@@ -52,17 +52,16 @@ class AtmosphereColumn:
 
         if self.use_atmosphere:
 
-            self.integrated_gas_concentrations = (
-                config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
-            )
-
             self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
 
             # load atm profile with gas conc., P/T/density etc
             self.atmosphere_profile = self.set_atmospheric_profile()
 
             # scale atmospheric profile by integrated gas concentrations if passed
-            if self.integrated_gas_concentrations is not None:
+            if config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS is not None:
+                self.integrated_gas_concentrations = (
+                    config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
+                )
                 self.scale_atmospheric_profile()
 
             # set nb of atm layers (dependent on altitude)
@@ -158,6 +157,8 @@ class AtmosphereColumn:
         }
 
         gas_keys = [f"{g.lower()}(cm-3)" for g in valid_gases.keys()]
+
+        print(gas_keys)
 
         # convert profile to molecules/m3
         n_gas = self.atmosphere_profile[gas_keys].values * 1e6
