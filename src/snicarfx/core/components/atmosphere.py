@@ -381,7 +381,7 @@ class AtmosphereColumn:
         Prevent single scattering albedo to be 1 which creates
         numerical instabilities.
         """
-        self.ss_alb = np.clip(self.ss_alb, None, 1.0 - 1e-7)
+        self.ss_alb[self.ss_alb == 1] = 1.0 - 1e-7
 
     def set_atmospheric_properties_without_aerosols(self):
 

@@ -315,26 +315,9 @@ class Session:
                 # surface irradiance needs to be re-calculated if SZA updated
                 self.solar_irradiance.set_surface_irradiance(self.config)
 
-                if self.config.SPECTRAL.MODE == "band-snicar-default":
-                    solar_flat_means = self.compute_flat_band_average(
-                        self.solar_irradiance,
-                        self.config._wavelengths_solar,
-                        self._band_ranges,
-                        var_names=["flx_slr"],
-                    )
-                    self.solar_irradiance.flx_slr = solar_flat_means["flx_slr"]
+                self.compute_band_average(components=["solar"])
 
-                    if self.config.SOLVER.TYPE == "two-stream":
-                        solar_flat_means = self.compute_flat_band_average(
-                            self.solar_irradiance,
-                            self.config._wavelengths_solar,
-                            self._band_ranges,
-                            var_names=["fs", "fd"],
-                        )
-                        self.solar_irradiance.fs = solar_flat_means["fs"]
-                        self.solar_irradiance.fd = solar_flat_means["fd"]
-
-    def update_atmosphere(self, update_dic, validate=True):
+    def update_atmosphere(self, updates, validate=True):
         """
         Update allowed atmospheric fields from user-defined dictionary.
         """
@@ -342,14 +325,15 @@ class Session:
         # for now we do not change sky conditions, atmospheric profile type
         # & aerosol properties
 
-        allowed_fields = {
-            "INTEGRATED_AOD_550",
-            "INTEGRATED_GAS_CONCENTRATIONS",
-        }
-        updates = self._prepare_updates(update_dic, allowed_fields)
-
         # validate a copy of the config if requested
         if validate:
+
+            allowed_fields = {
+                "INTEGRATED_AOD_550",
+                "INTEGRATED_GAS_CONCENTRATIONS",
+            }
+
+            self._prepare_updates(updates, allowed_fields)
             self.config.ATMOSPHERE.__class__(**updates)
 
         # update only if not empty
@@ -357,11 +341,15 @@ class Session:
 
             if "INTEGRATED_AOD_550" in updates:
                 # load aerosols properties if not in session already
-                if not self.atmosphere_column.AOD:
+                if self.atmosphere_column.AOD == 0:
                     self.atmosphere_column.set_aerosol_properties()
+
                 # update AOD (final OP calculations after gas update)
                 self.atmosphere_column.AOD = updates["INTEGRATED_AOD_550"]
-                self.atmosphere_column.scale_tau_aerosols()
+
+                # only scale if there are aerosols
+                if self.atmosphere_column.AOD > 0:
+                    self.atmosphere_column.scale_tau_aerosols()
 
             # if any gas to update, re-compute gas optical thickness
             if "INTEGRATED_GAS_CONCENTRATIONS" in updates:
@@ -372,33 +360,35 @@ class Session:
                 self.atmosphere_column.compute_gas_optical_thickness()
 
             # if aerosols, re-compute aerosol AND atmosphere optics
-            if self.atmosphere_column.AOD:
+            if self.atmosphere_column.AOD > 0:
                 self.atmosphere_column.set_atmospheric_properties_with_aerosols()
+
             # if no aerosols, re-compute atmosphere optics w/out aerosols
             else:
                 self.atmosphere_column.set_atmospheric_properties_without_aerosols()
 
-    def update_land(self, update_dic, validate=True):
+            self.compute_band_average(components=["atmosphere"])
+
+    def update_land(self, updates, validate=True):
         """
         Update allowed solar fields.
         """
 
-        # Keys that are allowed to be modified
-        allowed_fields = {
-            "LAYER_TYPE",
-            "GRAIN_SHAPE",
-            "RF_TYPE",
-            "LWC",
-            "THICKNESS",
-            "SPECIFIC_SURFACE_AREA",
-            "DENSITY",
-            "LIGHT_ABSORBING_PARTICLES",
-        }
-
-        updates = self._prepare_updates(update_dic, allowed_fields)
-
         # validate a copy of the config if requested
         if validate:
+
+            allowed_fields = {
+                "LAYER_TYPE",
+                "GRAIN_SHAPE",
+                "RF_TYPE",
+                "LWC",
+                "THICKNESS",
+                "SPECIFIC_SURFACE_AREA",
+                "DENSITY",
+                "LIGHT_ABSORBING_PARTICLES",
+            }
+
+            self._prepare_updates(updates, allowed_fields)
             self.config.LAND.__class__(**updates)
 
         # update only if not empty
@@ -442,6 +432,9 @@ class Session:
 
             # finally update legendre moments
             self.land_column.set_legendre_moments()
+
+            # and recompute band-averaged properties
+            self.compute_band_average(components=["land"])
 
     def run(self, to_xarray=True):
         """
@@ -718,42 +711,48 @@ class Session:
 
         return band_means
 
-    def compute_band_average(self) -> None:
+    def compute_band_average(self, components=["solar", "atmosphere", "land"]) -> None:
+        """
+        Compute band averages for given properties of given components.
+        """
 
         if self.config.SPECTRAL.MODE == "band-snicar-default":
 
             # average solar variables
-            solar_flat_means = self.compute_flat_band_average(
-                self.solar_irradiance,
-                self.config._wavelengths_solar,
-                self._band_ranges,
-                var_names=["flx_slr"],
-            )
-            self.solar_irradiance.flx_slr = solar_flat_means["flx_slr"]
-
-            if self.config.SOLVER.TYPE == "two-stream":
+            if "solar" in components:
                 solar_flat_means = self.compute_flat_band_average(
                     self.solar_irradiance,
                     self.config._wavelengths_solar,
                     self._band_ranges,
-                    var_names=["fs", "fd"],
+                    var_names=["flx_slr"],
                 )
-                self.solar_irradiance.fs = solar_flat_means["fs"]
-                self.solar_irradiance.fd = solar_flat_means["fd"]
+                self.solar_irradiance.flx_slr = solar_flat_means["flx_slr"]
+
+            if self.config.SOLVER.TYPE == "two-stream":
+                if "solar" in components:
+                    solar_flat_means = self.compute_flat_band_average(
+                        self.solar_irradiance,
+                        self.config._wavelengths_solar,
+                        self._band_ranges,
+                        var_names=["fs", "fd"],
+                    )
+                    self.solar_irradiance.fs = solar_flat_means["fs"]
+                    self.solar_irradiance.fd = solar_flat_means["fd"]
 
             # average atmosphere variables
             if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
-                atmosphere_flat_means = self.compute_flat_band_average(
-                    self.atmosphere_column,
-                    self.config._wavelengths_atmosphere,
-                    self._band_ranges,
-                    var_names=["tau", "ss_alb", "legendre_moments"],
-                )
-                self.atmosphere_column.tau = atmosphere_flat_means["tau"]
-                self.atmosphere_column.ss_alb = atmosphere_flat_means["ss_alb"]
-                self.atmosphere_column.legendre_moments = atmosphere_flat_means[
-                    "legendre_moments"
-                ]
+                if "atmosphere" in components:
+                    atmosphere_flat_means = self.compute_flat_band_average(
+                        self.atmosphere_column,
+                        self.config._wavelengths_atmosphere,
+                        self._band_ranges,
+                        var_names=["tau", "ss_alb", "legendre_moments"],
+                    )
+                    self.atmosphere_column.tau = atmosphere_flat_means["tau"]
+                    self.atmosphere_column.ss_alb = atmosphere_flat_means["ss_alb"]
+                    self.atmosphere_column.legendre_moments = atmosphere_flat_means[
+                        "legendre_moments"
+                    ]
 
         elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
 
@@ -767,55 +766,64 @@ class Session:
 
             # average atmosphere variables
             if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
-                atmosphere_weighted_means = self.compute_solar_weighted_average(
-                    self.atmosphere_column,
-                    self.config._wavelengths_atmosphere,
-                    self._band_ranges,
-                    var_names=["tau", "ss_alb", "legendre_moments"],
-                )
-                self.atmosphere_column.tau = atmosphere_weighted_means["tau"]
-                self.atmosphere_column.ss_alb = atmosphere_weighted_means["ss_alb"]
-                self.atmosphere_column.legendre_moments = atmosphere_weighted_means[
-                    "legendre_moments"
-                ]
+                if "atmosphere" in components:
+                    atmosphere_weighted_means = self.compute_solar_weighted_average(
+                        self.atmosphere_column,
+                        self.config._wavelengths_atmosphere,
+                        self._band_ranges,
+                        var_names=["tau", "ss_alb", "legendre_moments"],
+                    )
+                    self.atmosphere_column.tau = atmosphere_weighted_means["tau"]
+                    self.atmosphere_column.ss_alb = atmosphere_weighted_means["ss_alb"]
+                    self.atmosphere_column.legendre_moments = atmosphere_weighted_means[
+                        "legendre_moments"
+                    ]
 
-            # average land variables
-            land_weighted_means = self.compute_solar_weighted_average(
-                self.land_column,
-                self.config._wavelengths_land,
-                self._band_ranges,
-                var_names=["tau", "ss_alb", "legendre_moments", "asm_prm"],
-            )
-            self.land_column.tau = land_weighted_means["tau"]
-            self.land_column.ss_alb = land_weighted_means["ss_alb"]
-            self.land_column.legendre_moments = land_weighted_means["legendre_moments"]
-            self.land_column.asm_prm = land_weighted_means["asm_prm"]
-
-            if self.config.SOLVER.TYPE == "two-stream":
+            if "land" in components:
+                # average land variables
                 land_weighted_means = self.compute_solar_weighted_average(
                     self.land_column,
                     self.config._wavelengths_land,
                     self._band_ranges,
-                    var_names=["ref_idx_re", "ref_idx_im", "sfc"],
+                    var_names=["tau", "ss_alb", "legendre_moments", "asm_prm"],
                 )
-                self.land_column.ref_idx_re = land_weighted_means["ref_idx_re"]
-                self.land_column.ref_idx_im = land_weighted_means["ref_idx_im"]
-                self.land_column.sfc = land_weighted_means["sfc"].flatten()
+                self.land_column.tau = land_weighted_means["tau"]
+                self.land_column.ss_alb = land_weighted_means["ss_alb"]
+                self.land_column.legendre_moments = land_weighted_means[
+                    "legendre_moments"
+                ]
+                self.land_column.asm_prm = land_weighted_means["asm_prm"]
 
+            if self.config.SOLVER.TYPE == "two-stream":
+                if "land" in components:
+                    land_weighted_means = self.compute_solar_weighted_average(
+                        self.land_column,
+                        self.config._wavelengths_land,
+                        self._band_ranges,
+                        var_names=["ref_idx_re", "ref_idx_im", "sfc"],
+                    )
+                    self.land_column.ref_idx_re = land_weighted_means["ref_idx_re"]
+                    self.land_column.ref_idx_im = land_weighted_means["ref_idx_im"]
+                    self.land_column.sfc = land_weighted_means["sfc"].flatten()
+
+                if "solar" in components:
+                    solar_weighted_means = self.compute_solar_weighted_average(
+                        self.solar_irradiance,
+                        self.config._wavelengths_solar,
+                        self._band_ranges,
+                        var_names=["fs", "fd"],
+                    )
+                    self.solar_irradiance.fs = solar_weighted_means["fs"].flatten()
+                    self.solar_irradiance.fd = solar_weighted_means["fd"].flatten()
+
+            if "solar" in components:
+                # average solar variables
                 solar_weighted_means = self.compute_solar_weighted_average(
                     self.solar_irradiance,
                     self.config._wavelengths_solar,
                     self._band_ranges,
-                    var_names=["fs", "fd"],
+                    var_names=["flx_slr"],
                 )
-                self.solar_irradiance.fs = solar_weighted_means["fs"].flatten()
-                self.solar_irradiance.fd = solar_weighted_means["fd"].flatten()
-
-            # average solar variables
-            solar_weighted_means = self.compute_solar_weighted_average(
-                self.solar_irradiance,
-                self.config._wavelengths_solar,
-                self._band_ranges,
-                var_names=["flx_slr"],
-            )
-            self.solar_irradiance.flx_slr = solar_weighted_means["flx_slr"].flatten()
+                self.solar_irradiance.flx_slr = solar_weighted_means[
+                    "flx_slr"
+                ].flatten()
