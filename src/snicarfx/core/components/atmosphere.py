@@ -158,7 +158,7 @@ class AtmosphereColumn:
 
         gas_keys = [f"{g.lower()}(cm-3)" for g in valid_gases.keys()]
 
-        print(gas_keys)
+        
 
         # convert profile to molecules/m3
         n_gas = self.atmosphere_profile[gas_keys].values * 1e6
@@ -173,6 +173,7 @@ class AtmosphereColumn:
         scale_factors = np.array(
             [valid_gases[g] / c for g, c in zip(valid_gases.keys(), current_columns)]
         )
+
 
         # Apply scaling (back to cm⁻³)
         self.atmosphere_profile[gas_keys] *= scale_factors
@@ -364,8 +365,8 @@ class AtmosphereColumn:
 
         self.tau_aerosols = np.zeros_like(self.tau_molecular_scatter)
 
-        profile_aerosol_z = self.atmosphere_profile["z(km)"].values
-        profile_aerosol_dz = self.atmosphere_profile["dz(km)"].values
+        profile_aerosol_z = self.atmosphere_profile["z(km)"].values.copy()
+        profile_aerosol_dz = self.atmosphere_profile["dz(km)"].values.copy()
         # set dz to 0 outside of the aerosol layer (propagating to tau=0)
         profile_aerosol_dz[profile_aerosol_z > self.aerosol_boundary_height] = 0.0
 
