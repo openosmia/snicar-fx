@@ -118,19 +118,20 @@ class AtmosphereColumn:
             "co2(cm-3)",
             "no2(cm-3)",
         ]
-
-        # calculate layer thicknesses
-        profile["dz(km)"] = [
-            profile["z(km)"].iloc[-1 + i] - profile["z(km)"].iloc[i]
-            for i in range(profile.shape[0])
-        ]
-        # remove upper level (no layer)
-        profile = profile.iloc[1:, :]
-        profile.index = np.arange(0, profile.shape[0])
-
+        
         # truncate dep. on altitude
         profile = profile[profile["z(km)"] >= self.surface_elevation]
+        
+        # calculate layer thicknesses
+        
+        dz = np.abs(np.diff(profile["z(km)"].values))
 
+        # transform profile into layer variables (mid-point)
+        profile = profile.rolling(2).mean().iloc[1:, :]
+        
+        # add layer thicknesses
+        profile["dz(km)"] = dz
+        
         return profile
 
     def scale_atmospheric_profile(self):
@@ -272,23 +273,15 @@ class AtmosphereColumn:
         self.gas_cross_sections = xr.open_dataset(
             f"{self.ROOT_PATH}/data/atmospheric_profiles/uvspec_afglss_test_file_cross_sections.nc"
         )
-        self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
-
-        # if (
-        #     config.SPECTRAL.MODE == "monochromatic"
-        #     or config.SPECTRAL.BAND_METHOD == "srf-integration"
-        # ):
-        self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self.wavelengths)
+        
+        # truncate depending on altitude
         self.gas_cross_sections = self.gas_cross_sections.sel(
-            nlyr=self.gas_cross_sections.z[1:].values >= self.surface_elevation
+            nlev=self.gas_cross_sections.z.values >= self.surface_elevation
         )
-
-        # elif config.SPECTRAL.BAND_METHOD == "snicar-default":
-        #     self.gas_cross_sections = compute_band_average(
-        #         self.gas_cross_sections, config._band_ranges, wavelength_dim="nwvl"
-        #     )
-
-        #     print(self.gas_cross_sections)
+        
+        # interpolate on wvl
+        self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
+        self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self.wavelengths)
 
         return None
 
@@ -364,6 +357,7 @@ class AtmosphereColumn:
 
         profile_aerosol_z = self.atmosphere_profile["z(km)"].values.copy()
         profile_aerosol_dz = self.atmosphere_profile["dz(km)"].values.copy()
+        
         # set dz to 0 outside of the aerosol layer (propagating to tau=0)
         profile_aerosol_dz[profile_aerosol_z > self.aerosol_boundary_height] = 0.0
 
