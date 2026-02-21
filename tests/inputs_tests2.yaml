@@ -1,0 +1,46 @@
+# Input file of the snicar-fx software
+# https://github.com/openosmia/snicar-fx
+
+SOLVER:
+  TYPE: "multi-stream"
+  ATMOSPHERE_COUPLING: true
+  OUTPUT_LEVELS: "BOA+TOA"
+  N_FOURIER_MODES: 2
+    
+SPECTRAL:
+  MODE: "band-solar-weighted-mean"
+  RESOLUTION: "SENTINEL-3-OLCI"
+  
+SOLAR:
+  SZA: 50
+
+ATMOSPHERE:
+  SKY_CONDITIONS: "clear"
+  ATMOSPHERIC_PROFILE_TYPE: "afglss"
+
+  INTEGRATED_GAS_CONCENTRATIONS:
+    H2O: 13.077
+    NO2: 5.78e-07
+    O3: 0.006294
+
+  AEROSOL_PROPERTIES: "aerosol_mixture_SW_Greenland.nc"
+  INTEGRATED_AOD_550: 0.1
+    
+LAND:  
+  THICKNESS: [0.01, 0.5, 10]  # thickness of each vertical layer (unit : m) 
+  LAYER_TYPE: [2, 2, 2]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
+  DENSITY: [650, 650, 650]  # density of each layer (unit : kg m-3)
+  SPECIFIC_SURFACE_AREA: [1, 0.1, 0.1] # m2 kg-1. for ice, should be below 3.5
+  LWC: [0, 0, 0] # LWC content in snow/ice
+  GRAIN_SHAPE: [1,1, 1]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023  
+  RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21" # ice refractive index
+  SFC: 0 # reflectance of lower boundary  
+  ALTITUDE: 0.0 # surface altitude in km
+  
+  LIGHT_ABSORBING_PARTICLES:
+    BC1:
+      FILE: "bc_ChCB_rn40_dns1270.nc"
+      CONC: [100., 0, 0]
+    BC2:
+      FILE: "bc_ChCB_rn40_dns1270.nc"
+      CONC: [10., 0, 0]  

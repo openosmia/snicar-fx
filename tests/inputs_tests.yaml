@@ -1,3 +1,6 @@
+# Input file of the snicar-fx software
+# https://github.com/openosmia/snicar-fx
+
 SOLVER:
   TYPE: "two-stream" # two-stream, multi-stream
   ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling

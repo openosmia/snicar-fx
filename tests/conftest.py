@@ -15,7 +15,8 @@ from snicarfx.core.components.land import LandColumn
 from snicarfx.core.components.solar import SolarIrradiance
 from snicarfx.core.session.session import Session
 
-TEST_INPUT_FILE = "./tests/inputs_tests.yaml"
+TEST_INPUT_FILE1 = "./tests/inputs_tests.yaml"
+TEST_INPUT_FILE2 = "./tests/inputs_tests2.yaml"
 CORE_INPUT_FILE = "./src/snicarfx/inputs.yaml"
 
 
@@ -28,7 +29,13 @@ def core_input_file():
 @pytest.fixture(scope="module")
 def test_input_file():
     """Fetch path to the test input file."""
-    return TEST_INPUT_FILE
+    return TEST_INPUT_FILE1
+
+
+@pytest.fixture(scope="module")
+def test_input_file2():
+    """Fetch path to the test input file."""
+    return TEST_INPUT_FILE2
 
 
 @pytest.fixture(scope="module")
@@ -40,7 +47,7 @@ def config(session):
 @pytest.fixture(scope="module")
 def session():
     """Provide a shared Session instance."""
-    return Session(TEST_INPUT_FILE)
+    return Session(TEST_INPUT_FILE1)
 
 
 @pytest.fixture(scope="module")
@@ -193,3 +200,10 @@ def absolute_tolerance_benchmark():
     Set absolute tolerance on error between snicar-fx outputs and CRTM/SNICAR-ADv4.
     """
     return 1e-5
+
+
+@pytest.fixture(scope="module")
+def absolute_tolerance_update_api():
+    """Set absolute tolerance on error for the update API (atmosphere
+    property scaling, specifically)."""
+    return 1e-15

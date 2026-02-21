@@ -18,9 +18,24 @@ def test_test_yaml_input_file(test_input_file):
     test_input_file : str
         Path to test input file
     """
-    
+
     # validate configuration
     Config.from_yaml(test_input_file)
+
+
+def test_test_yaml_input_file2(test_input_file2):
+    """
+    Test the range and type of the model parameters parsed from the yaml input
+    file used to test snicar-fx.
+
+    Parameters
+    ----------
+    test_input_file : str
+        Path to test input file
+    """
+
+    # validate configuration
+    Config.from_yaml(test_input_file2)
 
 
 def test_core_yaml_input_file(core_input_file):

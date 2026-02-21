@@ -7,7 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 import pathlib
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from importlib.metadata import version
 
 import numpy as np
@@ -238,7 +238,7 @@ class Session:
         """Write current session state to dictionnary, to be addded to
         the output file"""
 
-        current_state = self.config.dict()
+        current_state = self.config.model_dump()
 
         return current_state
 
@@ -524,7 +524,7 @@ class Session:
             "model_name": "snicar-fx",
             "model_version": version("snicarfx"),
             "model_url": "https://github.com/openosmia/snicar-fx",
-            "creation_date": datetime.utcnow().isoformat(),
+            "creation_date": datetime.now(timezone.utc).isoformat(),
             "session_state": self._write_current_state(),
         }
 
@@ -563,7 +563,7 @@ class Session:
             "model_name": "snicar-fx",
             "model_version": version("snicarfx"),
             "model_url": "https://github.com/openosmia/snicar-fx",
-            "creation_date": datetime.utcnow().isoformat(),
+            "creation_date": datetime.now(timezone.utc).isoformat(),
             "session_state": self._write_current_state(),
         }
 
@@ -689,7 +689,7 @@ class Session:
                     values_slice = arr_flat[:, i_start:i_end]
 
                     # trapezoidal integration along last axis (wavelength)
-                    integral = np.trapz(values_slice, wl_slice, axis=1)
+                    integral = np.trapezoid(values_slice, wl_slice, axis=1)
                     width = wl_slice[-1] - wl_slice[0]
                     averaged_rows[:, b] = integral / width
 
