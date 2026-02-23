@@ -88,7 +88,7 @@ class LandColumn:
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
 
         # ssps
-        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
+        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS_LAND
         self.legendre_moments = np.zeros((self.n_expansion, self.nbr_lyr, self.nbr_wvl))
 
         self.set_refractive_index()

@@ -53,11 +53,21 @@ class Solver(BaseModel):
         default=16, ge=12, le=100, description="Number of streams used by the solver."
     )
 
-    N_LEGENDRE_MOMENTS: confloat(ge=1, le=100) | None = Field(
+    N_LEGENDRE_MOMENTS_ATMOSPHERE: confloat(ge=1, le=100) | None = Field(
         default=None,
-        description="Number of Legendre moments to use in phase functions (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
+        description="Number of Legendre moments to use in aerosol phase function (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
     )
-
+    
+    N_LEGENDRE_MOMENTS_LAND: confloat(ge=1, le=100) | None = Field(
+        default=None,
+        description="Number of Legendre moments to use in ice/snow phase function (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
+    )
+    
+    DELTA_M_SCALING: bool = Field(
+        default=True,
+        description="If true, delta-M scaling (Wsicombe 1977) is applied to single scattering properties by truncating the ice/snow phase function using the last legendre expansion coefficient."
+    )
+    
     N_FOURIER_MODES: conint(ge=1, le=100) | None = Field(
         default=None,
         description="Number of Fourier modes to solve for azimuth dependency. Defaults to 1 (no azimuth dependency).",
@@ -83,13 +93,17 @@ class Solver(BaseModel):
     @model_validator(mode="after")
     def set_n_legendre_moments(self):
         # Default N_LEGENDRE_MOMENTS to N_STREAMS if not set
-        if self.N_LEGENDRE_MOMENTS is None:
-            self.N_LEGENDRE_MOMENTS = self.N_STREAMS
+        if self.N_LEGENDRE_MOMENTS_ATMOSPHERE is None:
+            self.N_LEGENDRE_MOMENTS_ATMOSPHERE = self.N_STREAMS
+        if self.N_LEGENDRE_MOMENTS_LAND is None:
+            self.N_LEGENDRE_MOMENTS_LAND = self.N_STREAMS
 
-        # Validate it does not exceed N_STREAMS
-        if self.N_LEGENDRE_MOMENTS > self.N_STREAMS:
+        # Validate it does not exceed N_STREAMS (see Chandrasekhar book)
+        if (self.N_LEGENDRE_MOMENTS_ATMOSPHERE > self.N_STREAMS 
+            or self.N_LEGENDRE_MOMENTS_LAND > self.N_STREAMS
+            ):
             raise ValueError(
-                f"N_LEGENDRE_MOMENTS ({self.N_LEGENDRE_MOMENTS}) cannot exceed "
+                f"N_LEGENDRE_MOMENTS cannot exceed "
                 f"N_STREAMS ({self.N_STREAMS})"
             )
 
@@ -101,11 +115,11 @@ class Solver(BaseModel):
         if self.N_FOURIER_MODES is None:
             self.N_FOURIER_MODES = 1
 
-        # Validate it does not exceed N_LEGENDRE_MOMENTS
-        if self.N_FOURIER_MODES > self.N_LEGENDRE_MOMENTS:
+        # Validate it does not exceed N_STREAMS (see Chandrasekhar book)
+        if self.N_FOURIER_MODES > self.N_STREAMS:
             raise ValueError(
-                f"N_FOURIER_MODES ({self.N_LEGENDRE_MOMENTS}) cannot exceed "
-                f"N_LEGENDRE_MOMENTS ({self.N_STREAMS})"
+                f"N_FOURIER_MODES cannot exceed "
+                f"N_STREAMS"
             )
 
         return self

@@ -76,18 +76,23 @@ class _MultiStreamSolver:
             self.run_downward_loop = True
         else:
             self.run_downward_loop = False
-
-        # apply delta scaling (!) to land column only -> HG function (!)
-        # Delta truncation: get highest Legendre term following
-        # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
-        f = np.array(land.asm_prm ** (land.n_expansion + 1))
-
-        # Wiscombe 1977 Eq. 20(a, b) + 14
-        tau_delta_scaled = np.array((1.0 - land.ss_alb * f) * land.tau)
-        ss_alb_delta_scaled = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
-        legendre_moments_delta_scaled = np.array(
-            (land.legendre_moments - f[None, :, :]) / (1 - f[None, :, :])
-        )
+        
+        if SOLVER.DELTA_M_SCALING:
+            # apply delta scaling (!) to land column only -> HG function (!)
+            # Delta truncation: get highest Legendre term following
+            # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
+            f = np.array(land.asm_prm ** (land.n_expansion + 1))
+    
+            # Wiscombe 1977 Eq. 20(a, b) + 14
+            tau_delta_scaled = np.array((1.0 - land.ss_alb * f) * land.tau)
+            ss_alb_delta_scaled = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
+            legendre_moments_delta_scaled = np.array(
+                (land.legendre_moments - f[None, :, :]) / (1 - f[None, :, :])
+            )
+        else: 
+            tau_delta_scaled = np.array(land.tau)
+            ss_alb_delta_scaled = np.array(land.ss_alb)
+            legendre_moments_delta_scaled = np.array(land.legendre_moments)
 
         if not atmosphere.use_atmosphere:
             self.nbr_lyr = land.nbr_lyr
