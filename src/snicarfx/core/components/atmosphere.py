@@ -95,6 +95,9 @@ class AtmosphereColumn:
                 self.scale_tau_aerosols()
 
                 self.set_atmospheric_properties_with_aerosols()
+                
+            
+            self.set_legendre_moments()
 
     def set_atmospheric_profile(self):
         profile = pd.read_csv(
@@ -380,7 +383,7 @@ class AtmosphereColumn:
 
         self.tau = self.tau_molecular_scatter + self.tau_gases
         self.ss_alb = self.tau_molecular_scatter / (self.tau)
-        self.legendre_moments = self.rayleigh_legendre_moments
+        # self.legendre_moments = self.rayleigh_legendre_moments
         self.prevent_pure_scattering()
 
         return None
@@ -393,14 +396,28 @@ class AtmosphereColumn:
             self.tau_molecular_scatter + self.aerosol_ss_alb * self.tau_aerosols
         ) / (self.tau)
 
-        aerosol_tau_ss_alb = (
-            self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]
-        )
-        self.legendre_moments = (
-            (self.aerosol_legendre_moments[:, None, :] * aerosol_tau_ss_alb)
-            + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
-        ) / (self.tau_molecular_scatter[None, :, :] + aerosol_tau_ss_alb)
+        # aerosol_tau_ss_alb = (
+        #     self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]
+        # )
+        # self.legendre_moments = (
+        #     (self.aerosol_legendre_moments[:, None, :] * aerosol_tau_ss_alb)
+        #     + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
+        # ) / (self.tau_molecular_scatter[None, :, :] + aerosol_tau_ss_alb)
 
         self.prevent_pure_scattering()
 
         return None
+    
+    def set_legendre_moments(self):
+        if self.AOD > 0:
+            aerosol_tau_ss_alb = (
+                self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]
+            )
+            self.legendre_moments = (
+                (self.aerosol_legendre_moments[:, None, :] * aerosol_tau_ss_alb)
+                + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
+            ) / (self.tau_molecular_scatter[None, :, :] + aerosol_tau_ss_alb)
+            
+        else:
+            self.legendre_moments = self.rayleigh_legendre_moments
+            

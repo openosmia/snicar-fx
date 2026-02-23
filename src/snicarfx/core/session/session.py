@@ -394,6 +394,8 @@ class Session:
             else:
                 self.atmosphere_column.set_atmospheric_properties_without_aerosols()
 
+            # recalculate legendre moments 
+            self.atmosphere_column.set_legendre_moments()
             self.compute_band_average(components=["atmosphere"])
 
     def update_land(self, updates, validate=True):
@@ -688,8 +690,8 @@ class Session:
                     wl_slice = wavelengths[i_start:i_end]
                     values_slice = arr_flat[:, i_start:i_end]
 
-                    # trapezoidal integration along last axis (wavelength)
-                    integral = np.trapezoid(values_slice, wl_slice, axis=1)
+                    # trapzal integration along last axis (wavelength)
+                    integral = np.trapz(values_slice, wl_slice, axis=1)
                     width = wl_slice[-1] - wl_slice[0]
                     averaged_rows[:, b] = integral / width
 
@@ -707,7 +709,7 @@ class Session:
         band_means = {}
 
         # Precompute denominator integral
-        denominator_integral = np.trapezoid(
+        denominator_integral = np.trapz(
             self._spectral_response_function_sw, x=wavelengths, axis=-1
         )
 
@@ -728,7 +730,7 @@ class Session:
                 numerator = self._spectral_response_function_sw
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
-                denominator_integral_local = np.trapezoid(
+                denominator_integral_local = np.trapz(
                     denominator, x=wavelengths, axis=-1
                 )
             else:
@@ -737,7 +739,7 @@ class Session:
                 denominator_integral_local = denominator_integral
 
             # Integrate along wavelength axis
-            numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
+            numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
             averaged_rows = numerator_integral / denominator_integral_local[None, :]
 
             # Reshape back
