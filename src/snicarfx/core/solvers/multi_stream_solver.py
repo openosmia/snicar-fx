@@ -87,8 +87,19 @@ class _MultiStreamSolver:
             )
             tau_land = np.array((1.0 - land.ss_alb * f) * land.tau)
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
+            
+            if atmosphere.use_atmosphere:
+                # take last moment
+                f = atmosphere.legendre_moments[atmosphere.n_expansion]
+                legendre_moments_atm = np.array(
+                    (atmosphere.legendre_moments - f[None, :, :]) / (1 - f[None, :, :])
+                )
+                tau_atm = np.array((1.0 - atmosphere.ss_alb * f) * atmosphere.tau)
+                ss_alb_atm = np.array((1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f))
+                
 
         elif SOLVER.DELTA_M_PLUS_SCALING:
+            # sigma_sq cannot get negative with HG function
             sigma_sq = (
                 ((land.n_expansion+1)**2 - land.n_expansion**2) 
             / (np.log(((land.asm_prm ** land.n_expansion))**2) 
@@ -104,10 +115,32 @@ class _MultiStreamSolver:
             )
             tau_land = np.array((1.0 - land.ss_alb * f) * land.tau)
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
+            
+            if atmosphere.use_atmosphere:
+                sigma_sq = (
+                    ((atmosphere.n_expansion+1)**2 - atmosphere.n_expansion**2) 
+                / (np.log((atmosphere.legendre_moments[atmosphere.n_expansion])**2) 
+                   - np.log((atmosphere.legendre_moments[atmosphere.n_expansion+1])**2)
+                   )
+                )
+                f = atmosphere.legendre_moments[atmosphere.n_expansion] * np.exp(atmosphere.n_expansion**2/(2*sigma_sq)) 
+                legendre_moments_atm = np.array(
+                    (atmosphere.legendre_moments 
+                     - f[None, :, :] * np.exp(-(np.arange(atmosphere.n_expansion)**2)[:, None, None]
+                     / (2*sigma_sq)))
+                     / (1 - f[None, :, :])
+                )
+                tau_atm = np.array((1.0 - atmosphere.ss_alb * f) * atmosphere.tau)
+                ss_alb_atm = np.array((1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f))
+                
+            
         else:
             tau_land = np.array(land.tau)
             ss_alb_land = np.array(land.ss_alb)
             legendre_moments_land = np.array(land.legendre_moments)
+            tau_atm = np.array(atmosphere.tau)
+            ss_alb_atm = np.array(atmosphere.ss_alb)
+            legendre_moments_atm = np.array(atmosphere.legendre_moments)
         
 
         if not atmosphere.use_atmosphere:
@@ -119,10 +152,11 @@ class _MultiStreamSolver:
 
         else:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
-            self.t_od = np.vstack([atmosphere.tau, tau_land])
-            self.w = np.vstack([atmosphere.ss_alb, ss_alb_land])
+            self.t_od = np.vstack([tau_atm, tau_land])
+            self.w = np.vstack([ss_alb_atm, ss_alb_land])
             self.legendre_moments = np.hstack(
-                [atmosphere.legendre_moments, legendre_moments_land]
+                [legendre_moments_atm[:atmosphere.n_expansion, :, :]
+                 , legendre_moments_land]
             )
             self.surface_idx = -land.nbr_lyr - 1
 

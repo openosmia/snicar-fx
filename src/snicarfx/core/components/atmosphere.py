@@ -264,7 +264,7 @@ class AtmosphereColumn:
     def set_rayleigh_legendre_moments(self):
 
         self.rayleigh_legendre_moments = np.zeros(
-            (self.n_expansion, self.nbr_lyr, self.nbr_wvl)
+            (self.n_expansion + 2, self.nbr_lyr, self.nbr_wvl)
         )
 
         # phase coeffs of order > 3 are null (already init at 0)
@@ -348,7 +348,7 @@ class AtmosphereColumn:
             aerosol_properties["extinction_coefficient"].interp(wavelength=550).values
         )
         self.aerosol_legendre_moments = aerosol_properties["legendre_moments"].values.T[
-            : self.n_expansion, :
+            : self.n_expansion + 2, :
         ]
 
     def scale_tau_aerosols(self):
