@@ -89,7 +89,7 @@ class _MultiStreamSolver:
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
             
             if atmosphere.use_atmosphere:
-                # take last moment
+                # only needed when we have aerosols so could be from boundary down only
                 f = atmosphere.legendre_moments[atmosphere.n_expansion]
                 legendre_moments_atm = np.array(
                     (atmosphere.legendre_moments - f[None, :, :]) / (1 - f[None, :, :])
@@ -117,6 +117,7 @@ class _MultiStreamSolver:
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
             
             if atmosphere.use_atmosphere:
+                # !!!! only apply when sigma is positive, else apply normal delta-M scaling
                 sigma_sq = (
                     ((atmosphere.n_expansion+1)**2 - atmosphere.n_expansion**2) 
                 / (np.log((atmosphere.legendre_moments[atmosphere.n_expansion])**2) 
