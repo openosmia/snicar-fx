@@ -383,7 +383,6 @@ class AtmosphereColumn:
 
         self.tau = self.tau_molecular_scatter + self.tau_gases
         self.ss_alb = self.tau_molecular_scatter / (self.tau)
-        # self.legendre_moments = self.rayleigh_legendre_moments
         self.prevent_pure_scattering()
 
         return None
@@ -395,15 +394,7 @@ class AtmosphereColumn:
         self.ss_alb = (
             self.tau_molecular_scatter + self.aerosol_ss_alb * self.tau_aerosols
         ) / (self.tau)
-
-        # aerosol_tau_ss_alb = (
-        #     self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]
-        # )
-        # self.legendre_moments = (
-        #     (self.aerosol_legendre_moments[:, None, :] * aerosol_tau_ss_alb)
-        #     + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
-        # ) / (self.tau_molecular_scatter[None, :, :] + aerosol_tau_ss_alb)
-
+        
         self.prevent_pure_scattering()
 
         return None

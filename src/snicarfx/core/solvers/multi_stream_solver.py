@@ -80,8 +80,8 @@ class _MultiStreamSolver:
         if SOLVER.DELTA_M_SCALING:
             # apply delta scaling (!) to land column only -> HG function (!)
             # Delta truncation: get highest Legendre term following
-            # Wicombe 1977 Eq. (15) - 2M = n_expansion + 1
-            f = np.array(land.asm_prm ** (land.n_expansion + 1))
+            # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS 
+            f = np.array(land.asm_prm ** (land.n_expansion))
     
             # Wiscombe 1977 Eq. 20(a, b) + 14
             tau_delta_scaled = np.array((1.0 - land.ss_alb * f) * land.tau)
