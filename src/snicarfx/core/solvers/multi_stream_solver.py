@@ -76,37 +76,53 @@ class _MultiStreamSolver:
             self.run_downward_loop = True
         else:
             self.run_downward_loop = False
-        
+
         if SOLVER.DELTA_M_SCALING:
-            # apply delta scaling (!) to land column only -> HG function (!)
+            # apply delta scaling to land column only -> HG function (!)
             # Delta truncation: get highest Legendre term following
             # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS 
             f = np.array(land.asm_prm ** (land.n_expansion))
-    
-            # Wiscombe 1977 Eq. 20(a, b) + 14
-            tau_delta_scaled = np.array((1.0 - land.ss_alb * f) * land.tau)
-            ss_alb_delta_scaled = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
-            legendre_moments_delta_scaled = np.array(
+            legendre_moments_land = np.array(
                 (land.legendre_moments - f[None, :, :]) / (1 - f[None, :, :])
             )
-        else: 
-            tau_delta_scaled = np.array(land.tau)
-            ss_alb_delta_scaled = np.array(land.ss_alb)
-            legendre_moments_delta_scaled = np.array(land.legendre_moments)
+            tau_land = np.array((1.0 - land.ss_alb * f) * land.tau)
+            ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
+
+        elif SOLVER.DELTA_M_PLUS_SCALING:
+            sigma_sq = (
+                ((land.n_expansion+1)**2 - land.n_expansion**2) 
+            / (np.log(((land.asm_prm ** land.n_expansion))**2) 
+               - np.log((land.asm_prm ** (land.n_expansion+1))**2)
+               )
+            )
+            f = np.array(land.asm_prm ** (land.n_expansion)) * np.exp(land.n_expansion**2/(2*sigma_sq)) 
+            legendre_moments_land = np.array(
+                (land.legendre_moments 
+                 - f[None, :, :] * np.exp(-(np.arange(land.n_expansion)**2)[:, None, None] 
+                                          / (2*sigma_sq))) 
+                / (1 - f[None, :, :])
+            )
+            tau_land = np.array((1.0 - land.ss_alb * f) * land.tau)
+            ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
+        else:
+            tau_land = np.array(land.tau)
+            ss_alb_land = np.array(land.ss_alb)
+            legendre_moments_land = np.array(land.legendre_moments)
+        
 
         if not atmosphere.use_atmosphere:
             self.nbr_lyr = land.nbr_lyr
-            self.t_od = tau_delta_scaled
-            self.w = ss_alb_delta_scaled
-            self.legendre_moments = legendre_moments_delta_scaled
+            self.t_od = tau_land
+            self.w = ss_alb_land
+            self.legendre_moments = legendre_moments_land
             self.surface_idx = 0
 
         else:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
-            self.t_od = np.vstack([atmosphere.tau, tau_delta_scaled])
-            self.w = np.vstack([atmosphere.ss_alb, ss_alb_delta_scaled])
+            self.t_od = np.vstack([atmosphere.tau, tau_land])
+            self.w = np.vstack([atmosphere.ss_alb, ss_alb_land])
             self.legendre_moments = np.hstack(
-                [atmosphere.legendre_moments, legendre_moments_delta_scaled]
+                [atmosphere.legendre_moments, legendre_moments_land]
             )
             self.surface_idx = -land.nbr_lyr - 1
 

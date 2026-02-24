@@ -65,7 +65,12 @@ class Solver(BaseModel):
     
     DELTA_M_SCALING: bool = Field(
         default=True,
-        description="If true, delta-M scaling (Wsicombe 1977) is applied to single scattering properties by truncating the ice/snow phase function using the last legendre expansion coefficient."
+        description="If true, delta-M scaling (Wiscombe 1977) is applied to single scattering properties by truncating the ice/snow phase function using the last legendre expansion coefficient."
+    )
+    
+    DELTA_M_PLUS_SCALING: bool = Field(
+        default=True,
+        description="If true, delta-M+ scaling (Lin et al. 2017) is applied to single scattering properties by truncating the ice/snow phase function."
     )
     
     N_FOURIER_MODES: conint(ge=1, le=100) | None = Field(
