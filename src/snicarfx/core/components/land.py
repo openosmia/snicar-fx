@@ -362,5 +362,5 @@ class LandColumn:
     def set_legendre_moments(self):
 
         self.legendre_moments = (
-            self.asm_prm[None, :, :] ** np.arange(self.n_expansion)[:, None, None]
+            self.asm_prm[None, :, :] ** np.arange(self.n_expansion + 2)[:, None, None]
         )
