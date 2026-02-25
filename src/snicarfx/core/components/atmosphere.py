@@ -41,7 +41,7 @@ class AtmosphereColumn:
         self.ROOT_PATH = config._ROOT_PATH
         self.wavelengths = config._wavelengths_atmosphere
 
-        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS_ATMOSPHERE
+        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.surface_elevation = config.LAND.ALTITUDE
 
         self.nbr_wvl = len(self.wavelengths)

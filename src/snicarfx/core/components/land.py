@@ -88,7 +88,7 @@ class LandColumn:
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
 
         # ssps
-        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS_LAND
+        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
 
         self.set_refractive_index()
         if config.SOLVER.TYPE == "two-stream":

@@ -92,14 +92,15 @@ class _MultiStreamSolver:
                 # only needed when we have aerosols so could be from boundary down only
                 f = atmosphere.legendre_moments[atmosphere.n_expansion]
                 legendre_moments_atm = np.array(
-                    (atmosphere.legendre_moments - f[None, :, :]) / (1 - f[None, :, :])
+                    (atmosphere.legendre_moments[:atmosphere.n_expansion] - f[None, :, :]) / (1 - f[None, :, :])
                 )
                 tau_atm = np.array((1.0 - atmosphere.ss_alb * f) * atmosphere.tau)
                 ss_alb_atm = np.array((1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f))
                 
 
         elif SOLVER.DELTA_M_PLUS_SCALING:
-            # sigma_sq cannot get negative with HG function
+            # sigma_sq cannot get negative with HG function so as long as we 
+            # use HG we don't need to check that the scaling is applicable
             sigma_sq = (
                 ((land.n_expansion+1)**2 - land.n_expansion**2) 
             / (np.log(((land.asm_prm ** land.n_expansion))**2) 
@@ -117,7 +118,11 @@ class _MultiStreamSolver:
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
             
             if atmosphere.use_atmosphere:
-                # !!!! only apply when sigma is positive, else apply normal delta-M scaling
+                # !!!! TO MODIFY !!!!!!
+                # 1 - layers no aerosols (rayleigh only) > no scaling
+                # 2 - when leg exp coeff at n_expansion smaller than 1e-4 OR when 
+                # exp coeff at n_exp+1 smaller than exp*0.7 then use deltaM or raise error
+                
                 sigma_sq = (
                     ((atmosphere.n_expansion+1)**2 - atmosphere.n_expansion**2) 
                 / (np.log((atmosphere.legendre_moments[atmosphere.n_expansion])**2) 
@@ -126,7 +131,7 @@ class _MultiStreamSolver:
                 )
                 f = atmosphere.legendre_moments[atmosphere.n_expansion] * np.exp(atmosphere.n_expansion**2/(2*sigma_sq)) 
                 legendre_moments_atm = np.array(
-                    (atmosphere.legendre_moments 
+                    (atmosphere.legendre_moments[:atmosphere.n_expansion] 
                      - f[None, :, :] * np.exp(-(np.arange(atmosphere.n_expansion)**2)[:, None, None]
                      / (2*sigma_sq)))
                      / (1 - f[None, :, :])
@@ -141,7 +146,7 @@ class _MultiStreamSolver:
             legendre_moments_land = np.array(land.legendre_moments)
             tau_atm = np.array(atmosphere.tau)
             ss_alb_atm = np.array(atmosphere.ss_alb)
-            legendre_moments_atm = np.array(atmosphere.legendre_moments)
+            legendre_moments_atm = np.array(atmosphere.legendre_moments[:atmosphere.n_expansion])
         
 
         if not atmosphere.use_atmosphere:
@@ -156,7 +161,8 @@ class _MultiStreamSolver:
             self.t_od = np.vstack([tau_atm, tau_land])
             self.w = np.vstack([ss_alb_atm, ss_alb_land])
             self.legendre_moments = np.hstack(
-                [legendre_moments_atm[:atmosphere.n_expansion, :, :]
+                [
+                    legendre_moments_atm
                  , legendre_moments_land]
             )
             self.surface_idx = -land.nbr_lyr - 1

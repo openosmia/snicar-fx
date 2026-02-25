@@ -53,15 +53,11 @@ class Solver(BaseModel):
         default=16, ge=12, le=100, description="Number of streams used by the solver."
     )
 
-    N_LEGENDRE_MOMENTS_ATMOSPHERE: confloat(ge=1, le=100) | None = Field(
+    N_LEGENDRE_MOMENTS: conint(ge=1, le=100) | None = Field(
         default=None,
-        description="Number of Legendre moments to use in aerosol phase function (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
+        description="Number of Legendre moments to use in phase functions (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
     )
     
-    N_LEGENDRE_MOMENTS_LAND: confloat(ge=1, le=100) | None = Field(
-        default=None,
-        description="Number of Legendre moments to use in ice/snow phase function (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
-    )
     
     DELTA_M_SCALING: bool = Field(
         default=True,
@@ -69,7 +65,7 @@ class Solver(BaseModel):
     )
     
     DELTA_M_PLUS_SCALING: bool = Field(
-        default=True,
+        default=False,
         description="If true, delta-M+ scaling (Lin et al. 2017) is applied to single scattering properties by truncating the ice/snow phase function."
     )
     
@@ -98,19 +94,17 @@ class Solver(BaseModel):
     @model_validator(mode="after")
     def set_n_legendre_moments(self):
         # Default N_LEGENDRE_MOMENTS to N_STREAMS if not set
-        if self.N_LEGENDRE_MOMENTS_ATMOSPHERE is None:
-            self.N_LEGENDRE_MOMENTS_ATMOSPHERE = self.N_STREAMS
-        if self.N_LEGENDRE_MOMENTS_LAND is None:
-            self.N_LEGENDRE_MOMENTS_LAND = self.N_STREAMS
+        if self.N_LEGENDRE_MOMENTS is None:
+            self.N_LEGENDRE_MOMENTS = self.N_STREAMS
 
         # Validate it does not exceed N_STREAMS (see Chandrasekhar book)
-        if (self.N_LEGENDRE_MOMENTS_ATMOSPHERE > self.N_STREAMS 
-            or self.N_LEGENDRE_MOMENTS_LAND > self.N_STREAMS
+        if (self.N_LEGENDRE_MOMENTS > self.N_STREAMS 
             ):
             raise ValueError(
                 f"N_LEGENDRE_MOMENTS cannot exceed "
                 f"N_STREAMS ({self.N_STREAMS})"
             )
+            
 
         return self
 
