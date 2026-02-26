@@ -76,26 +76,37 @@ class _MultiStreamSolver:
             self.run_downward_loop = True
         else:
             self.run_downward_loop = False
-            
+
         # set quadrature
-        
+
         self.set_gaussian_quadrature()
-            
+
         # apply delta scaling
-        
+
         if SOLVER.DELTA_M_SCALING or SOLVER.DELTA_M_PLUS_SCALING:
-            tau_land, ss_alb_land, legendre_moments_land, tau_atm, ss_alb_atm, legendre_moments_atm = self.apply_delta_scaling(atmosphere, land, SOLVER)
-            
+            (
+                tau_land,
+                ss_alb_land,
+                legendre_moments_land,
+                tau_atm,
+                ss_alb_atm,
+                legendre_moments_atm,
+            ) = self.apply_delta_scaling(atmosphere, land, SOLVER)
+
         else:
             tau_land = np.array(land.tau)
             ss_alb_land = np.array(land.ss_alb)
-            legendre_moments_land = np.array(land.legendre_moments[:land.n_expansion, :, :])
+            legendre_moments_land = np.array(
+                land.legendre_moments[: land.n_expansion, :, :]
+            )
             tau_atm = np.array(atmosphere.tau)
             ss_alb_atm = np.array(atmosphere.ss_alb)
-            legendre_moments_atm = np.array(atmosphere.legendre_moments[:atmosphere.n_expansion, :, :])
-        
-        # assemble full column 
-    
+            legendre_moments_atm = np.array(
+                atmosphere.legendre_moments[: atmosphere.n_expansion, :, :]
+            )
+
+        # assemble full column
+
         if not atmosphere.use_atmosphere:
             self.nbr_lyr = land.nbr_lyr
             self.t_od = tau_land
@@ -108,14 +119,12 @@ class _MultiStreamSolver:
             self.t_od = np.vstack([tau_atm, tau_land])
             self.w = np.vstack([ss_alb_atm, ss_alb_land])
             self.legendre_moments = np.hstack(
-                [
-                    legendre_moments_atm
-                 , legendre_moments_land]
+                [legendre_moments_atm, legendre_moments_land]
             )
             self.surface_idx = -land.nbr_lyr - 1
 
         # initialize arrays
-        
+
         self.total_opt = np.zeros((self.nbr_lyr + 1, self.nbr_wvl))
 
         self.ff = np.zeros(
@@ -170,125 +179,176 @@ class _MultiStreamSolver:
                 (self.n_angles, self.nbr_lyr + 1, self.nbr_wvl)
             )
 
-
     def set_gaussian_quadrature(self):
-        
+
         # generate nodes / weights in [-1:1] and then remap to [0-1]
         nodes, weights = np.polynomial.legendre.leggauss(self.n_angles)
         self.cos_angle = 0.5 * (nodes + 1.0)
         self.cos_weight = 0.5 * weights
-    
-    
+
     def apply_delta_scaling(self, atmosphere, land, SOLVER):
-        
-        
+
         if SOLVER.DELTA_M_SCALING:
             # apply delta scaling to land column only -> HG function (!)
             # Delta truncation: get highest Legendre term following
-            # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS 
+            # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS
             f = np.array(land.legendre_moments[land.n_expansion])
             legendre_moments_land = np.array(
-                (land.legendre_moments[:land.n_expansion, :, :] - f[None, :, :]) 
+                (land.legendre_moments[: land.n_expansion, :, :] - f[None, :, :])
                 / (1 - f[None, :, :])
             )
             tau_land = np.array((1.0 - land.ss_alb * f) * land.tau)
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
-            
+
             if atmosphere.use_atmosphere:
                 # could be applied only from aerosol boundary down as no effect in rayleigh layers
                 f = np.array(atmosphere.legendre_moments[atmosphere.n_expansion])
                 legendre_moments_atm = np.array(
-                    (atmosphere.legendre_moments[:atmosphere.n_expansion, :, :] - f[None, :, :]) 
+                    (
+                        atmosphere.legendre_moments[: atmosphere.n_expansion, :, :]
+                        - f[None, :, :]
+                    )
                     / (1 - f[None, :, :])
                 )
                 tau_atm = np.array((1.0 - atmosphere.ss_alb * f) * atmosphere.tau)
-                ss_alb_atm = np.array((1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f))
-                
+                ss_alb_atm = np.array(
+                    (1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f)
+                )
 
         elif SOLVER.DELTA_M_PLUS_SCALING:
-            
-            # sigma_sq cannot get negative with HG function so as long as we 
+
+            # sigma_sq cannot get negative with HG function so as long as we
             # use HG we don't need to check that the scaling is applicable
-            sigma_sq = (
-                ((land.n_expansion+1)**2 - land.n_expansion**2) 
-            / (np.log((land.legendre_moments[land.n_expansion])**2) 
-               - np.log((land.legendre_moments[land.n_expansion+1])**2)
-               )
+            sigma_sq = ((land.n_expansion + 1) ** 2 - land.n_expansion**2) / (
+                np.log((land.legendre_moments[land.n_expansion]) ** 2)
+                - np.log((land.legendre_moments[land.n_expansion + 1]) ** 2)
             )
-            f = np.array(land.legendre_moments[land.n_expansion] 
-                         * np.exp(land.n_expansion**2/(2*sigma_sq))
+            f = np.array(
+                land.legendre_moments[land.n_expansion]
+                * np.exp(land.n_expansion**2 / (2 * sigma_sq))
             )
             legendre_moments_land = np.array(
-                (land.legendre_moments[:land.n_expansion, :, :]
-                 - f[None, :, :] * np.exp(-(np.arange(land.n_expansion)**2)[:, None, None] 
-                                          / (2*sigma_sq))) 
+                (
+                    land.legendre_moments[: land.n_expansion, :, :]
+                    - f[None, :, :]
+                    * np.exp(
+                        -(np.arange(land.n_expansion) ** 2)[:, None, None]
+                        / (2 * sigma_sq)
+                    )
+                )
                 / (1 - f[None, :, :])
             )
             tau_land = np.array((1.0 - land.ss_alb * f) * land.tau)
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
-            
+
             if atmosphere.use_atmosphere:
 
                 # boundary aerosol layer, where not only rayleigh ie moment 1 is not 0
-                boundary_layer_aerosols = np.where(atmosphere.legendre_moments[1, :, 0] != 0.0)[0][0]
-                
+                boundary_layer_aerosols = np.where(
+                    atmosphere.legendre_moments[1, :, 0] != 0.0
+                )[0][0]
+
                 # if rayleigh scattering only, no need to scale
-                if boundary_layer_aerosols == atmosphere.nbr_lyr: 
+                if boundary_layer_aerosols == atmosphere.nbr_lyr:
                     ss_alb_atm = np.array(atmosphere.ss_alb)
                     tau_atm = np.array(atmosphere.tau)
-                    legendre_moments_atm = np.array(atmosphere.legendre_moments[:atmosphere.n_expansion, :, :])
-                
-                elif boundary_layer_aerosols != atmosphere.nbr_lyr: 
-                    
+                    legendre_moments_atm = np.array(
+                        atmosphere.legendre_moments[: atmosphere.n_expansion, :, :]
+                    )
+
+                elif boundary_layer_aerosols != atmosphere.nbr_lyr:
+
                     # flag from DISORT
                     if (
-                            (atmosphere.legendre_moments[
-                                atmosphere.n_expansion, 
-                                boundary_layer_aerosols:, 
-                                :] < 1e-4).any()
-                            or  
-                            (atmosphere.legendre_moments[
-                                atmosphere.n_expansion+1, 
-                                boundary_layer_aerosols:, :] 
-                                < 
-                                0.7 * atmosphere.legendre_moments[
-                                    atmosphere.n_expansion, 
-                                    boundary_layer_aerosols:, 
-                                    :]).any()
-                        ):
-                        print('WARNING with Delta-M+ scaling.')
-                        
-                    
+                        atmosphere.legendre_moments[
+                            atmosphere.n_expansion, boundary_layer_aerosols:, :
+                        ]
+                        < 1e-4
+                    ).any() or (
+                        atmosphere.legendre_moments[
+                            atmosphere.n_expansion + 1, boundary_layer_aerosols:, :
+                        ]
+                        < 0.7
+                        * atmosphere.legendre_moments[
+                            atmosphere.n_expansion, boundary_layer_aerosols:, :
+                        ]
+                    ).any():
+                        print("WARNING with Delta-M+ scaling.")
+
                     sigma_sq = (
-                        ((atmosphere.n_expansion+1)**2 - atmosphere.n_expansion**2) 
-                    / (np.log((atmosphere.legendre_moments[atmosphere.n_expansion, boundary_layer_aerosols:, :])**2) 
-                       - np.log((atmosphere.legendre_moments[atmosphere.n_expansion+1, boundary_layer_aerosols:, :])**2)
-                       )
+                        (atmosphere.n_expansion + 1) ** 2 - atmosphere.n_expansion**2
+                    ) / (
+                        np.log(
+                            (
+                                atmosphere.legendre_moments[
+                                    atmosphere.n_expansion, boundary_layer_aerosols:, :
+                                ]
+                            )
+                            ** 2
+                        )
+                        - np.log(
+                            (
+                                atmosphere.legendre_moments[
+                                    atmosphere.n_expansion + 1,
+                                    boundary_layer_aerosols:,
+                                    :,
+                                ]
+                            )
+                            ** 2
+                        )
                     )
                     f = atmosphere.legendre_moments[
-                        atmosphere.n_expansion, boundary_layer_aerosols:, ] * np.exp(atmosphere.n_expansion**2/(2*sigma_sq))
-                    
+                        atmosphere.n_expansion,
+                        boundary_layer_aerosols:,
+                    ] * np.exp(atmosphere.n_expansion**2 / (2 * sigma_sq))
+
                     legendre_moments_scaled = np.array(
-                        (atmosphere.legendre_moments[:atmosphere.n_expansion, boundary_layer_aerosols:, :] 
-                         - f[None, :, :] * np.exp(-(np.arange(atmosphere.n_expansion)**2)[:, None, None]
-                         / (2*sigma_sq)))
-                         / (1 - f[None, :, :])
+                        (
+                            atmosphere.legendre_moments[
+                                : atmosphere.n_expansion, boundary_layer_aerosols:, :
+                            ]
+                            - f[None, :, :]
+                            * np.exp(
+                                -(np.arange(atmosphere.n_expansion) ** 2)[:, None, None]
+                                / (2 * sigma_sq)
+                            )
+                        )
+                        / (1 - f[None, :, :])
                     )
-                    tau_scaled = np.array((1.0 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f) * atmosphere.tau[boundary_layer_aerosols:, :])
-                    ss_alb_scaled = np.array((1.0 - f) * atmosphere.ss_alb[boundary_layer_aerosols:, :] / (1 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f))
-                    
-                    legendre_moments_atm = np.hstack([atmosphere.legendre_moments[:atmosphere.n_expansion, :boundary_layer_aerosols, :],
-                                                     legendre_moments_scaled]
-                                                     )
-                    
-                    tau_atm = np.vstack([atmosphere.tau[:boundary_layer_aerosols, :],
-                                                     tau_scaled]
-                                                     )
-                    ss_alb_atm = np.vstack([atmosphere.ss_alb[:boundary_layer_aerosols, :],
-                                                     ss_alb_scaled]
-                                                     )
-                
-        return tau_land, ss_alb_land, legendre_moments_land, tau_atm, ss_alb_atm, legendre_moments_atm
+                    tau_scaled = np.array(
+                        (1.0 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f)
+                        * atmosphere.tau[boundary_layer_aerosols:, :]
+                    )
+                    ss_alb_scaled = np.array(
+                        (1.0 - f)
+                        * atmosphere.ss_alb[boundary_layer_aerosols:, :]
+                        / (1 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f)
+                    )
+
+                    legendre_moments_atm = np.hstack(
+                        [
+                            atmosphere.legendre_moments[
+                                : atmosphere.n_expansion, :boundary_layer_aerosols, :
+                            ],
+                            legendre_moments_scaled,
+                        ]
+                    )
+
+                    tau_atm = np.vstack(
+                        [atmosphere.tau[:boundary_layer_aerosols, :], tau_scaled]
+                    )
+                    ss_alb_atm = np.vstack(
+                        [atmosphere.ss_alb[:boundary_layer_aerosols, :], ss_alb_scaled]
+                    )
+
+        return (
+            tau_land,
+            ss_alb_land,
+            legendre_moments_land,
+            tau_atm,
+            ss_alb_atm,
+            legendre_moments_atm,
+        )
 
     def set_phase_matrices(self):
         """Calculate phase coefficients and phase matrices
