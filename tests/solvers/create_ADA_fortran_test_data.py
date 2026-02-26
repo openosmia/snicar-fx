@@ -30,7 +30,7 @@ f90_file = txt_file.with_suffix("")
 txt_file.rename(f90_file)
 
 subprocess.run(
-    "gfortran fortran_CRTM_ADA_solver.f90 -o run_ADA",
+    "gfortran ./fortran_CRTM_ADA_solver.f90 -o run_ADA",
     shell=True,
     executable="/bin/bash",
 )
@@ -42,10 +42,10 @@ simulation = Session("../inputs_tests.yaml")
 # %% declare ranges of parameter to use in runs of the ADA solver
 
 # number of angles
-n_streams = simulation.config.SOLVER.N_STREAMS
+# n_streams = simulation.config.SOLVER.N_STREAMS
 
 # number of Fourier modes
-n_fouriers = simulation.config.SOLVER.N_FOURIER_MODES
+# n_fouriers = simulation.config.SOLVER.N_FOURIER_MODES
 
 # single scattering albedos
 w_list = np.arange(0.2, 0.7, 0.1)
@@ -75,16 +75,14 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
         simulation.land_column.asm_prm[:, :] = g
         simulation.land_column.legendre_moments = (
             simulation.land_column.asm_prm[None, :, :]
-            ** np.arange(simulation.land_column.n_expansion)[:, None, None]
+            ** np.arange(simulation.land_column.n_expansion + 2)[:, None, None]
         )
 
         solver = _MultiStreamSolver(
             simulation.land_column,
             simulation.atmosphere_column,
             simulation.solar_irradiance,
-            simulation.config.SOLVER.OUTPUT_LEVELS,
-            n_streams,
-            n_fouriers,
+            simulation.config.SOLVER,
         )
 
         ff_wvl = solver.ff[:, :, :, wavelength_index]
@@ -138,7 +136,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                 simulation.land_column.asm_prm[:, :] = g
                 simulation.land_column.legendre_moments = (
                     simulation.land_column.asm_prm[None, :, :]
-                    ** np.arange(simulation.land_column.n_expansion)[:, None, None]
+                    ** np.arange(simulation.land_column.n_expansion + 2)[:, None, None]
                 )
 
                 # initiate the python ADA solver to extract delta
@@ -148,9 +146,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                     simulation.land_column,
                     simulation.atmosphere_column,
                     simulation.solar_irradiance,
-                    simulation.config.SOLVER.OUTPUT_LEVELS,
-                    n_streams,
-                    n_fouriers,
+                    simulation.config.SOLVER,
                 )
 
                 # run fortran version by passing variables to the executable
@@ -189,7 +185,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                 simulation.land_column.asm_prm[:, :] = g
                 simulation.land_column.legendre_moments = (
                     simulation.land_column.asm_prm[None, :, :]
-                    ** np.arange(simulation.land_column.n_expansion)[:, None, None]
+                    ** np.arange(simulation.land_column.n_expansion + 2)[:, None, None]
                 )
 
                 # uncomment to check py/f90 match directly here
@@ -197,9 +193,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                 #     simulation.land_column,
                 #     simulation.atmosphere_column,
                 #     simulation.solar_irradiance,
-                #     simulation.config.SOLVER.OUTPUT_LEVELS,
-                #     n_streams,
-                #     n_fouriers,
+                #     simulation.config.SOLVER,
                 # )
                 # print(np.abs(py_results["albedo_boa"][wavelength_index] - albedo_f90))
                 # reflectance_f90 = (np.pi * s_level_rad_up_f90_k0) / (

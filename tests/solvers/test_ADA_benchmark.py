@@ -51,7 +51,7 @@ def test_multistream_outputs(
     # legendre moments
     land_column.legendre_moments = (
         land_column.asm_prm[None, :, :]
-        ** np.arange(land_column.n_expansion)[:, None, None]
+        ** np.arange(land_column.n_expansion + 2)[:, None, None]
     )
 
     # solve RTE

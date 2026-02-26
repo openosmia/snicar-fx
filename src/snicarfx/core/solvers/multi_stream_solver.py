@@ -83,7 +83,7 @@ class _MultiStreamSolver:
 
         # apply delta scaling
 
-        if SOLVER.DELTA_M_SCALING or SOLVER.DELTA_M_PLUS_SCALING:
+        if SOLVER.DELTA_SCALING == "M" or SOLVER.DELTA_SCALING == "M+":
             (
                 tau_land,
                 ss_alb_land,
@@ -188,7 +188,12 @@ class _MultiStreamSolver:
 
     def apply_delta_scaling(self, atmosphere, land, SOLVER):
 
-        if SOLVER.DELTA_M_SCALING:
+        # initialize and set in case atmosphere is not used
+        tau_atm = None
+        ss_alb_atm = None
+        legendre_moments_atm = None
+
+        if SOLVER.DELTA_SCALING == "M":
             # apply delta scaling to land column only -> HG function (!)
             # Delta truncation: get highest Legendre term following
             # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS
@@ -215,7 +220,7 @@ class _MultiStreamSolver:
                     (1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f)
                 )
 
-        elif SOLVER.DELTA_M_PLUS_SCALING:
+        elif SOLVER.DELTA_SCALING == "M+":
 
             # sigma_sq cannot get negative with HG function so as long as we
             # use HG we don't need to check that the scaling is applicable

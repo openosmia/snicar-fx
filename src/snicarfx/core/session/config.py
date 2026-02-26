@@ -57,18 +57,12 @@ class Solver(BaseModel):
         default=None,
         description="Number of Legendre moments to use in phase functions (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
     )
-    
-    
-    DELTA_M_SCALING: bool = Field(
-        default=True,
-        description="If true, delta-M scaling (Wiscombe 1977) is applied to single scattering properties by truncating the ice/snow phase function using the last legendre expansion coefficient."
+
+    DELTA_SCALING: Literal["M", "M+"] | None = Field(
+        default="M",
+        description="Delta scaling to be applied. If M, delta-M scaling (Wiscombe 1977) is applied to single scattering properties by truncating the ice/snow phase function using the last legendre expansion coefficient. If M+, delta-M+ scaling (Lin et al. 2017) is applied to single scattering properties by truncating the ice/snow phase function.",
     )
-    
-    DELTA_M_PLUS_SCALING: bool = Field(
-        default=False,
-        description="If true, delta-M+ scaling (Lin et al. 2017) is applied to single scattering properties by truncating the ice/snow phase function."
-    )
-    
+
     N_FOURIER_MODES: conint(ge=1, le=100) | None = Field(
         default=None,
         description="Number of Fourier modes to solve for azimuth dependency. Defaults to 1 (no azimuth dependency).",
@@ -98,13 +92,10 @@ class Solver(BaseModel):
             self.N_LEGENDRE_MOMENTS = self.N_STREAMS
 
         # Validate it does not exceed N_STREAMS (see Chandrasekhar book)
-        if (self.N_LEGENDRE_MOMENTS > self.N_STREAMS 
-            ):
+        if self.N_LEGENDRE_MOMENTS > self.N_STREAMS:
             raise ValueError(
-                f"N_LEGENDRE_MOMENTS cannot exceed "
-                f"N_STREAMS ({self.N_STREAMS})"
+                f"N_LEGENDRE_MOMENTS cannot exceed " f"N_STREAMS ({self.N_STREAMS})"
             )
-            
 
         return self
 
@@ -116,10 +107,7 @@ class Solver(BaseModel):
 
         # Validate it does not exceed N_STREAMS (see Chandrasekhar book)
         if self.N_FOURIER_MODES > self.N_STREAMS:
-            raise ValueError(
-                f"N_FOURIER_MODES cannot exceed "
-                f"N_STREAMS"
-            )
+            raise ValueError(f"N_FOURIER_MODES cannot exceed " f"N_STREAMS")
 
         return self
 
