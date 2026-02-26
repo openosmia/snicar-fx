@@ -84,6 +84,8 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
             simulation.solar_irradiance,
             simulation.config.SOLVER,
         )
+        solver.reset_state(m=simulation.config.SOLVER.N_FOURIER_MODES - 1)
+        solver.set_phase_matrices()
 
         ff_wvl = solver.ff[:, :, :, wavelength_index]
         bb_wvl = solver.bb[:, :, :, wavelength_index]
@@ -148,6 +150,8 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                     simulation.solar_irradiance,
                     simulation.config.SOLVER,
                 )
+                solver.reset_state(m=simulation.config.SOLVER.N_FOURIER_MODES - 1)
+                solver.set_phase_matrices()
 
                 # run fortran version by passing variables to the executable
                 subprocess.run(
