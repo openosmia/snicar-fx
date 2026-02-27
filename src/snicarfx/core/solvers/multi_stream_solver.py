@@ -249,19 +249,20 @@ class _MultiStreamSolver:
             if atmosphere.use_atmosphere:
 
                 # boundary aerosol layer, where not only rayleigh ie moment 1 is not 0
-                boundary_layer_aerosols = np.where(
-                    atmosphere.legendre_moments[1, :, 0] != 0.0
-                )[0][0]
 
                 # if rayleigh scattering only, no need to scale
-                if boundary_layer_aerosols == atmosphere.nbr_lyr:
+                if atmosphere.AOD == 0:
                     ss_alb_atm = np.array(atmosphere.ss_alb)
                     tau_atm = np.array(atmosphere.tau)
                     legendre_moments_atm = np.array(
                         atmosphere.legendre_moments[: atmosphere.n_expansion, :, :]
                     )
 
-                elif boundary_layer_aerosols != atmosphere.nbr_lyr:
+                if atmosphere.AOD > 0:
+
+                    boundary_layer_aerosols = np.where(
+                        atmosphere.legendre_moments[1, :, 0] != 0.0
+                    )[0][0]
 
                     # flag from DISORT
                     if (
