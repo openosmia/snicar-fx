@@ -11,70 +11,92 @@ import xarray as xr
 
 class LandColumn:
     """
-    Physical and optical properties of a snow or ice column.
-
-    This class computes and stores the properties of a snow/ice column for each
-    layer based on the YAML input file.
+    Compute and store the physical and optical properties of a land column 
+    (snow/ice layers) based on the YAML input file.
 
     Attributes
     ----------
-    config : Config
-        An instance of the Config class containing model input data parsed
-        from the YAML configuration file.
+    ROOT_PATH : str
+        Path to the snicarfx module.
+    _wavelengths : ndarray
+        Wavelength array (m).
+    nbr_wvl : int
+        Number of wavelengths in the spectral grid.
     layer_type : list
-        Type of layer (0 for snow grains in air, 1 for air bubbles in ice).
+        Identifier for the type of each layer (snow/ice).
     nbr_lyr : int
         Number of layers in the column.
     thickness_profile : list
-        Thicknesses [m] of each layer of the snow or ice column.
+        Thickness of each layer of the snow or ice column (m).
     density : list
-        Density of snow/ice for each layer [kg/m3].
+        Density of snow/ice for each layer (kg/m3).
     rf_type : str
         Source of refractive index data.
     grain_shape : list
         Identifier for grain shape model for each layer.
     lwc : list
-        Liquid water content fraction for each layer [0-1].
+        Liquid water content fraction for each layer.
     ssa : list
-        Specific surface area of snow or ice in each layer [m2/kg].
+        Specific surface area of snow or ice in each layer (m2/kg).
     sfc : float
-        Reflectance of underlying surface (wavelength independent).
-    wavelengths : list
-        Spectral grid used for all optical property calculations [m].
-    nbr_wvl : int
-        Number of wavelengths in the spectral grid.
+        Albedo of underlying surface (wavelength independent).
+    n_expansion : int
+        Order of expansion of the phase function.
+    ref_idx_re : ndarray
+        Real part of the ice refractive index.
+    ref_idx_im : ndarray
+        Imaginary part of the ice refractive index.
+    ref_idx_im_water : ndarray
+        Imaginary part of the water refractive index.
+    fl_r_dif_a : ndarray
+        Spectral diffuse Fresnel coefficient for light coming from above.
+    fl_r_dif_b : ndarray
+        Spectral diffuse Fresnel coefficient for light coming from below.
     ss_alb : ndarray
-        Wavelength-dependent single scattering albedo of each layer [unitless].
+        Spectral single scattering albedo of each layer.
     asm_prm : ndarray
-        Wavelength-dependent asymmetry parameter of each layer [unitless].
+        Spectral asymmetry parameter of each layer.
     tau : ndarray
-        Wavelength-dependent optical thickness of each layer [unitless].
+        Spectral optical thickness of each layer.
+    ext_cff : ndarray
+        Spectral extinction coefficient of each layer.
     layer_mass : ndarray
-        Mass per unit area of each layer [kg/m2].
+        Mass per unit area of each layer (kg/m2).
     laps: dict
         Light absorbing particles included in the model configuration.
     lap_concentrations : ndarray
-        Mass concentrations of LAPs per layer [kg/kg].
+        Mass concentrations of LAPs per layer (kg/kg ice).
     lap_ss_alb : ndarray
-        Wavelength-dependent single scattering albedo of each LAP [unitless].
+        Wavelength-dependent single scattering albedo of each LAP.
     lap_asm_prm : ndarray
-        Wavelength-dependent asymmetry parameter of each LAP [unitless].
+        Wavelength-dependent asymmetry parameter of each LAP.
     lap_ext_cff : ndarray
-        Wavelength-dependent mass extinction coefficient of each LAP [m2/kg].
-    n_expansion : int
-        Order of the Legendre expansion of the phase function.
+        Wavelength-dependent mass extinction coefficient of each LAP.
     legendre_moments: ndarray
-        Moments of the Legendre expansion of the Henyey-Greenstein phase function
-
+        Moments of the Legendre expansion of the Henyey-Greenstein phase 
+        function.
+        
     """
 
     def __init__(self, config):
+        """
+        Initialize the LandColumn class using model configuration inputs.
 
-        # set module root path for data loading
+        This constructor extracts parameters from the given
+        `config` object and then triggers calculations of optical properties
+        of each layer.
+        
+        Parameters
+        ----------
+        config : Config
+            An instance of the Config class containing model input data parsed
+            from the YAML configuration file.
+        """
+
         self.ROOT_PATH = config._ROOT_PATH
-
         self._wavelengths = config._wavelengths_land * 1e-9
-
+        self.nbr_wvl = len(self._wavelengths)
+        
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
         self.thickness_profile = config.LAND.THICKNESS
@@ -83,14 +105,11 @@ class LandColumn:
         self.grain_shape = config.LAND.GRAIN_SHAPE
         self.lwc = config.LAND.LWC
         self.ssa = config.LAND.SPECIFIC_SURFACE_AREA
-
-        self.nbr_wvl = len(self._wavelengths)
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
-
-        # ssps
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
 
         self.set_refractive_index()
+        
         if config.SOLVER.TYPE == "two-stream":
             self.set_diffuse_fresnel_coeffs()
 
@@ -108,8 +127,7 @@ class LandColumn:
         Load and set refractive indices.
 
         This method loads high-resolution ice/water refractive index
-        and interpolates them to the model's spectral resolution.
-
+        and interpolates them to the required spectral resolution.
         """
 
         refidx_file = xr.open_dataset(
@@ -124,9 +142,8 @@ class LandColumn:
         Load and set diffuse Fresnel coefficients.
 
         This method loads high-resolution diffuse Fresnel reflection
-        coefficients, and interpolates them to the model's spectral
+        coefficients, and interpolates them to the required spectral
         resolution.
-
         """
 
         fresnel_diffuse_file = xr.open_dataset(
@@ -141,7 +158,7 @@ class LandColumn:
 
     def set_column_ops_without_laps(self):
         """
-        Compute optical properties of a clean snow/ice column (no LAPs).
+        Compute optical properties of a clean snow/ice column (no particles).
 
         This method calculates wavelength-dependent extinction coefficients,
         single scattering albedo, asymmetry parameters, and optical thickness
@@ -217,6 +234,7 @@ class LandColumn:
                 # cf Eq. 7, 8 in Kokhanovsky 2024
                 # z = 4 * pi * k / wl * deff = 4 * pi * k / wl * 3 / 2 * V / K
                 # with V / K = 4 / (SSA * D)
+                
                 z = (
                     4
                     * np.pi
@@ -246,10 +264,10 @@ class LandColumn:
                     b = np.interp(self.ref_idx_re, n_tab, b_tab)
 
                 elif self.grain_shape[lyr] == 1:
-                    # Robledano 2023 measurements
                     self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.815
                     b = self.ref_idx_re**2
 
+                    # fall back to scaled spherical g after 1400nm
                     if np.max(self._wavelengths) >= 1.4e-6:
                         # find the closest index
                         idx_1400nm = np.argmin(abs(self._wavelengths - 1.4e-6))
@@ -279,8 +297,8 @@ class LandColumn:
 
     def load_lap_properties(self):
         """
-        Load optical properties of light-absorbing particles (LAPs) depending
-        on computation mode.
+        Load optical properties of light-absorbing particles (LAPs) and 
+        interpolate to the required wavelength.
         """
 
         data = {
@@ -298,7 +316,7 @@ class LandColumn:
 
         This method sets the properties of each LAP defined in the input
         configuration, converting their concentrations to consistent units,
-        and interpolating their properties to the model's spectral grid.
+        and interpolating their properties to the required spectral grid.
         """
 
         self.lap_concentrations = (
@@ -331,7 +349,6 @@ class LandColumn:
         asymmetry parameters.
         """
 
-        # combine properties of all LAPs
         lap_mass = np.array(self.layer_mass)[:, np.newaxis] * self.lap_concentrations
 
         tau_all_laps = lap_mass @ self.lap_ext_cff
@@ -342,13 +359,9 @@ class LandColumn:
             self.lap_ext_cff * self.lap_ss_alb * self.lap_asm_prm
         )
 
-        # update layer mass in tau by removing lap mass
-        # ext_cff_before_lap_correction = self.tau.copy() / self.layer_mass.copy()[:, None]
-
         self.layer_mass = self.layer_mass - np.sum(lap_mass, axis=1)
         self.tau = self.layer_mass[:, np.newaxis] * self.ext_cff
 
-        # combine LAPs + snow/ice
         tau_clean = self.tau.copy()
         ss_alb_clean = self.ss_alb.copy()
         asm_prm_clean = self.asm_prm.copy()
@@ -360,6 +373,12 @@ class LandColumn:
         )
 
     def set_legendre_moments(self):
+        """
+        Set Legendre moments used in the expansion of the phase function. 
+        
+        This method computes the Legendre expansion coefficients of the 
+        Henyey-Greenstein phase function.
+        """
 
         self.legendre_moments = (
             self.asm_prm[None, :, :] ** np.arange(self.n_expansion + 2)[:, None, None]

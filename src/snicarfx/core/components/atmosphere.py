@@ -12,91 +12,102 @@ import xarray as xr
 
 class AtmosphereColumn:
     """
-    Properties of the atmosphere column.
-
-    This class computes and stores the properties of an atmosphere column for each
-    layer based on the YAML input file.
+    Compute and store the physical and optical properties of an atmospheric
+    column based on the YAML input file.
 
     Attributes
     ----------
+    ROOT_PATH : str
+        Path to the snicarfx module.
+    use_atmosphere : bool
+        Boolean encoding for land-atmosphere coupling.
+    _wavelengths : ndarray
+        Wavelength array (m).
+    nbr_wvl : int
+        Number of wavelengths in the spectral array.
+    surface_elevation : int
+        Altitude of the surface (km).
+    n_expansion : int
+        Order of expansion of the phase function.
+    atmosphere_profile_type : str
+        AFGL tag for type of atmospheric profile.
+    atmosphere_profile : pandas DataFrame
+        Atmospheric profile (altitudes, layer thicknesses, gas concentrations, 
+        pressure, temperature).
     nbr_lyr : int
         Number of layers in the column.
-    nbr_wvl : int
-        Number of wavelengths in the spectral grid.
+    aerosol_boundary_height : int
+        Maximum altitude with aerosols (fixed to 30km). 
+    AOD : float
+        Column-integrated aerosol optical thickness.
+    integrated_gas_concentrations : dict
+        Column-integrated concentrations of atmospheric gases.
+    tau_molecular_scatter : ndarray
+        Rayleigh optical thickness.
+    rayleigh_legendre_moments: ndarray
+        Moments of the Legendre expansion of the Rayleigh phase function.
+    gas_cross_sections : ndarray
+        Spectral absorption cross section of atmospheric gases.
+    tau_gases : ndarray
+        Spectral optical thickness of atmospheric gases.
+    aerosol_ss_alb : ndarray
+        Spectral single scattering albedo of atmospheric aerosols.
+    aerosol_ext_cff : ndarray
+        Spectral extinction coefficient of atmospheric aerosols.
+    aerosol_ext_cff_550 : float
+        Extinction coefficient of atmospheric aerosols at 550nm.
+    aerosol_legendre_moments : ndarray
+        Momeents of the Legendre expansion of the aerosol phase function.
+    tau_aerosols : ndarray
+        Spectral optical thickness of atmospheric aerosols.
     ss_alb : ndarray
         Wavelength-dependent single scattering albedo of each layer [unitless].
     asm_prm : ndarray
         Wavelength-dependent asymmetry parameter of each layer [unitless].
     tau : ndarray
         Wavelength-dependent optical thickness of each layer [unitless].
-    n_expansion : int
-        Order of the Legendre expansion of the phase function.
-    rayleigh_legendre_moments: ndarray
-        Moments of the Legendre expansion of the Rayleigh phase function.
-
+    legendre_moments: ndarray
+        Moments of the Legendre expansion of the atmosphere phase function.
     """
 
     def __init__(self, config):
 
         self.ROOT_PATH = config._ROOT_PATH
-        self.wavelengths = config._wavelengths_atmosphere
-
-        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
-        self.surface_elevation = config.LAND.ALTITUDE
-
-        self.nbr_wvl = len(self.wavelengths)
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
-
-        self.AOD = config.ATMOSPHERE.INTEGRATED_AOD_550
-        self.aerosol_file = config.ATMOSPHERE.AEROSOL_PROPERTIES
-
+        
         if self.use_atmosphere:
-
+            
+            self._wavelengths = config._wavelengths_atmosphere
+            self.nbr_wvl = len(self._wavelengths)
+            self.surface_elevation = config.LAND.ALTITUDE
+            self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
             self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
-
-            # load atm profile with gas conc., P/T/density etc
             self.atmosphere_profile = self.set_atmospheric_profile()
+            self.nbr_lyr = self.atmosphere_profile.shape[0]
+            self.aerosol_boundary_height = 30
+            self.AOD = config.ATMOSPHERE.INTEGRATED_AOD_550
 
-            # scale atmospheric profile by integrated gas concentrations if passed
             if config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS is not None:
                 self.integrated_gas_concentrations = (
                     config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
                 )
                 self.scale_atmospheric_profile()
 
-            # set nb of atm layers (dependent on altitude)
-            self.nbr_lyr = self.atmosphere_profile.shape[0]
-
-            # init the ssps
-            self.ss_alb = np.zeros((self.nbr_lyr, self.nbr_wvl))
-            self.tau = np.zeros((self.nbr_lyr, self.nbr_wvl))
-
-            self.tau_molecular_scatter = np.zeros((self.nbr_lyr, self.nbr_wvl))
-
-            # compute rayleigh scattering (tau + legendre moments)
             self.compute_rayleigh_scattering()
-
             self.set_rayleigh_legendre_moments()
 
-            # load gas cross sections
-            self.load_gas_absorption_cross_sections(config)
+            self.load_gas_absorption_cross_sections()
             self.compute_gas_optical_thickness()
-
-            self.aerosol_boundary_height = 30  # km
 
             if self.AOD == 0.0 or self.surface_elevation > self.aerosol_boundary_height:
                 self.set_atmospheric_properties_without_aerosols()
 
             else:
-                # set aerosol properties
+                self.aerosol_file = config.ATMOSPHERE.AEROSOL_PROPERTIES
                 self.set_aerosol_properties()
-
-                # scale aerosol with AOD
                 self.scale_tau_aerosols()
-
                 self.set_atmospheric_properties_with_aerosols()
                 
-            
             self.set_legendre_moments()
 
     def set_atmospheric_profile(self):
@@ -188,12 +199,12 @@ class AtmosphereColumn:
         - co2_ppm: float, CO2 concentration in ppm
 
         Returns:
-        - crs: numpy array of Rayleigh scattering cross-sections (cm^2)
+        - crs: numpy array of Rayleigh scattering cross-sections (cm2)
         """
 
         # Convert wavelength array
-        lambda_cm = self.wavelengths * 1e-7
-        lambda_um = self.wavelengths * 1e-3
+        lambda_cm = self._wavelengths * 1e-7
+        lambda_um = self._wavelengths * 1e-3
 
         co2_ppm = co2_ppm[:, None]
 
@@ -235,8 +246,7 @@ class AtmosphereColumn:
 
     def compute_rayleigh_scattering(self):
         """
-        Compute wavelength-dependent optical thickness and rayleigh scattering
-        phase function of air molecules for each layer.
+        Compute rayleigh spectral optical thickness.
         """
 
         # convert co2 number density to ppm
@@ -262,6 +272,9 @@ class AtmosphereColumn:
         return None
 
     def set_rayleigh_legendre_moments(self):
+        """
+        Set coefficients for Legendre expansion of Rayleigh phase function. 
+        """
 
         self.rayleigh_legendre_moments = np.zeros(
             (self.n_expansion + 2, self.nbr_lyr, self.nbr_wvl)
@@ -270,7 +283,10 @@ class AtmosphereColumn:
         # phase coeffs of order > 3 are null (already init at 0)
         self.rayleigh_legendre_moments[:3, :, :] = np.array([1, 0, 0.1])[:, None, None]
 
-    def load_gas_absorption_cross_sections(self, config):
+    def load_gas_absorption_cross_sections(self):
+        """
+        Load spectral absorption cross sections of atmospheric gases.
+        """
 
         # get absorption in (c)m2 / molecule for each gas
         self.gas_cross_sections = xr.open_dataset(
@@ -284,14 +300,13 @@ class AtmosphereColumn:
         
         # interpolate on wvl
         self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
-        self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self.wavelengths)
+        self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self._wavelengths)
 
         return None
 
     def compute_gas_optical_thickness(self):
         """
-        Compute wavelength-dependent optical thickness of atmospheric gases
-        for each layer based on their concentrations.
+        Compute spectral optical thickness of atmospheric gases.
         """
 
         sigma_vars = [
@@ -326,18 +341,18 @@ class AtmosphereColumn:
 
     def load_aerosol_properties(self):
         """
-        Load optical properties of aerosols
+        Load optical properties of aerosols.
         """
 
         aerosol_properties = xr.open_dataset(
             f"{self.ROOT_PATH}/data/aerosols/{self.aerosol_file}"
-        ).interp(wavelength=self.wavelengths, kwargs={"fill_value": "extrapolate"})
+        ).interp(wavelength=self._wavelengths, kwargs={"fill_value": "extrapolate"})
 
         return aerosol_properties
 
     def set_aerosol_properties(self):
         """
-        Set optical properties of aerosol mixture.
+        Set optical properties of aerosols.
         """
 
         aerosol_properties = self.load_aerosol_properties()
@@ -353,10 +368,9 @@ class AtmosphereColumn:
 
     def scale_tau_aerosols(self):
         """
-        Scale aerosols by given AOD.
+        Scale aerosol optical thickness by the user-input column-integrated
+        aerosol thickness at 550nm.
         """
-
-        self.tau_aerosols = np.zeros_like(self.tau_molecular_scatter)
 
         profile_aerosol_z = self.atmosphere_profile["z(km)"].values.copy()
         profile_aerosol_dz = self.atmosphere_profile["dz(km)"].values.copy()
@@ -374,12 +388,16 @@ class AtmosphereColumn:
 
     def prevent_pure_scattering(self):
         """
-        Prevent single scattering albedo to be 1 which creates
+        Prevent single scattering albedo to be exactly 1 which creates
         numerical instabilities.
         """
+        
         self.ss_alb[self.ss_alb == 1] = 1.0 - 1e-7
 
     def set_atmospheric_properties_without_aerosols(self):
+        """
+        Set atmospheric optical properties in the absence of aerosols.
+        """
 
         self.tau = self.tau_molecular_scatter + self.tau_gases
         self.ss_alb = self.tau_molecular_scatter / (self.tau)
@@ -388,6 +406,9 @@ class AtmosphereColumn:
         return None
 
     def set_atmospheric_properties_with_aerosols(self):
+        """
+        Set atmospheric optical properties in the presence of aerosols.
+        """
 
         self.tau = self.tau_molecular_scatter + self.tau_gases + self.tau_aerosols
 
@@ -400,6 +421,10 @@ class AtmosphereColumn:
         return None
     
     def set_legendre_moments(self):
+        """
+        Set legendre expansion coefficients of the atmospheric phase function.
+        """
+        
         if self.AOD > 0:
             aerosol_tau_ss_alb = (
                 self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]

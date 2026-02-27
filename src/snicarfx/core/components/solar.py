@@ -10,14 +10,29 @@ import xarray as xr
 
 class SolarIrradiance:
     """
-    Compute and and store the properties of the incoming solar irradiance to be
-    used as boundary for the solver (top-of-atmosphere or bottom-of-atmosphere).
+    Compute and store the properties of the incoming solar irradiance to be
+    used as boundary for the solver (top-of-atmosphere or bottom-of-atmosphere)
+    based on the YAML input file.
 
     Attributes
     ----------
-    config : Config
-        An instance of the Config class containing model input data parsed
-        from the YAML configuration file.
+    ROOT_PATH : str
+        Path to the snicarfx module.
+    sky_conditions : str
+        Type of sky conditions ('cloudy' or 'clear').
+    atmosphere_type : str
+        Type of atmospheric profile (AFGL tag).
+    sza : int
+        Solar zenith angle in degrees.
+    _wavelengths : ndarray
+        Wavelength grid (nm).
+    flx_slr : ndarray
+        Total spectral solar irradiance.
+    fs : ndarray
+        Direct solar spectral irradiance.
+    fd : ndarray
+        Diffuse solar spectral irradiance.
+        
     """
 
     def __init__(self, config):
@@ -42,14 +57,16 @@ class SolarIrradiance:
         self.sza = config.SOLAR.SZA
 
         self.atmosphere_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
+        
+        self._wavelengths = config._wavelengths_solar
 
         if config.SOLVER.ATMOSPHERE_COUPLING:
             self.irradiance_dataset = self.load_toa_irradiance()
-            self.set_toa_irradiance(config)
+            self.set_toa_irradiance()
 
         elif not config.SOLVER.ATMOSPHERE_COUPLING:
             self.irradiance_dataset = self.load_surface_irradiance()
-            self.set_surface_irradiance(config)
+            self.set_surface_irradiance()
 
     def load_surface_irradiance(self):
         """
@@ -86,17 +103,13 @@ class SolarIrradiance:
 
         return ds
 
-    def set_toa_irradiance(self, config):
+    def set_toa_irradiance(self):
         """
         Set monochromatic top-of-atmosphere (TOA) solar spectral irradiance 
         array used as boundary for the solver.
         
         This method interpolates the TOA spectral irradiance to the solar
         wavelength array. 
-        
-        The following instance attributes are set:
-        - `flx_slr` : ndarray
-            Total spectral solar irradiance at TOA.
         """
 
         self.irradiance_dataset["wavelength"] = self.irradiance_dataset[
@@ -104,12 +117,12 @@ class SolarIrradiance:
         ]
 
         self.flx_slr = self.irradiance_dataset.interp(
-            wavelength=config._wavelengths_solar
+            wavelength=self._wavelengths
         ).SSI.values  
 
         return None
 
-    def set_surface_irradiance(self, config):
+    def set_surface_irradiance(self):
         """
         Set monochromatic surface solar spectral irradiance array used as 
         boundary for the solver.
@@ -117,20 +130,11 @@ class SolarIrradiance:
         This method selects the irradiance corresponding to the user-input 
         solar zenith angle (SZA) and interpolates the spectral irradiance to 
         the solar wavelength array. 
-
-        The following instance attributes are set:
-        - `flx_slr` : ndarray
-            Total (diffuse + direct) spectral solar irradiance at the surface.
-        - `fs` : ndarray
-            Spectral direct irradiance at the surface.
-        - `fd` : ndarray
-            Spectral diffuse irradiance at the surface.
         """
-
 
         ds_sza = self.irradiance_dataset.sel(SZA=self.sza)
 
-        ds_sza = ds_sza.interp(wavelength=config._wavelengths_solar,
+        ds_sza = ds_sza.interp(wavelength=self._wavelengths,
                                kwargs={"fill_value": "extrapolate"})
 
         irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"]
