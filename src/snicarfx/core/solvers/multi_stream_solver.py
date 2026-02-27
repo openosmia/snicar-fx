@@ -6,7 +6,7 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
-from scipy.special import factorial, legendre, lpmv, eval_legendre
+from scipy.special import factorial, lpmv, eval_legendre
 from numpy.linalg import solve
 
 
@@ -434,14 +434,11 @@ class _MultiStreamSolver:
                 "Error in stream energy conservation. Try increasing stream number or use aspherical shapes."
             )
 
-        # removed from now, but may need to bring them back
         if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
             raise ValueError(
                 "Invalid phase matrix elements. Try increasing stream numbers or use aspherical shapes."
             )
 
-        # self.ff[self.ff < 0] = 0
-        # self.bb[self.bb < 0] = 0
 
     def reset_state(self, m):
         """
@@ -517,7 +514,7 @@ class _MultiStreamSolver:
         # wavelength dimension at the front
         eig_vals, eig_vecs = np.linalg.eig(hh)
 
-        # take the square roots !!!!! must be fixed
+        # take the square roots
         eig_value = np.where(eig_vals > 0, np.sqrt(eig_vals), 0)
 
         # scale eigenvectors by square roots of eigen values

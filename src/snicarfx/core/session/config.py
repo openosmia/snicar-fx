@@ -465,15 +465,6 @@ class Config(BaseModel):
             )
         return self
 
-    # @model_validator(mode="after")
-    # def check_solver_grain_shape_compatibility(self):
-    #     if self.SOLVER.TYPE == "multi-stream" and 0 in self.LAND.GRAIN_SHAPE:
-    #         raise ValueError(
-    #             "LAND.GRAIN_SHAPE=0 (spheres) is not currently supported when "
-    #             "SOLVER.TYPE='multi-stream'."
-    #         )
-    #     return self
-
     @model_validator(mode="after")
     def check_lengths(self):
         """
