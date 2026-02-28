@@ -12,11 +12,11 @@ from numpy.linalg import solve
 
 class _MultiStreamSolver:
     """
-    This class initializes and calculates the variables necessary to solve the
-    runpolarized adiative transfer equation with a multi-stream solver,
-    assuming azimuthal symmetry. The solver itself is
-    a combination of the the Advanced Matrix Operator Method (AMOM) and the
-    adding method. It is a translation of the Fortran-based solver from CRTM,
+    Compute and store the variables necessary to solve the
+    unpolarized radiative transfer equation using the Advanced Matrix Operator 
+    Method (AMOM) and the adding method with optional Delta scaling.
+    
+    The AMOM algorithm is a translation of the Fortran-based solver from CRTM,
     originally written by Quanhua Liu (QSS at JCSDA;
     quanhua.liu@noaa.gov), Yong Han (NOAA/NESDIS, yong.han@noaa.gov) and
     Paul van Delst (CIMMS/SSEC, paul.vandelst@noaa.gov).
@@ -24,7 +24,81 @@ class _MultiStreamSolver:
     References:
     Liu and Weng, 2013: 10.1109/JSTARS.2013.2247026
     Liu and Weng, 2006: https://doi.org/10.1175/JAS3808.1
-
+    
+    Attributes
+    ----------
+    solar_irradiance : ndarray
+        Total spectral solar irradiance.
+    solar_flag : bool
+        Controls whether to add a solar source.
+    cos_sun : float
+        Cosine of the solar zenith angle.
+    cosmic_background : float
+        Cosmic radiation background.
+    n_fourier : int
+        Number of Fourier modes used in the expansion of the intensity in azimuth.
+    mth_azi : int
+        Current Fourier mode.
+    nbr_wvl : ndarray
+        Number of wavelengths. 
+    output_levels : str
+        Levels in the column at which to return the results.
+    relative_azimuths : ndarray
+        Relative azimuth angle (viewing - solar). 
+    relative_azimuths_rad : ndarray
+        Relative azimuth angle in radians (viewing - solar). 
+    cos_angle : ndarray
+        Nodes of the gaussian quadrature.
+    cos_weight : ndarray
+        Weights of the gaussian quadrature.
+    n_angles : int
+        Number of angles used in the gaussian quadrature.
+    _angle_indices : ndarray
+        Indices of streams.
+    run_downward_loop : bool
+        Controls whether to compute radiative quantities at all levels or not.
+    t_od : ndarray
+        Spectral optical depth for all layers. 
+    w : ndarray
+        Spectral single scattering albedo for all layers.
+    legendre_moments : ndarray
+        Legendre moments for all layers.
+    surface_idx : int
+        Index in the column at the interface atmosphere-land.
+    total_opt : ndarray
+        Cumulative spectral optical thickness.
+    ff : ndarray
+        Forward phase matrix.
+    bb : ndarray
+        Backward phase matrix.
+    direct_reflectivity : ndarray
+        Reflectivity to direct radiation of the downmost level (boundary).
+    reflectivity : ndarray
+        Reflectivity of the downmost level (boundary).
+    s_layer_refl : ndarray
+        Reflectivity of each layer.
+    s_layer_trans : ndarray
+        Transmittivity of each layer.
+    s_layer_source_up : ndarray
+        Upward source term for each layer.
+    s_layer_source_down : ndarray
+        Downward source term for each layer.
+    s_level_rad_up : ndarray
+        Upward diffuse radiance at each level.
+    s_level_rad_upt : ndarray
+        Temporary variable for upward diffuse radiance at each level.
+    s_level_rad_down : ndarray
+        Downward diffuse radiance at each level.
+    s_level_rad_downt : ndarray
+        Temporary variable for downward diffuse radiance at each level.
+    s_level_rad_up_moments : ndarray
+        Upward diffuse radiance at each level for each Fourier mode.
+    s_level_rad_down_moments : ndarray
+        Downward diffuse radiance at each level for each Fourier mode.
+    s_level_refl_up : ndarray
+        Upward reflectance at each level.
+    s_level_refl_down : ndarray
+        Downward reflectance at each level.
     """
 
     def __init__(
@@ -49,20 +123,13 @@ class _MultiStreamSolver:
         irradiance : SolarIrradiance
             Instance of the SolarIrradiance class, storing the properties of the
             incoming solar irradiance.
-        output_levels : string
-            Level at which radiance fields mut be returned (TOA/BOA).
-        n_streams: int
-            Number of discrete ordinates / angles in the gaussian quadrature.
-        n_fourier: int
-            Number of Fourier modes to solve for.
+        SOLVER : dictionary
+            Solver parameters set in the input Yaml file.
         """
 
         self.solar_irradiance = np.array(irradiance.flx_slr)
         self.solar_flag = True
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
-        self.DELTA_OPTICAL_DEPTH = 1e-8
-        self.max_albedo = 0.999999
-        self.SCATTERING_ALBEDO_THRESHOLD = 1e-10
         self.cosmic_background = 0
         self.n_angles = SOLVER.N_STREAMS
         self.n_fourier = SOLVER.N_FOURIER_MODES
@@ -134,9 +201,9 @@ class _MultiStreamSolver:
             (self.n_angles, self.n_angles + 1, self.nbr_lyr, self.nbr_wvl)
         )
         self.direct_reflectivity = np.zeros((self.n_angles, self.nbr_wvl))
-        self.emissivity = np.zeros_like(self.direct_reflectivity)
         self.reflectivity = np.zeros((self.nbr_wvl, self.n_angles, self.n_angles))
-
+        
+        
         ## attributes for adding method
         self.s_level_refl_up = np.zeros(
             (self.nbr_wvl, self.n_angles, self.n_angles, self.nbr_lyr + 1)
@@ -180,6 +247,10 @@ class _MultiStreamSolver:
             )
 
     def set_gaussian_quadrature(self):
+        '''
+        Set nodes and weights of gaussian quadrature in [0-1] (cos polar angle).
+
+        '''
 
         # generate nodes / weights in [-1:1] and then remap to [0-1]
         nodes, weights = np.polynomial.legendre.leggauss(self.n_angles)
@@ -187,6 +258,25 @@ class _MultiStreamSolver:
         self.cos_weight = 0.5 * weights
 
     def apply_delta_scaling(self, atmosphere, land, SOLVER):
+        '''
+        Apply optional Delta-M or Delta-M+ scaling to expansion coefficients
+        to truncate strongly forward-scattering phase functions.
+        
+        Parameters
+        ----------
+        land : LandColumn
+            Instance of the LandColumn class, storing the physical
+            and optical properties of the ice/snow column.
+        atmosphere : AtmosphereColumn
+            Instance of the AtmosphereColumn class, storing the physical
+            and optical properties of the atmosphere column.
+        irradiance : SolarIrradiance
+            Instance of the SolarIrradiance class, storing the properties of the
+            incoming solar irradiance.
+        SOLVER : dictionary
+            Solver parameters set in the input Yaml file.
+
+        '''
 
         # initialize and set in case atmosphere is not used
         tau_atm = None
@@ -264,7 +354,7 @@ class _MultiStreamSolver:
                         atmosphere.legendre_moments[1, :, 0] != 0.0
                     )[0][0]
 
-                    # flag from DISORT
+                    # ! DISORT reverts to Delta-M+ under conditions below
                     if (
                         atmosphere.legendre_moments[
                             atmosphere.n_expansion, boundary_layer_aerosols:, :
@@ -357,14 +447,10 @@ class _MultiStreamSolver:
         )
 
     def set_phase_matrices(self):
-        """Calculate phase coefficients and phase matrices
-
-        Calculate weighed/scaled expansion coefficients Wiscombe
-        1977 Eq. 14 Convention is 0.5 * (2l+1) * Bl for the
-        expansion ie the 0.5 factor coming from RTE now is
-        included here and we add the factorial normalization when
-        fourier mode > 0
-
+        """
+        Calculate phase function expansion from legendre moments and legendre
+        polynomials, then compute forward + backward phase matrices and finally 
+        check conservation of energy distributed among the streams.
         """
 
         orders = np.arange(self.mth_azi, self.legendre_moments.shape[0])
@@ -442,7 +528,12 @@ class _MultiStreamSolver:
 
     def reset_state(self, m):
         """
-        Change Fourier moment and reset required variables.
+        Change Fourier moment order and reset required variables.
+        
+        Parameters
+        ----------
+        m : int
+            Fourier mode number.
         """
 
         # Fourier moment
@@ -465,7 +556,6 @@ class _MultiStreamSolver:
         self.s_layer_trans.fill(0.0)
 
         self.direct_reflectivity.fill(0.0)
-        self.emissivity.fill(0.0)
         self.reflectivity.fill(0.0)
 
         if self.run_downward_loop:
@@ -477,17 +567,16 @@ class _MultiStreamSolver:
         """
         Compute layer transmission, reflection matrices and source
         function at the top and bottom of the layer using the advanced
-        matrix operator method (AMOM; Liu and Weng 2013) set the attributes of
-        the class accordingly.
+        matrix operator method (AMOM; Liu and Weng 2013).
 
         Parameters
         ----------
-        lyr : int
+        k : int
             Index of the layer for which the optical properties are calculated.
 
         """
 
-        # equatino 6A L&W2013 (without the Kronecker delta)
+        # equation 6A L&W2013 (without the Kronecker delta)
         pp = (
             self.w[k, None, None, :]
             * self.ff[:, : self.n_angles, k, :]
@@ -692,15 +781,8 @@ class _MultiStreamSolver:
 
     def verify_balance_of_fluxes(self):
         """
-
-        Verify that the energy coming in is either reflected back, absorbed by the
-        layers or 'lost' at the model boundary.
-
-        Parameters
-        ----------
-        aads : MultiStreamSolver
-            instance of the solver
-
+        Verify that the energy coming in is either reflected back, absorbed by 
+        the layers or 'lost' at the model boundary.
         """
 
         # flux existing at top
@@ -785,13 +867,12 @@ class _MultiStreamSolver:
 
     def get_outputs(self):
         """
-        Compile and return radiative transfer results as an
-        _MultiStreamSolverResults instance.
+        Compile and return radiative transfer results at required output levels.
 
         Returns
         -------
-        xr.Dataset
-            Multi-stream solver results in an xarray Dataset.
+        results : dictionary
+            Multi-stream solver results.
 
         """
 
@@ -865,7 +946,7 @@ class _MultiStreamSolver:
 
         if "TOA" in self.output_levels:
 
-            # azimuth-averaged first : only 0-th moment matters
+            # azimuth-independent first : only 0-th moment matters
 
             tau_k = self.total_opt[0, :]
 
@@ -934,8 +1015,8 @@ class _MultiStreamSolver:
 def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
     """
 
-    This subroutine calculates hemispherical albedo by calling AMOM for each
-    layer and combining them with the adding method.
+    Compute upward and downward radiances for a column of homogeneous layers
+    by calling AMOM for each layer and combining them with the adding method.
 
     Parameters
     ----------
@@ -948,15 +1029,14 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class, storing the properties of the
         incoming solar irradiance.
-    output_levels : string
-        Level at which radiance fields mut be returned (TOA/BOA).
-    n_streams: int
-        Number of discrete ordinates / angles in the gaussian quadrature.
-    n_fourier: int
-        Number of Fourier modes to solve for.
-    Returns
+    SOLVER : dictionary
+        Solver parameters set in the input Yaml file.
+        
+    Returns 
     -------
     outputs : dictionary
+        Results of the solvers (radiance/reflectance/albedo at TOA/BOA).
+    
 
     """
 
