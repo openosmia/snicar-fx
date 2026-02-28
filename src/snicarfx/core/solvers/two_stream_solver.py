@@ -20,23 +20,16 @@ class _TwoStreamSolverResults:
 
     Attributes
     ----------
-    albedo : array
-        Spectrally resolved surface albedo [unitless].
     wavelengths : array
-        Wavelength grid [m].
+        Wavelength grid (m).
+    albedo : array
+        Spectrally resolved surface albedo.
     BBA : float
-        Broadband albedo (spectrally-integrated albedo) [unitless].
-    absorbed_flux_per_layer : array
-        Layer-wise spectrally-resolved absorbed solar flux [W/m² per layer].
-    abs_slr_btm : array
-        Spectrally-resolved absorbed solar energy at the bottom layer [W/m²].
-    abs_slr_tot : array
-        Spectrally-integrated absorbed solar energy across the column [W/m²].
-    heat_rt : array
-        Heating rate in each layer [K/s per layer].
-    total_insolation : array
-        Spectrally-integrated incoming solar energy at the top layer [W/m²].
-
+        Broadband albedo (spectrally-integrated albedo).
+    absorbed_flux_fraction_per_layer : array
+        Layer-wise spectrally-resolved absorbed solar flux (W/m² per layer).
+    absorbed_flux_fraction_bottom : array
+        Spectrally-resolved absorbed solar energy at the bottom layer (W/m2).
     """
 
     wavelengths: np.ndarray
@@ -48,7 +41,6 @@ class _TwoStreamSolverResults:
 
 class _TwoStreamSolver:
     """
-
     This class loads and initialize the variables necessary to solve the radiative
     transfer equation using the Delta-Eddington two-stream solver from Briegleb
     and Light 2007, later modified by Whicker et al. 2022. The solver is identical
@@ -60,30 +52,35 @@ class _TwoStreamSolver:
 
     Attributes
     ----------
-    column : ColumnProperties
-        An instance of the ColumnProperties class.
+    column : LandColumn
+        An instance of the LandColumn class.
     irradiance : SolarIrradiance
         An instance of the SolarIrradiance class.
+    cos_sza : float
+        Cosine of solar zenith angle.
+    mu0 : array
+        Cosine of solar zenith angle repeated for every wavelength.
     epsilon : float
         Small number to prevent numerical singularities.
     exp_min : float
         Minimum exponent value to prevent underflow.
-    mu0 : array
-        Cosine of solar zenith angle.
+    nbr_wvl : ndarray
+        Number of wavelengths. 
     nr : array
         Modified refractive index adjusted for the imaginary component.
     mu0n : ndarray
         Cosine of the refraction angle after applying Snell's law.
-    lyrfrsnl : int
-        Index of first layer with refractive boundary (layer_type == 1).
+    trnlay: array
+        Transmission of direct solar beam (exponential term).
     rdif_a, rdif_b, tdif_a, tdif_b : array
         Layer reflectivities and transmittivities to diffuse radiation.
     rdir, tdir : ndarray
         Layer reflectivity and transmittivity to direct radiation.
-    trnlay: array
-        Attenuation of direct solar beam (exponential term).
     rupdif, rupdir : array
         Upward reflection of diffuse and direct radiation.
+    rdndif : array
+        Combined reflectivity from all layers above current layer to 
+        diffuse radiation coming from above.
     trntdr, trndif, trndir : array
         Spectral transmission (total, diffuse, direct).
     fdirup, fdirdn : ndarray
@@ -98,6 +95,17 @@ class _TwoStreamSolver:
         Gaussian quadrature points (cosine of angle).
     GAUSWT : list of float
         Corresponding Gaussian quadrature weights.
+    lyrfrsnl : int
+        Index of first layer with refractive boundary (layer_type == 1).
+    ts : array
+        Spectral optical thickness of each layer (Delta-scaled).
+    ws : array
+        Spectral single scattering albedo of each layer (Delta-scaled).
+    gs : array
+        Spectral asymmetry parameter of each layer (Delta-scaled).
+    albedo : array
+        Hemispherical spectral albedo.
+        
     """
 
     def __init__(self, column, irradiance):
@@ -109,8 +117,8 @@ class _TwoStreamSolver:
 
         Parameters
         ----------
-        column : ColumnProperties
-            An instance of the ColumnProperties class containing the
+        column : LandColumn
+            An instance of the LandColumn class containing the
             properties of the snow/ice column.
         irradiance : SolarIrradiance
             An instance of the SolarIrradiance class providing the incoming
@@ -122,6 +130,9 @@ class _TwoStreamSolver:
         self.irradiance = irradiance
 
         self.cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza)))
+        
+        # cos beam angle = incident beam
+        self.mu0 = self.cos_sza * np.ones(self.nbr_wvl)
 
         # to deal with singularity
         self.epsilon = 1e-5
@@ -132,9 +143,6 @@ class _TwoStreamSolver:
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
 
         self.nr = np.zeros(shape=self.nbr_wvl)
-
-        # cos beam angle = incident beam
-        self.mu0 = self.cos_sza * np.ones(self.nbr_wvl)
 
         # ice-adjusted real refractive index
         temp1 = (
@@ -174,10 +182,16 @@ class _TwoStreamSolver:
 
         # layer transmittivity to direct radiation (solar beam + diffuse)
         self.tdir = np.zeros_like(self.trnlay)
+        
+        # reflectivity to diffuse radiation
+        self.rupdif = np.zeros_like(self.trnlay)
+
+        # reflectivity to direct radiation
+        self.rupdir = np.zeros_like(self.trnlay)
 
         # reflection of diffuse radiation for layers above
         self.rdndif = np.zeros_like(self.trnlay)
-
+        
         # total transmission from layers above
         self.trntdr = np.zeros_like(self.trnlay)
 
@@ -186,12 +200,6 @@ class _TwoStreamSolver:
 
         # solar beam down transmission from top
         self.trndir = np.zeros_like(self.trnlay)
-
-        # reflectivity to diffuse radiation
-        self.rupdif = np.zeros_like(self.trnlay)
-
-        # reflectivity to direct radiation
-        self.rupdir = np.zeros_like(self.trnlay)
 
         # direct flux up
         self.fdirup = np.zeros_like(self.trnlay)
@@ -737,8 +745,8 @@ class _TwoStreamSolver:
 
         Returns
         -------
-        xr.Dataset
-            Two-stream solver results in an xarray Dataset.
+        results : _TwoStreamSolverResults
+            Two-stream solver results.
 
         """
 
@@ -778,18 +786,18 @@ def solve_two_stream_rt(column, irradiance):
 
     Parameters
     ----------
-    column : ColumnProperties
-        An instance of the `ColumnProperties` class containing the optical and
+    column : LandColumn
+        An instance of the `LandColumn` class containing the optical and
         physical properties of the snow/ice column.
 
     irradiance : SolarIrradiance
         An instance of the `SolarIrradiance` class providing spectral solar fluxes
         (direct and diffuse) and the cosine of the solar zenith angle.
 
-
     Returns
     -------
-        outputs: Instance of Outputs class.
+        outputs: _TwoStreamSolverResults
+        
 
     Raises
     ------
