@@ -6,37 +6,7 @@ https://github.com/openosmia/snicar-fx
 """
 
 from dataclasses import dataclass
-
 import numpy as np
-
-
-@dataclass
-class _TwoStreamSolverResults:
-    """
-    Stores output data from radiative transfer calculations.
-
-    This class holds computed radiative properties of the snow or ice column,
-    such as albedo, broadband heating rates, and energy absorption.
-
-    Attributes
-    ----------
-    wavelengths : array
-        Wavelength grid (m).
-    albedo : array
-        Spectrally resolved surface albedo.
-    BBA : float
-        Broadband albedo (spectrally-integrated albedo).
-    absorbed_flux_fraction_per_layer : array
-        Layer-wise spectrally-resolved absorbed solar flux (W/m² per layer).
-    absorbed_flux_fraction_bottom : array
-        Spectrally-resolved absorbed solar energy at the bottom layer (W/m2).
-    """
-
-    wavelengths: np.ndarray
-    albedo: np.ndarray
-    BBA: float
-    absorbed_flux_fraction_per_layer: np.ndarray
-    absorbed_flux_fraction_bottom: float
 
 
 class _TwoStreamSolver:
@@ -740,15 +710,16 @@ class _TwoStreamSolver:
 
     def get_outputs(self):
         """
-        Compile and return radiative transfer results as an
-        _TwoStreamSolverResults instance.
+        Compile and return radiative transfer results as dictionary
 
         Returns
         -------
-        results : _TwoStreamSolverResults
+        results : dictionary
             Two-stream solver results.
 
         """
+
+        results = {}
 
         # Radiative heating rate:
         f_abs_slr = np.sum(self.F_abs, axis=0)
@@ -757,17 +728,14 @@ class _TwoStreamSolver:
         BBA = np.sum(self.irradiance.flx_slr * self.albedo) / np.sum(
             self.irradiance.flx_slr
         )
+        results["broadband_albedo_boa"] = BBA
+        results["albedo_boa"] = self.albedo
 
         # Spectrally-integrated absorption by underlying surface:
         abs_slr_btm = np.sum(self.F_btm_net, axis=0)
 
-        results = _TwoStreamSolverResults(
-            wavelengths=self.column._wavelengths,
-            albedo=self.albedo,
-            BBA=BBA,
-            absorbed_flux_fraction_per_layer=f_abs_slr,
-            absorbed_flux_fraction_bottom=abs_slr_btm,
-        )
+        results["absorbed_flux_fraction"] = f_abs_slr
+        results["absorbed_flux_fraction_bottom"] = f_abs_slr
 
         return results
 

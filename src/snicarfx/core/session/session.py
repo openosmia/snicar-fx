@@ -394,7 +394,7 @@ class Session:
             else:
                 self.atmosphere_column.set_atmospheric_properties_without_aerosols()
 
-            # recalculate legendre moments 
+            # recalculate legendre moments
             self.atmosphere_column.set_legendre_moments()
             self.compute_band_average(components=["atmosphere"])
 
@@ -532,13 +532,15 @@ class Session:
 
         ds = xr.Dataset(
             data_vars={
-                "albedo": ("wavelength", self.outputs.albedo),
-                "BBA": self.outputs.BBA,
+                "albedo_boa": ("wavelength", self.outputs["albedo"]),
+                "broadband_albedo_boa": self.outputs["broadband_albedo_boa"],
                 "absorbed_flux_fraction": (
                     "layer",
-                    self.outputs.absorbed_flux_fraction_per_layer,
+                    self.outputs["absorbed_flux_fraction"],
                 ),
-                "absorbed_flux_fraction_bottom": self.outputs.absorbed_flux_fraction_bottom,
+                "absorbed_flux_fraction_bottom": self.outputs[
+                    "absorbed_flux_fraction_bottom"
+                ],
             },
             coords={
                 "wavelength": (
@@ -552,6 +554,38 @@ class Session:
 
         # add attributes
         ds.attrs.update(attrs)
+
+        # Add coordinate metadata
+        ds["wavelength"].attrs.update(
+            {
+                "description": "Wavelength",
+                "units": "m",
+            }
+        )
+        ds["broadband_albedo_boa"].attrs.update(
+            {
+                "description": "Broadband albedo (spectrally-integrated albedo) at the surface (Bottom of Atmosphere, BOA)",
+                "units": None,
+            }
+        )
+        ds["albedo_boa"].attrs.update(
+            {
+                "description": "Spectrally resolved surface albedo at the surface (Bottom of Atmosphere, BOA)",
+                "units": None,
+            }
+        )
+        ds["absorbed_flux_fraction"].attrs.update(
+            {
+                "description": "Layer-wise spectrally-resolved absorbed solar flux",
+                "units": "W/m2",
+            }
+        )
+        ds["absorbed_flux_fraction_bottom"].attrs.update(
+            {
+                "description": "Spectrally-resolved absorbed solar energy at the bottom layer",
+                "units": "W/m2",
+            }
+        )
 
         return ds
 

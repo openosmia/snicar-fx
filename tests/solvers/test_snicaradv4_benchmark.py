@@ -130,7 +130,7 @@ def test_twostreams_outputs(
     )[0][0]
 
     assert np.allclose(
-        outputs.albedo[:250],
+        outputs["albedo_boa"][:250],
         benchmark_snicaradv4_spectral_data.sel(
             layer_type=layer_type + 1,
             density=density,
@@ -144,7 +144,7 @@ def test_twostreams_outputs(
     )
 
     assert np.allclose(
-        outputs.BBA,
+        outputs["broadband_albedo_boa"],
         benchmark_snicaradv4_bba_data.sel(
             layer_type=layer_type + 1,
             density=density,
@@ -156,9 +156,9 @@ def test_twostreams_outputs(
         )["BBA"].values,
         atol=absolute_tolerance_benchmark,
     )
-    
+
     assert np.allclose(
-        np.nansum(outputs.absorbed_flux_fraction_per_layer),
+        np.nansum(outputs["absorbed_flux_fraction"]),
         benchmark_snicaradv4_absorbed_flux_data.sel(
             layer_type=layer_type + 1,
             density=density,
