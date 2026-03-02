@@ -205,10 +205,6 @@ class LandColumn:
 
                 self.asm_prm = np.clip(self.asm_prm, 0, 1)
 
-                if self.grain_shape[lyr] == 1:
-                    # correction low end of Dadic 2013
-                    self.asm_prm[lyr, :] = self.asm_prm[lyr, :] * 0.94
-
                 self.ext_cff[lyr, :] = scattering_cff + abs_cff
 
                 self.tau[lyr, :] = self.ext_cff[lyr, :] * self.layer_mass[lyr]
