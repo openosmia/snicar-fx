@@ -32,12 +32,12 @@ class AtmosphereColumn:
     atmosphere_profile_type : str
         AFGL tag for type of atmospheric profile.
     atmosphere_profile : pandas DataFrame
-        Atmospheric profile (altitudes, layer thicknesses, gas concentrations, 
+        Atmospheric profile (altitudes, layer thicknesses, gas concentrations,
         pressure, temperature).
     nbr_lyr : int
         Number of layers in the column.
     aerosol_boundary_height : int
-        Maximum altitude with aerosols (fixed to 30km). 
+        Maximum altitude with aerosols (fixed to 30km).
     AOD : float
         Column-integrated aerosol optical thickness.
     integrated_gas_concentrations : dict
@@ -74,9 +74,9 @@ class AtmosphereColumn:
 
         self.ROOT_PATH = config._ROOT_PATH
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
-        
+
         if self.use_atmosphere:
-            
+
             self._wavelengths = config._wavelengths_atmosphere
             self.nbr_wvl = len(self._wavelengths)
             self.surface_elevation = config.LAND.ALTITUDE
@@ -107,7 +107,7 @@ class AtmosphereColumn:
                 self.set_aerosol_properties()
                 self.scale_tau_aerosols()
                 self.set_atmospheric_properties_with_aerosols()
-                
+
             self.set_legendre_moments()
 
     def set_atmospheric_profile(self):
@@ -132,20 +132,20 @@ class AtmosphereColumn:
             "co2(cm-3)",
             "no2(cm-3)",
         ]
-        
+
         # truncate dep. on altitude
         profile = profile[profile["z(km)"] >= self.surface_elevation]
-        
+
         # calculate layer thicknesses
-        
+
         dz = np.abs(np.diff(profile["z(km)"].values))
 
         # transform profile into layer variables (mid-point)
         profile = profile.rolling(2).mean().iloc[1:, :]
-        
+
         # add layer thicknesses
         profile["dz(km)"] = dz
-        
+
         return profile
 
     def scale_atmospheric_profile(self):
@@ -273,7 +273,7 @@ class AtmosphereColumn:
 
     def set_rayleigh_legendre_moments(self):
         """
-        Set coefficients for Legendre expansion of Rayleigh phase function. 
+        Set coefficients for Legendre expansion of Rayleigh phase function.
         """
 
         self.rayleigh_legendre_moments = np.zeros(
@@ -292,14 +292,25 @@ class AtmosphereColumn:
         self.gas_cross_sections = xr.open_dataset(
             f"{self.ROOT_PATH}/data/atmospheric_profiles/uvspec_afglss_test_file_cross_sections.nc"
         )
-        
+
         # truncate depending on altitude
         self.gas_cross_sections = self.gas_cross_sections.sel(
             nlev=self.gas_cross_sections.z.values >= self.surface_elevation
         )
-        
+
         # interpolate on wvl
         self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
+
+        min_gas_wvl = self.gas_cross_sections["nwvl"][0].values
+        max_gas_wvl = self.gas_cross_sections["nwvl"][-1].values
+
+        # raise an explicit error before solve if wavelength ranges do
+        # not match
+        if self._wavelengths[0] < min_gas_wvl or self._wavelengths[-1] > max_gas_wvl:
+            raise ValueError(
+                f"Input spectral resolution must be within the spectral range of gas cross sections ([{min_gas_wvl:.1f}, {max_gas_wvl:.1f}]). Either modify the input spectral resolution to match the latter range, or use a different file for gas cross sections (not recommended)."
+            )
+
         self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self._wavelengths)
 
         return None
@@ -374,7 +385,7 @@ class AtmosphereColumn:
 
         profile_aerosol_z = self.atmosphere_profile["z(km)"].values.copy()
         profile_aerosol_dz = self.atmosphere_profile["dz(km)"].values.copy()
-        
+
         # set dz to 0 outside of the aerosol layer (propagating to tau=0)
         profile_aerosol_dz[profile_aerosol_z > self.aerosol_boundary_height] = 0.0
 
@@ -391,7 +402,7 @@ class AtmosphereColumn:
         Prevent single scattering albedo to be exactly 1 which creates
         numerical instabilities.
         """
-        
+
         self.ss_alb[self.ss_alb == 1] = 1.0 - 1e-7
 
     def set_atmospheric_properties_without_aerosols(self):
@@ -415,25 +426,27 @@ class AtmosphereColumn:
         self.ss_alb = (
             self.tau_molecular_scatter + self.aerosol_ss_alb * self.tau_aerosols
         ) / (self.tau)
-        
+
         self.prevent_pure_scattering()
 
         return None
-    
+
     def set_legendre_moments(self):
         """
         Set legendre expansion coefficients of the atmospheric phase function.
         """
-        
+
         if self.AOD > 0:
             aerosol_tau_ss_alb = (
                 self.tau_aerosols[None, :, :] * self.aerosol_ss_alb[None, None, :]
             )
             self.legendre_moments = (
                 (self.aerosol_legendre_moments[:, None, :] * aerosol_tau_ss_alb)
-                + (self.tau_molecular_scatter[None, :, :] * self.rayleigh_legendre_moments)
+                + (
+                    self.tau_molecular_scatter[None, :, :]
+                    * self.rayleigh_legendre_moments
+                )
             ) / (self.tau_molecular_scatter[None, :, :] + aerosol_tau_ss_alb)
-            
+
         else:
             self.legendre_moments = self.rayleigh_legendre_moments
-            
