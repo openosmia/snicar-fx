@@ -5,7 +5,6 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from PythonicDISORT import pydisort
 from PythonicDISORT.subroutines import interpolate as interp_u
 from PythonicDISORT._assemble_intensity_and_fluxes import _assemble_intensity_and_fluxes
 
@@ -62,11 +61,15 @@ class _MultiStreamSolverDISORT:
         self.set_gaussian_quadrature()
         
         ## INPUTS TO DECIDE ON: 
+            # 1: PHI AND IMS CORRECTION
             # phi0 and phi are needed if IMS correction is turned on, otherwise
             # only the relative angle is important.
             # do we keep rel. azimuth in yaml or do we use phi0/phi ?
-            # do we have IMS as optional?
-            # how can we prescribe a user-input polar angle array?
+            # do we implement IMS? have IMS as optional?
+            # 2: ADD INPUT
+            # we need an input for a user-input polar angle array
+            # 3: BANDED CALCULATIONS IN ATMOSPHERE?
+            # use_banded_solver_NLayers
         self.relative_azimuths = np.arange(*SOLVER.RELATIVE_AZIMUTH)
         self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
         self.IMS_TMS_correction = True
@@ -454,8 +457,6 @@ class _MultiStreamSolverDISORT:
                     self.directional_reflectance_boa_m0[:, wl_idx] = (
                         self.directional_radiance_boa_m0[:, wl_idx] * np.pi / np.sum(flux_down(0))
                         )
-            
-                                
                 
             else: 
                 
@@ -527,18 +528,20 @@ class _MultiStreamSolverDISORT:
                 
     
 
-# #%% test 
-# import matplotlib.pyplot as plt
-# from snicarfx.core import Session
-# input_file = "/Users/au660413/Documents/openosmia/snicar-fx/src/snicarfx/inputs.yaml"
-# session = Session(input_file)
+#%% test 
+import matplotlib.pyplot as plt
+from snicarfx.core import Session
+input_file = "/Users/au660413/Documents/openosmia/snicar-fx/src/snicarfx/inputs.yaml"
+session = Session(input_file)
 # results = session.run()
 
-# #%%
-# plt.plot(results.wavelength, results.albedo_boa)
+solver = _MultiStreamSolverDISORT(session.land_column, session.atmosphere_column, session.solar_irradiance, session.config.SOLVER)
+solver.solve_multi_stream_rt_v2()
+#%%
+plt.plot(results.wavelength, results.albedo_boa)
 
-# # plt.plot(results.wavelength, solver.albedo_toa, '--')
-# plt.plot(results.wavelength, solver.albedo_boa, '--')
+# plt.plot(results.wavelength, solver.albedo_toa, '--')
+plt.plot(results.wavelength, solver.albedo_boa, '--')
 
 
 
