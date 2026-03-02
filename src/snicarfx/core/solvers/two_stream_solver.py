@@ -65,7 +65,7 @@ class _TwoStreamSolver:
     exp_min : float
         Minimum exponent value to prevent underflow.
     nbr_wvl : ndarray
-        Number of wavelengths. 
+        Number of wavelengths.
     nr : array
         Modified refractive index adjusted for the imaginary component.
     mu0n : ndarray
@@ -79,7 +79,7 @@ class _TwoStreamSolver:
     rupdif, rupdir : array
         Upward reflection of diffuse and direct radiation.
     rdndif : array
-        Combined reflectivity from all layers above current layer to 
+        Combined reflectivity from all layers above current layer to
         diffuse radiation coming from above.
     trntdr, trndif, trndir : array
         Spectral transmission (total, diffuse, direct).
@@ -105,7 +105,7 @@ class _TwoStreamSolver:
         Spectral asymmetry parameter of each layer (Delta-scaled).
     albedo : array
         Hemispherical spectral albedo.
-        
+
     """
 
     def __init__(self, column, irradiance):
@@ -130,7 +130,9 @@ class _TwoStreamSolver:
         self.irradiance = irradiance
 
         self.cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza)))
-        
+
+        self.nbr_wvl = len(irradiance.flx_slr.flatten())
+
         # cos beam angle = incident beam
         self.mu0 = self.cos_sza * np.ones(self.nbr_wvl)
 
@@ -139,8 +141,6 @@ class _TwoStreamSolver:
 
         # exp(-500)  # min value > 0 to avoid error
         self.exp_min = 1e-5
-
-        self.nbr_wvl = len(irradiance.flx_slr.flatten())
 
         self.nr = np.zeros(shape=self.nbr_wvl)
 
@@ -182,7 +182,7 @@ class _TwoStreamSolver:
 
         # layer transmittivity to direct radiation (solar beam + diffuse)
         self.tdir = np.zeros_like(self.trnlay)
-        
+
         # reflectivity to diffuse radiation
         self.rupdif = np.zeros_like(self.trnlay)
 
@@ -191,7 +191,7 @@ class _TwoStreamSolver:
 
         # reflection of diffuse radiation for layers above
         self.rdndif = np.zeros_like(self.trnlay)
-        
+
         # total transmission from layers above
         self.trntdr = np.zeros_like(self.trnlay)
 
@@ -797,7 +797,7 @@ def solve_two_stream_rt(column, irradiance):
     Returns
     -------
         outputs: _TwoStreamSolverResults
-        
+
 
     Raises
     ------
