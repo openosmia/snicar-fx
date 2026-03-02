@@ -51,6 +51,18 @@ def session():
 
 
 @pytest.fixture(scope="module")
+def config2(session2):
+    """Provide a shared instance of Config."""
+    return session2.config
+
+
+@pytest.fixture(scope="module")
+def session2():
+    """Provide a shared Session instance."""
+    return Session(TEST_INPUT_FILE2)
+
+
+@pytest.fixture(scope="module")
 def land_column(config):
     """Provide a shared LandColumn instance using shared Config."""
     return LandColumn(config)
@@ -66,6 +78,24 @@ def atmosphere_column(config):
 def irradiance(config):
     """Provide a SolarIrradiance instance using shared Config."""
     return SolarIrradiance(config)
+
+
+@pytest.fixture(scope="module")
+def land_column2(config2):
+    """Provide a shared LandColumn instance using shared Config."""
+    return LandColumn(config2)
+
+
+@pytest.fixture(scope="module")
+def atmosphere_column2(config2):
+    """Provide a shared AtmosphereColumn instance using shared Config."""
+    return AtmosphereColumn(config2)
+
+
+@pytest.fixture(scope="module")
+def irradiance2(config2):
+    """Provide a SolarIrradiance instance using shared Config."""
+    return SolarIrradiance(config2)
 
 
 @pytest.fixture(scope="module")

@@ -36,13 +36,6 @@ def test_get_package_root(session):
     assert "snicar-fx" in package_root.parts
 
 
-# def test_run(session):
-
-#     outputs = session.run()
-
-#     assert isinstance(outputs.BBA, float)
-
-
 @pytest.mark.parametrize(
     "component, field, value",
     [
