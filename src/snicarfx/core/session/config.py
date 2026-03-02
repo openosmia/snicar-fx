@@ -421,6 +421,29 @@ class Land(BaseModel):
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
+    @model_validator(mode="after")
+    def check_grain_layer_compatibility(self):
+        """
+        GRAIN_SHAPE can't be Robledano et al. 2023 (1) if
+        LAYER_TYPE is solid ice (1 or 2).
+
+        """
+
+        grain_shapes = np.array(self.GRAIN_SHAPE)
+        layer_types = np.array(self.LAYER_TYPE)
+
+        invalid = (layer_types != 0) & (grain_shapes == 1)
+
+        if np.any(invalid):
+
+            invalid_layers = np.where(invalid)[0] + 1
+
+            raise ValueError(
+                f"GRAIN_SHAPE must be sphere (0) if solid ice LAYER_TYPE is used (1 or 2). Layers {invalid_layers} do not meet this criterion."
+            )
+
+        return self
+
 
 class Config(BaseModel):
     """
