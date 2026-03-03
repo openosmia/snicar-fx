@@ -66,4 +66,5 @@ def test_multistream_outputs(
             "albedo"
         ].values,
         atol=absolute_tolerance_benchmark,
+        rtol=0.0,
     )

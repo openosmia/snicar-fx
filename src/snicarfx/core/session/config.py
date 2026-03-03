@@ -75,13 +75,13 @@ class Solver(BaseModel):
         default=(0.0, 180.0, 20.0),
         description="Viewing azimuth angle (degrees).",
     )
-        
+
     POLAR_ANGLES: (
         tuple[confloat(ge=0, le=90), confloat(ge=0, le=90), confloat(ge=0.01, le=50)]
         | None
     ) = Field(
-        default=(5.0, 55.0, 5.0),
-        description="Viewing polar angle (degrees).",
+        default=None,
+        description="Viewing polar angle (degrees). Defaults to None for TYPE two-stream-ad (it does not have angular resolution) and multi-stream-ada (polar angle resolution is set by N_STREAMS and the gaussian quadrature). If TYPE is multi-stream-disort, defaults to [5.0, 55.0, 5.0].",
     )
 
     # only fields validated here are allowed
@@ -159,6 +159,14 @@ class Solver(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def set_polar_angles(self):
+
+        if self.POLAR_ANGLES is None and self.TYPE == "multi-stream-disort":
+            self.POLAR_ANGLES = [5.0, 55.0, 5.0]
+
+        return self
+
 
 class Spectral(BaseModel):
     """
@@ -228,7 +236,7 @@ class Solar(BaseModel):
 
     # Solar Zenith Angle (unit: degrees)
     SZA: int = Field(..., ge=0, le=89, description="The Solar Zenigh Angle (SZA).")
-    
+
     # Solar Zenith Angle (unit: degrees)
     SAA: int = Field(..., ge=0, le=360, description="The Solar Azimuth Angle (SAA).")
 
@@ -481,9 +489,7 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def check_solver_atmosphere_compatibility(self):
-        if (
-            self.ATMOSPHERE.SKY_CONDITIONS == "cloudy"
-        ):
+        if self.ATMOSPHERE.SKY_CONDITIONS == "cloudy":
             raise ValueError(
                 "ATMOSPHERE.SKY_CONDITIONS='cloudy' is not supported for now. "
             )
@@ -491,9 +497,10 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def check_solver_layer_type_compatibility(self):
-        if ("multi-stream" in self.SOLVER.TYPE and 1 in self.LAND.LAYER_TYPE):
+        if "multi-stream" in self.SOLVER.TYPE and 1 in self.LAND.LAYER_TYPE:
             raise ValueError(
-                "Fresnel boundaries are not supported when " "SOLVER.TYPE='multi-stream'."
+                "Fresnel boundaries are not supported when "
+                "SOLVER.TYPE='multi-stream'."
             )
         return self
 

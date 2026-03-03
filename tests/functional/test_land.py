@@ -74,22 +74,28 @@ def test_landcolumn_values(
         np.nanmean(land_column.ref_idx_re),
         expected_mean_ref_idx_re,
         atol=absolute_tolerance_internal_variables,
+        rtol=0.0,
     )
 
     assert np.isclose(
         np.nanmean(land_column.ref_idx_im_water),
         expected_mean_ref_idx_im_water,
         atol=absolute_tolerance_internal_variables,
+        rtol=0.0,
     )
 
     assert np.isclose(
         np.nanmean(land_column.fl_r_dif_a),
         expected_mean_fl_r_dif_a,
         atol=absolute_tolerance_internal_variables,
+        rtol=0.0,
     )
 
     assert np.allclose(
-        land_column.tau, expected_tau, atol=absolute_tolerance_internal_variables
+        land_column.tau,
+        expected_tau,
+        atol=absolute_tolerance_internal_variables,
+        rtol=0.0,
     )
 
 

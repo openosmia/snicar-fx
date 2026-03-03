@@ -17,7 +17,10 @@ from ..components.atmosphere import AtmosphereColumn
 from ..components.land import LandColumn
 from ..components.solar import SolarIrradiance
 from ..solvers.multi_stream_solver_ada import solve_multi_stream_rt_ada
-from ..solvers.multi_stream_solver_disort import solve_multi_stream_rt_disort
+from ..solvers.multi_stream_solver_disort import (
+    solve_multi_stream_rt_disort,
+    solve_multi_stream_rt_disort_wrapper,
+)
 from ..solvers.two_stream_solver_ad import solve_two_stream_rt_ad
 from .config import Config
 
@@ -261,7 +264,7 @@ class Session:
                 "OUTPUT_LEVELS",
                 "N_FOURIER_MODES",
                 "AZIMUTH_ANGLES",
-                "POLAR_ANGLES"
+                "POLAR_ANGLES",
             }
             self._prepare_updates(updates, allowed_fields)
             updated_config = Config.model_validate(
@@ -294,7 +297,7 @@ class Session:
 
             if "AZIMUTH_ANGLES" in updates:
                 self.config.SOLVER.AZIMUTH_ANGLES = updates["AZIMUTH_ANGLES"]
-            
+
             if "POLAR_ANGLES" in updates:
                 self.config.SOLVER.POLAR_ANGLES = updates["POLAR_ANGLES"]
 
@@ -331,10 +334,10 @@ class Session:
 
         # update SZA and recompute irradiance only if updates not empty
         if updates:
-            if "SZA" in updates: 
+            if "SZA" in updates:
                 self.solar_irradiance.sza = updates["SZA"]
-                
-            if "SAA" in updates: 
+
+            if "SAA" in updates:
                 self.solar_irradiance.saa = updates["SAA"]
 
             if not self.config.SOLVER.ATMOSPHERE_COUPLING:
@@ -492,7 +495,9 @@ class Session:
         """
 
         if self.config.SOLVER.TYPE == "two-stream-ad":
-            self.outputs = solve_two_stream_rt_ad(self.land_column, self.solar_irradiance)
+            self.outputs = solve_two_stream_rt_ad(
+                self.land_column, self.solar_irradiance
+            )
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
                 self.outputs = self.format_twostream_results_to_xarray()
@@ -512,15 +517,23 @@ class Session:
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
                 self.outputs = self.format_multistream_results_to_xarray()
-                
+
         elif self.config.SOLVER.TYPE == "multi-stream-disort":
 
-            self.outputs = solve_multi_stream_rt_disort(
-                self.land_column,
-                self.atmosphere_column,
-                self.solar_irradiance,
-                self.config.SOLVER,
-            )
+            if self.config.SOLVER.DELTA_SCALING == "M+":
+                self.outputs = solve_multi_stream_rt_disort(
+                    self.land_column,
+                    self.atmosphere_column,
+                    self.solar_irradiance,
+                    self.config.SOLVER,
+                )
+            elif self.config.SOLVER.DELTA_SCALING == "M":
+                self.outputs = solve_multi_stream_rt_disort_wrapper(
+                    self.land_column,
+                    self.atmosphere_column,
+                    self.solar_irradiance,
+                    self.config.SOLVER,
+                )
 
             if self.config.SPECTRAL.MODE == "band-srf-integration":
                 self.apply_spectral_response_function()

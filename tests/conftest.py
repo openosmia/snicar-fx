@@ -259,7 +259,7 @@ def absolute_tolerance_pythonicdisort():
     the high-level wrapper of PythonicDISORT
 
     """
-    return 1e-15
+    return 5e-13
 
 
 @pytest.fixture(scope="module")

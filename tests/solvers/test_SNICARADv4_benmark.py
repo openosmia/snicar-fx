@@ -141,6 +141,7 @@ def test_twostreams_outputs(
             thickness_profiles=thickness_profile_idx,
         )["albedo"].values[:250],
         atol=absolute_tolerance_benchmark,
+        rtol=0.0,
     )
 
     assert np.allclose(
@@ -155,6 +156,7 @@ def test_twostreams_outputs(
             thickness_profiles=thickness_profile_idx,
         )["BBA"].values,
         atol=absolute_tolerance_benchmark,
+        rtol=0.0,
     )
 
     assert np.allclose(
@@ -169,4 +171,5 @@ def test_twostreams_outputs(
             thickness_profiles=thickness_profile_idx,
         )["flux_absorbed"].values,
         atol=absolute_tolerance_benchmark,
+        rtol=0.0,
     )

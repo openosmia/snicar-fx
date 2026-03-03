@@ -25,7 +25,7 @@ def test_scale_atmospheric_profile(atmosphere_column2):
 
     expected_integrated_o3 = current_integrated_o3 * 2
 
-    assert np.allclose(new_integrated_o3, expected_integrated_o3, rtol=1e-12)
+    assert np.allclose(new_integrated_o3, expected_integrated_o3, rtol=1e-12, atol=0.0)
 
 
 def test_set_rayleigh_legendre_moments(atmosphere_column2):

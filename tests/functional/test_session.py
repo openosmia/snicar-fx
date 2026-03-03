@@ -36,6 +36,19 @@ def test_get_package_root(session):
     assert "snicar-fx" in package_root.parts
 
 
+def test_format_multistream_results_to_xarray(session2):
+
+    results = session2.run(to_xarray=True)
+
+    assert results["albedo_toa"].shape == session2._band_ranges[:, -1].shape
+
+    assert results["directional_radiance_toa"].shape == (
+        len(np.arange(*session2.config.SOLVER.AZIMUTH_ANGLES)),
+        len(np.arange(*session2.n_angles)),
+        session2._band_ranges[:, -1].shape[0],
+    )
+
+
 @pytest.mark.parametrize(
     "component, field, value",
     [
@@ -61,7 +74,7 @@ def test_get_package_root(session):
         (
             "SOLVER",
             "POLAR_ANGLES",
-            (10, 170, 5),
+            (10, 90, 5),
         ),
         # ATMOSPHERE
         (

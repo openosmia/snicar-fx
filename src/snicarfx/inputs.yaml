@@ -6,8 +6,6 @@ SOLVER:
   ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling
   N_STREAMS: 16
   N_FOURIER_MODES: 5
-  AZIMUTH_ANGLES: [0, 180, 10]
-  POLAR_ANGLES: [0, 180, 10]
   OUTPUT_LEVELS: "BOA+TOA"
   
 SPECTRAL:

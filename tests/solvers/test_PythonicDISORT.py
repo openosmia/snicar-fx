@@ -36,15 +36,18 @@ def test_pythonicdisort_outputs(
         session2.atmosphere_column,
         session2.solar_irradiance,
         session2.config.SOLVER,
+        NT_cor=False,
     )
 
     assert np.allclose(
         results_backend["albedo_toa"],
         results_wrapper["albedo_toa"],
         atol=absolute_tolerance_pythonicdisort,
+        rtol=0.0,
     )
     assert np.allclose(
         results_backend["directional_radiance_toa"],
         results_wrapper["directional_radiance_toa"],
         atol=absolute_tolerance_pythonicdisort,
+        rtol=0.0,
     )

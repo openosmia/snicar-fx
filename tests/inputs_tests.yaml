@@ -5,8 +5,6 @@ SOLVER:
   TYPE: "two-stream-ad" # two-stream, multi-stream
   ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
   OUTPUT_LEVELS: "BOA"
-  AZIMUTH_ANGLES: [0, 180, 10]
-  POLAR_ANGLES: [0, 180, 10]
 
 SPECTRAL:
   MODE: "band-snicar-default"
