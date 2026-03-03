@@ -10,7 +10,7 @@ SOLVER:
   POLAR_ANGLES: [0, 180, 10]
     
 SPECTRAL:
-  MODE: "band-solar-weighted-mean"
+  MODE: "band-snicar-default"
   RESOLUTION: "SENTINEL-3-OLCI"
   
 SOLAR:

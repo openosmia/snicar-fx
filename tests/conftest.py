@@ -9,6 +9,7 @@ from itertools import product
 
 import pytest
 import xarray as xr
+import numpy as np
 
 from snicarfx.core.components.atmosphere import AtmosphereColumn
 from snicarfx.core.components.land import LandColumn
@@ -216,6 +217,24 @@ def pytest_generate_tests(metafunc):
         ds = xr.open_dataset("./tests/test_data/benchmark_SNICARADv4_BBA.nc")
         grid = list(twostream_parameter_grid(ds))
         metafunc.parametrize("params_2str", grid)
+
+
+@pytest.fixture(
+    params=product(
+        np.arange(42, 72, 10),  # SZA
+        np.arange(50, 250, 50),  # SAA
+        np.arange(20, 60, 10),  # Azimuth
+        np.linspace(0.1, 1, 5),  # AOD
+    ),
+    ids=lambda p: f"SZA{p[0]}_SAA{p[1]}_Az{p[2]}_AOD{p[3]:.2f}",
+)
+def multistream_pythonicdisort_params(request):
+    """
+    Create sets of parameters to be used in tests of PythonicDISORT.
+
+    Yields a tuple: (sza, saa, azimuth, aod)
+    """
+    return request.param
 
 
 @pytest.fixture(scope="module")
