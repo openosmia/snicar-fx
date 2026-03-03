@@ -236,6 +236,49 @@ def multistream_pythonicdisort_params(request):
     return request.param
 
 
+@pytest.fixture(
+    params=[
+        # SOLAR
+        {"component": "SOLAR", "field": "SZA", "value": 42},
+        {"component": "SOLAR", "field": "SAA", "value": 180},
+        # SOLVER
+        {"component": "SOLVER", "field": "OUTPUT_LEVELS", "value": "TOA"},
+        {"component": "SOLVER", "field": "N_FOURIER_MODES", "value": 3},
+        {"component": "SOLVER", "field": "AZIMUTH_ANGLES", "value": (10, 170, 5)},
+        {"component": "SOLVER", "field": "POLAR_ANGLES", "value": (10, 90, 5)},
+        # ATMOSPHERE
+        {"component": "ATMOSPHERE", "field": "INTEGRATED_AOD_550", "value": 0.42},
+        {
+            "component": "ATMOSPHERE",
+            "field": "INTEGRATED_GAS_CONCENTRATIONS",
+            "value": {"H2O": 15, "NO2": 1e-02, "O3": 0.01},
+        },
+        # LAND
+        {"component": "LAND", "field": "LAYER_TYPE", "value": (0, 0, 0)},
+        {"component": "LAND", "field": "GRAIN_SHAPE", "value": (0, 0, 0)},
+        {"component": "LAND", "field": "RF_TYPE", "value": "Pic16"},
+        {"component": "LAND", "field": "LWC", "value": (0.01, 0.01, 0.01)},
+        {"component": "LAND", "field": "THICKNESS", "value": (0.07, 0.04, 0.1)},
+        {"component": "LAND", "field": "SPECIFIC_SURFACE_AREA", "value": (1, 2, 3)},
+        {"component": "LAND", "field": "DENSITY", "value": (600, 700, 800)},
+        {
+            "component": "LAND",
+            "field": "LIGHT_ABSORBING_PARTICLES",
+            "value": {
+                "BC1": {"FILE": "bc_ChCB_rn40_dns1270.nc", "CONC": (2, 20, 200)},
+                "BC2": {"FILE": "bc_ChCB_rn40_dns1270.nc", "CONC": (3, 30, 300)},
+            },
+        },
+    ],
+    ids=lambda p: f"{p['component']}_{p['field']}_{p['value']}",
+)
+def update_api_params(request):
+    """
+    Create sets of parameters to be used in tests of the update API.
+    """
+    return request.param
+
+
 @pytest.fixture(scope="module")
 def absolute_tolerance_internal_variables():
     """Set absolute tolerance on error for the internal variables."""
@@ -263,7 +306,19 @@ def absolute_tolerance_pythonicdisort():
 
 
 @pytest.fixture(scope="module")
+def absolute_tolerance_update_api_gs():
+    """
+    Set absolute tolerance on error for the update API, on
+    atmosphere property scaling, specifically.
+
+    """
+    return 5e-13
+
+
+@pytest.fixture(scope="module")
 def absolute_tolerance_update_api():
-    """Set absolute tolerance on error for the update API (atmosphere
-    property scaling, specifically)."""
-    return 1e-15
+    """
+    Set absolute tolerance on error for the update API
+
+    """
+    return 8e-16

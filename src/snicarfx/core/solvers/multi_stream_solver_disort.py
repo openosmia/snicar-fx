@@ -125,7 +125,7 @@ class _MultiStreamSolverDISORT:
             self.directional_reflectance_toa_m0
         )
         self.directional_radiance_toa = np.zeros(
-            (len(self.output_polar_angles), len(self.relative_azimuths), self.nbr_wvl)
+            (len(self.output_polar_angles), self.nbr_wvl, len(self.relative_azimuths))
         )
         self.directional_reflectance_toa = np.zeros_like(self.directional_radiance_toa)
 
@@ -137,7 +137,7 @@ class _MultiStreamSolverDISORT:
             self.directional_reflectance_boa_m0
         )
         self.directional_radiance_boa = np.zeros(
-            (len(self.output_polar_angles), len(self.relative_azimuths), self.nbr_wvl)
+            (len(self.output_polar_angles), self.nbr_wvl, len(self.relative_azimuths))
         )
         self.directional_reflectance_boa = np.zeros_like(self.directional_radiance_boa)
 
@@ -362,6 +362,88 @@ class _MultiStreamSolverDISORT:
             scale_factor,
         )
 
+    def fill_outputs(self, outputs_wl, wl_idx):
+        """
+        Fill outputs at a given wavelength depending on user
+        inputs, in preparation for get_outputs.
+
+        """
+
+        if len(outputs_wl) == 5:
+            mu, flux_up, flux_down, u0, u = outputs_wl
+
+        elif len(outputs_wl) == 4:
+            if self.n_fourier == 1:
+                mu, flux_up, flux_down, u0 = outputs_wl
+            elif self.n_fourier > 1:
+                flux_up, flux_down, u0, u = outputs_wl
+
+        elif len(outputs_wl) == 3:
+            flux_up, flux_down, u0 = outputs_wl
+
+        if "TOA" in self.output_levels:
+
+            # calculate all fluxes at TOA ie tau = 0
+            # sum downward flux (diff + dir)
+            self.albedo_toa[wl_idx] = flux_up(0) / np.sum(flux_down(0))
+
+            # intensity function only in upward angles
+            self.directional_radiance_toa_m0[:, wl_idx] = interp_u(u0)(
+                self.output_polar_angles,  # interpolate at user angles
+                0,  # TOA
+            )
+
+            self.directional_reflectance_toa_m0[:, wl_idx] = (
+                self.directional_radiance_toa_m0[:, wl_idx]
+                * np.pi
+                / np.sum(flux_down(0))
+            )
+
+            if self.n_fourier > 1:
+                self.directional_radiance_toa[:, wl_idx, :] = interp_u(u)(
+                    self.output_polar_angles,  # interpolate at user angles
+                    0,  # TOA
+                    self.phi0 + self.relative_azimuths_rad,
+                )  # phi = phi0 + delta_phi
+
+                self.directional_reflectance_toa[:, wl_idx, :] = (
+                    self.directional_radiance_toa[:, wl_idx, :]
+                    * np.pi
+                    / np.sum(flux_down(0))
+                )
+
+        if "BOA" in self.output_levels:
+
+            # intensity function only in upward angles
+            self.directional_radiance_boa_m0[:, wl_idx] = interp_u(u0)(
+                self.output_polar_angles,  # interpolate at user angles
+                self.tau_surface[wl_idx],
+            )
+
+            self.directional_reflectance_boa_m0[:, wl_idx] = (
+                self.directional_radiance_boa_m0[:, wl_idx]
+                * np.pi
+                / np.sum(flux_down(0))
+            )
+
+            self.albedo_boa[wl_idx] = flux_up(self.tau_surface[wl_idx]) / np.sum(
+                flux_down(self.tau_surface[wl_idx])
+            )
+
+            # calculate all fluxes at BOA
+            # sum downward flux (diff + dir)
+            if self.n_fourier > 1:
+                self.directional_radiance_boa[:, wl_idx, :] = interp_u(u)(
+                    self.output_polar_angles,  # interpolate at user angles
+                    self.tau_surface[wl_idx],
+                    self.phi0 + self.relative_azimuths_rad,
+                )  # phi = phi0 + delta_phi
+                self.directional_reflectance_boa[:, wl_idx, :] = (
+                    self.directional_radiance_boa[:, wl_idx, :]
+                    * np.pi
+                    / np.sum(flux_down(0))
+                )
+
     def get_outputs(self):
         """
         Compile and return radiative transfer results at required output levels.
@@ -432,38 +514,38 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
         Results of the solvers (radiance/reflectance/albedo at TOA/BOA).
     """
 
-    solver = _MultiStreamSolverDISORT(land, atmosphere, irradiance, SOLVER)
+    mssd = _MultiStreamSolverDISORT(land, atmosphere, irradiance, SOLVER)
 
-    for wl_idx in range(solver.nbr_wvl):
+    for wl_idx in range(mssd.nbr_wvl):
 
-        outputs = _assemble_intensity_and_fluxes(
-            scaled_omega_arr=solver.w[:, wl_idx],
-            scale_tau=solver.scale_tau[:, wl_idx],  # factor scaling tau
-            tau_arr=solver.unscaled_tau[:, wl_idx],  # unscaled tau
-            scaled_tau_arr_with_0=np.insert(solver.t_od, 0, 0, axis=0)[
+        outputs_wl = _assemble_intensity_and_fluxes(
+            scaled_omega_arr=mssd.w[:, wl_idx],
+            scale_tau=mssd.scale_tau[:, wl_idx],  # factor scaling tau
+            tau_arr=mssd.unscaled_tau[:, wl_idx],  # unscaled tau
+            scaled_tau_arr_with_0=np.insert(mssd.t_od, 0, 0, axis=0)[
                 :, wl_idx
             ],  # scaled cumsum tau with 0 at TOA
-            use_banded_solver_NLayers=solver.banded_Nlayers,  # default is 10, we will have to test it
-            mu_arr_pos=solver.cos_angle,
-            M_inv=1 / solver.cos_angle,
-            W=solver.cos_weight,
-            N=int(solver.n_streams // 2),
-            NQuad=solver.n_streams,
-            NLeg=solver.n_expansion,
-            NFourier=solver.n_fourier,
-            NLayers=solver.nbr_lyr,
-            is_atmos_multilayered=(solver.nbr_lyr > 1),
+            use_banded_solver_NLayers=mssd.banded_Nlayers,  # default is 10, we will have to test it
+            mu_arr_pos=mssd.cos_angle,
+            M_inv=1 / mssd.cos_angle,
+            W=mssd.cos_weight,
+            N=int(mssd.n_streams // 2),
+            NQuad=mssd.n_streams,
+            NLeg=mssd.n_expansion,
+            NFourier=mssd.n_fourier,
+            NLayers=mssd.nbr_lyr,
+            is_atmos_multilayered=(mssd.nbr_lyr > 1),
             weighted_scaled_Leg_coeffs=(
-                solver.legendre_moments
-                * (2 * np.arange(solver.n_expansion) + 1)[:, None, None]
+                mssd.legendre_moments
+                * (2 * np.arange(mssd.n_expansion) + 1)[:, None, None]
             )[:, :, wl_idx].T,
-            mu0=solver.mu0,
-            I0=1,  # solver.irradiance[wl_idx],
-            I0_div_4pi=1 / (4 * np.pi),  # solver.irradiance[wl_idx] / (4 * np.pi),
-            rescale_factor=solver.irradiance[wl_idx],  # 1,
-            phi0=solver.phi0,
+            mu0=mssd.mu0,
+            I0=1,  # mssd.irradiance[wl_idx],
+            I0_div_4pi=1 / (4 * np.pi),  # mssd.irradiance[wl_idx] / (4 * np.pi),
+            rescale_factor=mssd.irradiance[wl_idx],  # 1,
+            phi0=mssd.phi0,
             there_is_beam_source=True,
-            only_flux=solver.only_fourier_m0,
+            only_flux=mssd.only_fourier_m0,
             # unused arguments
             BDRF_Fourier_modes=[],  # not used
             NBDRF=0,  # not used = len(BDRF_Fourier_modes)
@@ -479,95 +561,11 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
             autograd_compatible=False,  # not used
         )
 
-        if solver.n_fourier == 1:
+        # prepare outputs per wavelength
+        mssd.fill_outputs(outputs_wl, wl_idx)
 
-            flux_up, flux_down, u0 = outputs
-
-            if "TOA" in solver.output_levels:
-                # calculate all fluxes at TOA ie tau = 0
-                # sum downward flux (diff + dir)
-                solver.albedo_toa[wl_idx] = flux_up(0) / np.sum(flux_down(0))
-                # intensity function only in upward angles
-                solver.directional_radiance_toa_m0[:, wl_idx] = interp_u(u0)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    0,  # TOA
-                )
-                solver.directional_reflectance_toa_m0[:, wl_idx] = (
-                    solver.directional_radiance_toa_m0[:, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-
-            if "BOA" in solver.output_levels:
-                # calculate all fluxes at BOA
-                # sum downward flux (diff + dir)
-                solver.albedo_boa[wl_idx] = flux_up(
-                    solver.tau_surface[wl_idx]
-                ) / np.sum(flux_down(solver.tau_surface[wl_idx]))
-                # intensity function only in upward angles
-                solver.directional_radiance_boa_m0[:, wl_idx] = interp_u(u0)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    solver.tau_surface[wl_idx],  # TOA
-                )
-                solver.directional_reflectance_boa_m0[:, wl_idx] = (
-                    solver.directional_radiance_boa_m0[:, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-
-        else:
-
-            flux_up, flux_down, u0, u = outputs
-
-            if "TOA" in solver.output_levels:
-                # calculate all fluxes at TOA ie tau = 0
-                # sum downward flux (diff + dir)
-                solver.albedo_toa[wl_idx] = flux_up(0) / np.sum(flux_down(0))
-                # intensity function only in upward angles
-                solver.directional_radiance_toa_m0[:, wl_idx] = interp_u(u0)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    0,  # TOA
-                )
-
-                solver.directional_reflectance_toa_m0[:, wl_idx] = (
-                    solver.directional_radiance_toa_m0[:, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-                solver.directional_radiance_toa[:, :, wl_idx] = interp_u(u)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    0,  # TOA
-                    solver.phi0 + solver.relative_azimuths_rad,
-                )  # phi = phi0 + delta_phi
-                solver.directional_reflectance_toa[:, :, wl_idx] = (
-                    solver.directional_radiance_toa[:, :, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-            if "BOA" in solver.output_levels:
-                # calculate all fluxes at BOA
-                # sum downward flux (diff + dir)
-                solver.albedo_boa[wl_idx] = flux_up(
-                    solver.tau_surface[wl_idx]
-                ) / np.sum(flux_down(solver.tau_surface[wl_idx]))
-                # intensity function only in upward angles
-                solver.directional_radiance_boa_m0[:, wl_idx] = interp_u(u0)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    solver.tau_surface[wl_idx],
-                )
-                solver.directional_reflectance_boa_m0[:, wl_idx] = (
-                    solver.directional_radiance_boa_m0[:, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-
-                solver.directional_radiance_boa[:, :, wl_idx] = interp_u(u)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    solver.tau_surface[wl_idx],
-                    solver.phi0 + solver.relative_azimuths_rad,
-                )  # phi = phi0 + delta_phi
-
-    outputs = solver.get_outputs()
+    # format final outputs
+    outputs = mssd.get_outputs()
 
     return outputs
 
@@ -576,11 +574,11 @@ def solve_multi_stream_rt_disort_wrapper(
     land, atmosphere, irradiance, SOLVER, NT_cor=True
 ):
 
-    solver = _MultiStreamSolverDISORT(land, atmosphere, irradiance, SOLVER)
+    mssd = _MultiStreamSolverDISORT(land, atmosphere, irradiance, SOLVER)
 
-    for wl_idx in range(solver.nbr_wvl):
+    for wl_idx in range(mssd.nbr_wvl):
 
-        outputs = pydisort(
+        outputs_wl = pydisort(
             tau_arr=np.cumsum(
                 np.hstack(
                     [
@@ -595,130 +593,40 @@ def solve_multi_stream_rt_disort_wrapper(
                     land.ss_alb[:, wl_idx],
                 ]
             ),
-            NQuad=solver.n_streams,
+            NQuad=mssd.n_streams,
             Leg_coeffs_all=np.hstack(
                 [
                     atmosphere.legendre_moments[: atmosphere.n_expansion, :, :],
                     land.legendre_moments[: atmosphere.n_expansion, :, :],
                 ]
             )[:, :, wl_idx].T,
-            mu0=solver.mu0,
-            I0=solver.irradiance[wl_idx],
-            phi0=solver.phi0,
-            NFourier=solver.n_fourier,
-            only_flux=solver.only_fourier_m0,
+            mu0=mssd.mu0,
+            I0=mssd.irradiance[wl_idx],
+            phi0=mssd.phi0,
+            NFourier=mssd.n_fourier,
+            only_flux=mssd.only_fourier_m0,
             f_arr=np.vstack(
                 [
                     atmosphere.legendre_moments[atmosphere.n_expansion, :, :],
                     land.legendre_moments[atmosphere.n_expansion, :, :],
                 ]
             )[:, wl_idx],
-            use_banded_solver_NLayers=solver.banded_Nlayers,
+            use_banded_solver_NLayers=mssd.banded_Nlayers,
             NT_cor=NT_cor,
             # b_pos = 0, # dirichlet condition
             # b_neg = 0, # dirichlet condition
-            # NLeg=solver.n_expansion,
-            # NT_cor=solver.IMS_TMS_correction,
+            # NLeg=mssd.n_expansion,
+            # NT_cor=mssd.IMS_TMS_correction,
             # BRDF_Fourier_modes=[],
             # s_poly_coeffs=array([], shape=(1, 0), dtype=float64),
             # use_banded_solver_NLayers=10,
             # autograd_compatible=False
         )
 
-        if solver.n_fourier == 1:
+        # prepare outputs per wavelength
+        mssd.fill_outputs(outputs_wl, wl_idx)
 
-            mu, flux_up, flux_down, u0 = outputs
-
-            if "TOA" in solver.output_levels:
-                # calculate all fluxes at TOA ie tau = 0
-                # sum downward flux (diff + dir)
-                solver.albedo_toa[wl_idx] = flux_up(0) / np.sum(flux_down(0))
-                # intensity function only in upward angles
-                solver.directional_radiance_toa_m0[:, wl_idx] = interp_u(u0)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    0,  # TOA
-                )
-                solver.directional_reflectance_toa_m0[:, wl_idx] = (
-                    solver.directional_radiance_toa_m0[:, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-
-            if "BOA" in solver.output_levels:
-                # calculate all fluxes at BOA
-                # sum downward flux (diff + dir)
-                solver.albedo_boa[wl_idx] = flux_up(
-                    solver.tau_surface[wl_idx]
-                ) / np.sum(flux_down(solver.tau_surface[wl_idx]))
-                # intensity function only in upward angles
-                solver.directional_radiance_boa_m0[:, wl_idx] = interp_u(u0)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    solver.tau_surface[wl_idx],  # TOA
-                )
-                solver.directional_reflectance_boa_m0[:, wl_idx] = (
-                    solver.directional_radiance_boa_m0[:, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-
-        else:
-
-            mu, flux_up, flux_down, u0, u = outputs
-
-            if "TOA" in solver.output_levels:
-                # calculate all fluxes at TOA ie tau = 0
-                # sum downward flux (diff + dir)
-                solver.albedo_toa[wl_idx] = flux_up(0) / np.sum(flux_down(0))
-                # intensity function only in upward angles
-                solver.directional_radiance_toa_m0[:, wl_idx] = interp_u(u0)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    0,  # TOA
-                )
-
-                solver.directional_reflectance_toa_m0[:, wl_idx] = (
-                    solver.directional_radiance_toa_m0[:, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-                solver.directional_radiance_toa[:, :, wl_idx] = interp_u(u)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    0,  # TOA
-                    solver.phi0 + solver.relative_azimuths_rad,
-                )  # phi = phi0 + delta_phi
-                solver.directional_reflectance_toa[:, :, wl_idx] = (
-                    solver.directional_radiance_toa[:, :, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-            if "BOA" in solver.output_levels:
-                # calculate all fluxes at BOA
-                # sum downward flux (diff + dir)
-                solver.albedo_boa[wl_idx] = flux_up(
-                    solver.tau_surface[wl_idx]
-                ) / np.sum(flux_down(solver.tau_surface[wl_idx]))
-                # intensity function only in upward angles
-                solver.directional_radiance_boa_m0[:, wl_idx] = interp_u(u0)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    solver.tau_surface[wl_idx],
-                )
-                solver.directional_reflectance_boa_m0[:, wl_idx] = (
-                    solver.directional_radiance_boa_m0[:, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-
-                solver.directional_radiance_boa[:, :, wl_idx] = interp_u(u)(
-                    solver.output_polar_angles,  # interpolate at user angles
-                    solver.tau_surface[wl_idx],
-                    solver.phi0 + solver.relative_azimuths_rad,
-                )  # phi = phi0 + delta_phi
-
-                solver.directional_reflectance_boa[:, :, wl_idx] = (
-                    solver.directional_radiance_boa[:, :, wl_idx]
-                    * np.pi
-                    / np.sum(flux_down(0))
-                )
-
-    outputs = solver.get_outputs()
+    # format final outputs
+    outputs = mssd.get_outputs()
 
     return outputs

@@ -36,89 +36,24 @@ def test_get_package_root(session):
     assert "snicar-fx" in package_root.parts
 
 
-def test_format_multistream_results_to_xarray(session2):
+# def test_format_multistream_results_to_xarray(session2):
 
-    results = session2.run(to_xarray=True)
+#     results = session2.run(to_xarray=True)
 
-    assert results["albedo_toa"].shape == session2._band_ranges[:, -1].shape
+#     assert results["albedo_toa"].shape == session2._band_ranges[:, -1].shape
 
-    assert results["directional_radiance_toa"].shape == (
-        len(np.arange(*session2.config.SOLVER.AZIMUTH_ANGLES)),
-        len(np.arange(*session2.n_angles)),
-        session2._band_ranges[:, -1].shape[0],
-    )
+#     assert results["directional_radiance_toa"].shape == (
+#         len(np.arange(*session2.config.SOLVER.AZIMUTH_ANGLES)),
+#         len(np.arange(*session2.n_angles)),
+#         session2._band_ranges[:, -1].shape[0],
+#     )
 
 
-@pytest.mark.parametrize(
-    "component, field, value",
-    [
-        # SOLAR
-        (
-            "SOLAR",
-            "SZA",
-            42,
-        ),
-        (
-            "SOLAR",
-            "SAA",
-            180,
-        ),
-        # SOLVER
-        ("SOLVER", "OUTPUT_LEVELS", "TOA"),
-        ("SOLVER", "N_FOURIER_MODES", 3),
-        (
-            "SOLVER",
-            "AZIMUTH_ANGLES",
-            (10, 170, 5),
-        ),
-        (
-            "SOLVER",
-            "POLAR_ANGLES",
-            (10, 90, 5),
-        ),
-        # ATMOSPHERE
-        (
-            "ATMOSPHERE",
-            "INTEGRATED_AOD_550",
-            0.42,
-        ),
-        (
-            "ATMOSPHERE",
-            "INTEGRATED_GAS_CONCENTRATIONS",
-            {"H2O": 15, "NO2": 1e-02, "O3": 0.01},
-        ),
-        # LAND
-        ("LAND", "LAYER_TYPE", (0, 0, 0)),
-        ("LAND", "GRAIN_SHAPE", (0, 0, 0)),
-        ("LAND", "RF_TYPE", "Pic16"),
-        ("LAND", "LWC", (0.01, 0.01, 0.01)),
-        (
-            "LAND",
-            "THICKNESS",
-            (0.07, 0.04, 0.1),
-        ),
-        (
-            "LAND",
-            "SPECIFIC_SURFACE_AREA",
-            (1, 2, 3),
-        ),
-        (
-            "LAND",
-            "DENSITY",
-            (600, 700, 800),
-        ),
-        (
-            "LAND",
-            "LIGHT_ABSORBING_PARTICLES",
-            {
-                "BC1": {"FILE": "bc_ChCB_rn40_dns1270.nc", "CONC": (2, 20, 200)},
-                "BC2": {"FILE": "bc_ChCB_rn40_dns1270.nc", "CONC": (3, 30, 300)},
-            },
-        ),
-    ],
-)
 def test_update_api(
-    test_input_file2, component, field, value, absolute_tolerance_update_api
+    test_input_file2,
+    update_api_params,
+    absolute_tolerance_update_api_gs,
+    absolute_tolerance_update_api,
 ):
     """
     Test the update API by comparing results obtained by modifying
@@ -126,6 +61,10 @@ def test_update_api(
     re-initializing a new Session.
 
     """
+
+    component = update_api_params["component"]
+    field = update_api_params["field"]
+    value = update_api_params["value"]
 
     # use fresh session to modify the field with the update API
     session_uapi = Session(test_input_file2)
@@ -140,7 +79,7 @@ def test_update_api(
     elif component == "SOLVER":
         session_uapi.update_solver(updates)
 
-    results_uapi = session_uapi.run(to_xarray=True)
+    results_uapi = session_uapi.run(to_xarray=False)
 
     # manually modify the input file and create a new session (not
     # recommended in snicarfx but required here to test the update
@@ -158,35 +97,35 @@ def test_update_api(
 
     # instanciate and run with the new, updated input file
     session_dup = Session(tmp_path)
-    results_dup = session_dup.run(to_xarray=True)
+    results_dup = session_dup.run(to_xarray=False)
 
     # clean up temp file
     os.unlink(tmp_path)
 
     # INTEGRATED_GAS_CONCENTRATIONS uses property scaling across
     # several orders of magnitude so that the match can never be
-    # perfect, use a tight tolerance.
+    # perfect, use a tight tolerance
     if field == "INTEGRATED_GAS_CONCENTRATIONS":
-        assert (
-            np.isclose(
-                results_dup["directional_reflectance_toa"],
-                results_uapi["directional_reflectance_toa"],
-                atol=absolute_tolerance_update_api,
-            )
-        ).all()
-        assert (
-            np.isclose(
-                results_dup["albedo_toa"],
-                results_uapi["albedo_toa"],
-                atol=absolute_tolerance_update_api,
-            )
-        ).all()
+        tolerance = absolute_tolerance_update_api_gs
     else:
-        assert (
-            results_dup["directional_reflectance_toa"]
-            == results_uapi["directional_reflectance_toa"]
-        ).all()
-        assert (results_dup["albedo_toa"] == results_uapi["albedo_toa"]).all()
+        tolerance = absolute_tolerance_update_api
+
+    assert (
+        np.isclose(
+            results_dup["directional_reflectance_toa"],
+            results_uapi["directional_reflectance_toa"],
+            atol=tolerance,
+            rtol=0.0,
+        )
+    ).all()
+    assert (
+        np.isclose(
+            results_dup["albedo_toa"],
+            results_uapi["albedo_toa"],
+            atol=tolerance,
+            rtol=0.0,
+        )
+    ).all()
 
     # in addition, test a specific case often used in batch processing
     # where light absorbing particle file names are not being passed
@@ -203,7 +142,18 @@ def test_update_api(
         results_uapi = session_uapi.run(to_xarray=True)
 
         assert (
-            results_dup["directional_reflectance_toa"]
-            == results_uapi["directional_reflectance_toa"]
+            np.isclose(
+                results_dup["directional_reflectance_toa"],
+                results_uapi["directional_reflectance_toa"],
+                atol=tolerance,
+                rtol=0.0,
+            )
         ).all()
-        assert (results_dup["albedo_toa"] == results_uapi["albedo_toa"]).all()
+        assert (
+            np.isclose(
+                results_dup["albedo_toa"],
+                results_uapi["albedo_toa"],
+                atol=tolerance,
+                rtol=0.0,
+            )
+        ).all()

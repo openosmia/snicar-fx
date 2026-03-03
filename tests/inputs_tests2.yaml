@@ -2,7 +2,7 @@
 # https://github.com/openosmia/snicar-fx
 
 SOLVER:
-  TYPE: "multi-stream-ada"
+  TYPE: "multi-stream-disort"
   ATMOSPHERE_COUPLING: true
   OUTPUT_LEVELS: "BOA+TOA"
   N_FOURIER_MODES: 2
