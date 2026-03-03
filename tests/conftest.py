@@ -221,10 +221,10 @@ def pytest_generate_tests(metafunc):
 
 @pytest.fixture(
     params=product(
-        np.arange(42, 72, 10),  # SZA
-        np.arange(50, 250, 50),  # SAA
-        np.arange(20, 60, 10),  # Azimuth
-        np.linspace(0.1, 1, 5),  # AOD
+        np.linspace(42, 72, 3),  # SZA
+        np.linspace(50, 250, 3),  # SAA
+        np.linspace(20, 60, 3),  # Azimuth
+        np.linspace(0.1, 1, 3),  # AOD
     ),
     ids=lambda p: f"SZA{p[0]}_SAA{p[1]}_Az{p[2]}_AOD{p[3]:.2f}",
 )
@@ -232,7 +232,6 @@ def multistream_pythonicdisort_params(request):
     """
     Create sets of parameters to be used in tests of PythonicDISORT.
 
-    Yields a tuple: (sza, saa, azimuth, aod)
     """
     return request.param
 
@@ -246,9 +245,21 @@ def absolute_tolerance_internal_variables():
 @pytest.fixture(scope="module")
 def absolute_tolerance_benchmark():
     """
-    Set absolute tolerance on error between snicar-fx outputs and CRTM/SNICAR-ADv4.
+    Set absolute tolerance on error between snicar-fx outputs and
+    CRTM/SNICAR-ADv4.
+
     """
     return 1e-5
+
+
+@pytest.fixture(scope="module")
+def absolute_tolerance_pythonicdisort():
+    """
+    Set absolute tolerance on error between backend routine and
+    the high-level wrapper of PythonicDISORT
+
+    """
+    return 1e-15
 
 
 @pytest.fixture(scope="module")

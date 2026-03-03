@@ -12,7 +12,9 @@ from snicarfx.core.solvers.multi_stream_solver_disort import (
 )
 
 
-def test_pythonicdisort_outputs(session2, multistream_pythonicdisort_params):
+def test_pythonicdisort_outputs(
+    session2, multistream_pythonicdisort_params, absolute_tolerance_pythonicdisort
+):
     """
     Test that outputs from the backend PythonicDISORT routine
     within SNICAR-fx strictly match those from the high-level
@@ -37,5 +39,12 @@ def test_pythonicdisort_outputs(session2, multistream_pythonicdisort_params):
     )
 
     assert np.allclose(
-        results_backend["albedo_toa"], results_wrapper["albedo_toa"], atol=1e-10
+        results_backend["albedo_toa"],
+        results_wrapper["albedo_toa"],
+        atol=absolute_tolerance_pythonicdisort,
+    )
+    assert np.allclose(
+        results_backend["directional_radiance_toa"],
+        results_wrapper["directional_radiance_toa"],
+        atol=absolute_tolerance_pythonicdisort,
     )
