@@ -295,7 +295,7 @@ class AtmosphereColumn:
 
         # truncate depending on altitude
         self.gas_cross_sections = self.gas_cross_sections.sel(
-            nlev=self.gas_cross_sections.z.values >= self.surface_elevation
+            nlyr=self.atmosphere_profile.index
         )
 
         # interpolate on wvl
