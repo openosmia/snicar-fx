@@ -7,7 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 from PythonicDISORT.subroutines import interpolate as interp_u
 from PythonicDISORT._assemble_intensity_and_fluxes import _assemble_intensity_and_fluxes
-
+from PythonicDISORT import pydisort
 import numpy as np
 
 
@@ -63,18 +63,20 @@ class _MultiStreamSolverDISORT:
         ## INPUTS TO DECIDE ON: 
             # 1: IMS CORRECTION
             # do we implement IMS? have IMS as optional?
-            # 2: ADD INPUT
-            # we need an input for a user-input polar angle array
-            # 3: BANDED CALCULATIONS IN ATMOSPHERE?
-            # use_banded_solver_NLayers
-            
-        self.relative_azimuths = np.arange(*SOLVER.RELATIVE_AZIMUTH)
-        self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
-        self.IMS_TMS_correction = True
-        self.phi0 = 0
-        self.output_polar_angles = np.cos(np.deg2rad(np.arange(20, 80, 10)))
         
-        # set output angles to those of ADA 16 streams
+        self.IMS_TMS_correction = False
+        self.phi0 = np.deg2rad(irradiance.saa)
+        self.azimuth_angles = np.arange(*SOLVER.AZIMUTH_ANGLES)
+        self.relative_azimuths = np.abs(
+             self.azimuth_angles - irradiance.saa
+            )
+        self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
+        self.output_polar_angles = np.cos(np.deg2rad(np.arange(*SOLVER.POLAR_ANGLES)))
+        
+        # default value
+        self.banded_Nlayers = 10
+        
+        # !! set output angles to those of ADA 16 streams for tests
         nodes, weights = np.polynomial.legendre.leggauss(16)
         self.output_polar_angles = 0.5 * (nodes + 1.0)
         
@@ -378,10 +380,10 @@ class _MultiStreamSolverDISORT:
         # dictionnary with outputs depending on user inputs
         results = {}
 
-        results["viewing_angle"] = np.rad2deg(np.arccos(self.output_polar_angles))
+        results["polar_angle"] = self.output_polar_angles
 
         if self.n_fourier > 1:
-            results["azimuth_angle"] = self.relative_azimuths
+            results["azimuth_angle"] = self.azimuth_angles
 
         results["albedo_boa"] = self.albedo_boa
         
@@ -408,7 +410,7 @@ class _MultiStreamSolverDISORT:
 
         return results
     
-def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
+def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
     """
 
     Compute upward and downward radiances for a column of homogeneous layers.
@@ -444,7 +446,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
                 scale_tau = solver.scale_tau[:, wl_idx], # factor scaling tau
                 tau_arr = solver.unscaled_tau[:, wl_idx], # unscaled tau
                 scaled_tau_arr_with_0 = np.insert(solver.t_od, 0, 0, axis=0)[:, wl_idx], # scaled cumsum tau with 0 at TOA
-                use_banded_solver_NLayers = 10, # default is 10, we will have to test it
+                use_banded_solver_NLayers = solver.banded_Nlayers, # default is 10, we will have to test it
                 mu_arr_pos = solver.cos_angle, 
                 M_inv = 1 / solver.cos_angle, 
                 W = solver.cos_weight,
@@ -519,7 +521,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
                 scale_tau = solver.scale_tau[:, wl_idx], # factor scaling tau
                 tau_arr = solver.unscaled_tau[:, wl_idx], # unscaled tau
                 scaled_tau_arr_with_0 = np.insert(solver.t_od, 0, 0, axis=0)[:, wl_idx], # scaled cumsum tau with 0 at TOA
-                use_banded_solver_NLayers = 10, # default is 10, we will have to test it
+                use_banded_solver_NLayers = solver.banded_Nlayers, # default is 10, we will have to test it
                 mu_arr_pos = solver.cos_angle, 
                 M_inv = 1 / solver.cos_angle, 
                 W = solver.cos_weight,
@@ -648,6 +650,7 @@ def solve_multi_stream_rt_wrapper(land, atmosphere, irradiance, SOLVER):
                         [atmosphere.legendre_moments[atmosphere.n_expansion, :, :], 
                          land.legendre_moments[atmosphere.n_expansion, :, :]]
                     )[:, wl_idx],
+                    use_banded_solver_NLayers = solver.banded_Nlayers
                     # NT_cor=solver.IMS_TMS_correction,
                     # BRDF_Fourier_modes=[], 
                     # s_poly_coeffs=array([], shape=(1, 0), dtype=float64),
@@ -723,7 +726,7 @@ def solve_multi_stream_rt_wrapper(land, atmosphere, irradiance, SOLVER):
                     # NT_cor=solver.IMS_TMS_correction,
                     # BRDF_Fourier_modes=[], 
                     # s_poly_coeffs=array([], shape=(1, 0), dtype=float64),
-                    # use_banded_solver_NLayers=10, 
+                    use_banded_solver_NLayers = solver.banded_Nlayers
                     # autograd_compatible=False
                 )
             
@@ -780,32 +783,5 @@ def solve_multi_stream_rt_wrapper(land, atmosphere, irradiance, SOLVER):
     
     return outputs
     
-
-#%% test 
-import matplotlib.pyplot as plt
-from snicarfx.core import Session
-from PythonicDISORT import pydisort
-input_file = "/Users/au660413/Documents/openosmia/snicar-fx/src/snicarfx/inputs.yaml"
-session = Session(input_file)
-solver  =  _MultiStreamSolverDISORT(session.land_column, session.atmosphere_column, session.solar_irradiance, session.config.SOLVER)
-
-#%%
-results_ada = session.run()
-results_backend = solve_multi_stream_rt(session.land_column, 
-                                 session.atmosphere_column, 
-                                 session.solar_irradiance,
-                                 session.config.SOLVER)
-results_pydisort = solve_multi_stream_rt_wrapper(session.land_column, 
-                                 session.atmosphere_column, 
-                                 session.solar_irradiance,
-                                 session.config.SOLVER)
-
-#%%
-plt.plot(results_ada.wavelength, results_ada.directional_radiance_toa[5, :, :])
-plt.plot(results_ada.wavelength, results_backend["directional_radiance_toa"][5, :, :].T, '--')
-plt.plot(results_ada.wavelength, results_pydisort["directional_radiance_toa"][5, :, :].T, '.-')
-
-
-
 
         

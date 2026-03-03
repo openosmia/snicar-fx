@@ -2,35 +2,50 @@
 # https://github.com/openosmia/snicar-fx
 
 SOLVER:
-  TYPE: "two-stream" # two-stream, multi-stream
-  ATMOSPHERE_COUPLING: false # explicit surface-atmosphere coupling
-  OUTPUT_LEVELS: "BOA"
+  TYPE: "multi-stream-ada" # two-stream-ad, multi-stream-disort, multi-stream-ada
+  ATMOSPHERE_COUPLING: true # explicit surface-atmosphere coupling
+  N_STREAMS: 16
+  N_FOURIER_MODES: 5
+  AZIMUTH_ANGLES: [0, 180, 10]
+  POLAR_ANGLES: [0, 180, 10]
+  OUTPUT_LEVELS: "BOA+TOA"
   
 SPECTRAL:
-  MODE: "monochromatic" # monochromatic | band-srf-integration | band-snicar-default | band-solar-weighted-mean
-  RESOLUTION: [360, 1000, 10] # [start, end, step] or satellite instrument
+  MODE: "band-snicar-default" # monochromatic | band-srf-integration | band-snicar-default | band-solar-weighted-mean
+  RESOLUTION: "SENTINEL-3-OLCI" # [start, end, step] or satellite instrument # "SENTINEL-3-OLCI"
 
 SOLAR:
   SZA: 50
+  SAA: 170
 
 ATMOSPHERE:
   SKY_CONDITIONS: "clear" # clear, cloudy
   ATMOSPHERIC_PROFILE_TYPE: "afglss"
+  INTEGRATED_AOD_550: 0.1
+  AEROSOL_PROPERTIES: "aerosol_mixture_SW_Greenland.nc"
+  INTEGRATED_GAS_CONCENTRATIONS:
+    H2O:  13.077
+    NO2: 5.78e-07
+    O3: 0.002
 
 LAND:  
-  THICKNESS: [1, 5, 100]  # thickness of each vertical layer (unit : m) 
-  LAYER_TYPE: [0, 0, 0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
-  DENSITY: [650, 650, 650]  # density of each layer (unit : kg m-3)
-  SPECIFIC_SURFACE_AREA: [1, 3, 10] # m2 kg-1. for ice, should be below 3.5
-  LWC: [0, 0, 0] # LWC content in snow/ice
-  GRAIN_SHAPE: [0,0, 0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023  
+  THICKNESS: [0.01, 0.5, 100]  # thickness of each vertical layer (unit : m) 
+  LAYER_TYPE: [2, 2, 2]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
+  SPECIFIC_SURFACE_AREA: [0.5, 0.1, 0.01] # m2 kg-1. for ice, should be below 3.5
+  DENSITY: [700, 700, 700]  # density of each layer (unit : kg m-3)
+  LWC: [0.07, 0, 0] # LWC content in snow/ice
+  GRAIN_SHAPE: [0,0,0]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023  
   RF_TYPE: "Coop21" # "Wrn08", "Pic16", "Coop21" # ice refractive index
   SFC: 0 # reflectance of lower boundary  
   ALTITUDE: 0.0 # surface altitude in km
   
   LIGHT_ABSORBING_PARTICLES:
     BC:
-      FILE: "bc_ChCB_rn40_dns1270.nc"
+      FILE: "ice_algae_1nm_resolution.nc"
       CONC: [0, 0, 0]
+    BC2:
+      FILE: "ice_algae_1nm_resolution.nc"
+      CONC: [0, 0, 0]
+    
 
 

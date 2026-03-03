@@ -16,8 +16,9 @@ import xarray as xr
 from ..components.atmosphere import AtmosphereColumn
 from ..components.land import LandColumn
 from ..components.solar import SolarIrradiance
-from ..solvers.multi_stream_solver import solve_multi_stream_rt
-from ..solvers.two_stream_solver import solve_two_stream_rt
+from ..solvers.multi_stream_solver_ada import solve_multi_stream_rt_ada
+from ..solvers.multi_stream_solver_disort import solve_multi_stream_rt_disort
+from ..solvers.two_stream_solver_ad import solve_two_stream_rt_ad
 from .config import Config
 
 
@@ -259,7 +260,8 @@ class Session:
                 "TYPE",
                 "OUTPUT_LEVELS",
                 "N_FOURIER_MODES",
-                "RELATIVE_AZIMUTH",
+                "AZIMUTH_ANGLES",
+                "POLAR_ANGLES"
             }
             self._prepare_updates(updates, allowed_fields)
             updated_config = Config.model_validate(
@@ -290,19 +292,22 @@ class Session:
             if "N_FOURIER_MODES" in updates:
                 self.config.SOLVER.N_FOURIER_MODES = updates["N_FOURIER_MODES"]
 
-            if "RELATIVE_AZIMUTH" in updates:
-                self.config.SOLVER.RELATIVE_AZIMUTH = updates["RELATIVE_AZIMUTH"]
+            if "AZIMUTH_ANGLES" in updates:
+                self.config.SOLVER.AZIMUTH_ANGLES = updates["AZIMUTH_ANGLES"]
+            
+            if "POLAR_ANGLES" in updates:
+                self.config.SOLVER.POLAR_ANGLES = updates["POLAR_ANGLES"]
 
     def update_solar(self, updates, validate=True):
         """
         Update allowed solar fields from user-defined dictionary.
 
-        All fields, hence SZA only.
+        All fields, hence SZA + SAA.
         """
 
         # validate by creating a new instance of Solver
         if validate:
-            allowed_fields = {"SZA"}
+            allowed_fields = {"SZA", "SAA"}
 
             if (
                 not self.config.SOLVER.ATMOSPHERE_COUPLING
@@ -326,7 +331,11 @@ class Session:
 
         # update SZA and recompute irradiance only if updates not empty
         if updates:
-            self.solar_irradiance.sza = updates["SZA"]
+            if "SZA" in updates: 
+                self.solar_irradiance.sza = updates["SZA"]
+                
+            if "SAA" in updates: 
+                self.solar_irradiance.sza = updates["SZA"]
 
             if not self.config.SOLVER.ATMOSPHERE_COUPLING:
 
@@ -448,7 +457,7 @@ class Session:
             if "RF_TYPE" in updates:
                 self.land_column.rf_type = updates["RF_TYPE"]
                 self.land_column.set_refractive_index()
-                if self.config.SOLVER.TYPE == "two-stream":
+                if self.config.SOLVER.TYPE == "two-stream-ad":
                     self.land_column.set_diffuse_fresnel_coeffs()
 
             if "LIGHT_ABSORBING_PARTICLES" in updates:
@@ -482,15 +491,31 @@ class Session:
         Run the radiative transfer solver and return outputs
         """
 
-        if self.config.SOLVER.TYPE == "two-stream":
-            self.outputs = solve_two_stream_rt(self.land_column, self.solar_irradiance)
+        if self.config.SOLVER.TYPE == "two-stream-ad":
+            self.outputs = solve_two_stream_rt_ad(self.land_column, self.solar_irradiance)
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
                 self.outputs = self.format_twostream_results_to_xarray()
 
-        elif self.config.SOLVER.TYPE == "multi-stream":
+        elif self.config.SOLVER.TYPE == "multi-stream-ada":
 
-            self.outputs = solve_multi_stream_rt(
+            self.outputs = solve_multi_stream_rt_ada(
+                self.land_column,
+                self.atmosphere_column,
+                self.solar_irradiance,
+                self.config.SOLVER,
+            )
+
+            if self.config.SPECTRAL.MODE == "band-srf-integration":
+                self.apply_spectral_response_function()
+
+            # return outputs as a metadata-rich xarray dataset
+            if to_xarray:
+                self.outputs = self.format_multistream_results_to_xarray()
+                
+        elif self.config.SOLVER.TYPE == "multi-stream-disort":
+
+            self.outputs = solve_multi_stream_rt_disort(
                 self.land_column,
                 self.atmosphere_column,
                 self.solar_irradiance,
@@ -614,12 +639,12 @@ class Session:
             elif "directional_" in var_name:
                 if "m0" in var_name:
                     directional_variables[var_name] = (
-                        ("viewing_angle", "wavelength"),
+                        ("polar_angle", "wavelength"),
                         data,
                     )
                 else:
                     directional_variables[var_name] = (
-                        ("viewing_angle", "wavelength", "azimuth_angle"),
+                        ("polar_angle", "wavelength", "azimuth_angle"),
                         data,
                     )
 
@@ -633,7 +658,7 @@ class Session:
                         if "band-" in self.config.SPECTRAL.MODE
                         else self.config._wavelengths_land
                     ),
-                    "viewing_angle": self.outputs["viewing_angle"],
+                    "polar_angle": self.outputs["polar_angle"],
                 },
             )
         else:
@@ -645,7 +670,7 @@ class Session:
                         if "band-" in self.config.SPECTRAL.MODE
                         else self.config._wavelengths_land
                     ),
-                    "viewing_angle": self.outputs["viewing_angle"],
+                    "polar_angle": self.outputs["polar_angle"],
                     "azimuth_angle": self.outputs["azimuth_angle"],
                 },
             )
@@ -660,7 +685,7 @@ class Session:
                 "units": "nm",
             }
         )
-        ds["viewing_angle"].attrs.update(
+        ds["polar_angle"].attrs.update(
             {
                 "description": "Viewing polar angle.",
                 "units": "degrees",
@@ -670,7 +695,7 @@ class Session:
         if self.config.SOLVER.N_FOURIER_MODES > 1:
             ds["azimuth_angle"].attrs.update(
                 {
-                    "description": "Viewing azimuth angle relative to the solar azimuth angle.",
+                    "description": "Viewing azimuth angle.",
                     "units": "degrees",
                 }
             )
@@ -803,7 +828,7 @@ class Session:
                 )
                 self.solar_irradiance.flx_slr = solar_flat_means["flx_slr"]
 
-            if self.config.SOLVER.TYPE == "two-stream":
+            if self.config.SOLVER.TYPE == "two-stream-ad":
                 if "solar" in components:
                     solar_flat_means = self.compute_flat_band_average(
                         self.solar_irradiance,
@@ -869,7 +894,7 @@ class Session:
                 ]
                 self.land_column.asm_prm = land_weighted_means["asm_prm"]
 
-            if self.config.SOLVER.TYPE == "two-stream":
+            if self.config.SOLVER.TYPE == "two-stream-ad":
                 if "land" in components:
                     land_weighted_means = self.compute_solar_weighted_average(
                         self.land_column,

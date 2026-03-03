@@ -10,13 +10,13 @@ from scipy.special import factorial, lpmv, eval_legendre
 from numpy.linalg import solve
 
 
-class _MultiStreamSolver:
+class _MultiStreamSolverADA:
     """
     Compute and store the variables necessary to solve the
-    unpolarized radiative transfer equation using the Advanced Matrix Operator 
-    Method (AMOM) and the adding method with optional Delta scaling.
+    unpolarized radiative transfer equation using the ADA solver, which employs
+    the Advanced Matrix Operator Method (AMOM) and the adding method.
     
-    The AMOM algorithm is a translation of the Fortran-based solver from CRTM,
+    The solver in this file is a translation of the Fortran-based solver from CRTM,
     originally written by Quanhua Liu (QSS at JCSDA;
     quanhua.liu@noaa.gov), Yong Han (NOAA/NESDIS, yong.han@noaa.gov) and
     Paul van Delst (CIMMS/SSEC, paul.vandelst@noaa.gov).
@@ -135,7 +135,10 @@ class _MultiStreamSolver:
         self.n_fourier = SOLVER.N_FOURIER_MODES
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = SOLVER.OUTPUT_LEVELS
-        self.relative_azimuths = np.arange(*SOLVER.RELATIVE_AZIMUTH)
+        self.azimuth_angles = np.arange(*SOLVER.AZIMUTH_ANGLES)
+        self.relative_azimuths = np.abs(
+             self.azimuth_angles - irradiance.saa
+            )
         self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
         self._angle_indices = np.arange(self.n_angles)
 
@@ -879,10 +882,10 @@ class _MultiStreamSolver:
         # dictionnary with outputs depending on user inputs
         results = {}
 
-        results["viewing_angle"] = np.rad2deg(np.arccos(self.cos_angle))
+        results["polar_angle"] = np.rad2deg(np.arccos(self.cos_angle))
 
         if self.n_fourier > 1:
-            results["azimuth_angle"] = self.relative_azimuths
+            results["azimuth_angle"] = self.azimuth_angles
 
         if "BOA" in self.output_levels:
 
@@ -1012,7 +1015,7 @@ class _MultiStreamSolver:
         return results
 
 
-def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
+def solve_multi_stream_rt_ada(land, atmosphere, irradiance, SOLVER):
     """
 
     Compute upward and downward radiances for a column of homogeneous layers
@@ -1041,7 +1044,7 @@ def solve_multi_stream_rt(land, atmosphere, irradiance, SOLVER):
     """
 
     # initialize solver
-    aads = _MultiStreamSolver(land, atmosphere, irradiance, SOLVER)
+    aads = _MultiStreamSolverADA(land, atmosphere, irradiance, SOLVER)
 
     for m in range(aads.n_fourier):
 

@@ -5,16 +5,16 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from dataclasses import dataclass
 import numpy as np
 
 
-class _TwoStreamSolver:
+class _TwoStreamSolverAD:
     """
     This class loads and initialize the variables necessary to solve the radiative
-    transfer equation using the Delta-Eddington two-stream solver from Briegleb
-    and Light 2007, later modified by Whicker et al. 2022. The solver is identical
-    to that of SNICAR-ADv4 (https://github.com/chloewhicker/SNICAR-ADv4).
+    transfer equation using the Delta-Eddington Adding-Doubling two-stream solver 
+    from Briegleb and Light 2007, later modified by Whicker et al. 2022. 
+    The solver is identical to that of SNICAR-ADv4 
+    (https://github.com/chloewhicker/SNICAR-ADv4).
 
     References:
     Briegleb and Light 2007: https://doi.org/10.5065/D6B27S71
@@ -740,7 +740,7 @@ class _TwoStreamSolver:
         return results
 
 
-def solve_two_stream_rt(column, irradiance):
+def solve_two_stream_rt_ad(column, irradiance):
     """
     Solve radiative transfer through a layered snow/ice column using the
     two-stream Delta-Eddington adding doubling solver from Briegleb and Light
@@ -773,7 +773,7 @@ def solve_two_stream_rt(column, irradiance):
 
     """
 
-    ads = _TwoStreamSolver(column, irradiance)
+    ads = _TwoStreamSolverAD(column, irradiance)
 
     # initialize reflection and transmission at top interface
     ads.trntdr[:, 0] = 1

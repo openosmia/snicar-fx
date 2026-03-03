@@ -24,6 +24,8 @@ class SolarIrradiance:
         Type of atmospheric profile (AFGL tag).
     sza : int
         Solar zenith angle in degrees.
+    saa : int
+        Solar azimuth angle in degrees.
     _wavelengths : ndarray
         Wavelength grid (nm).
     flx_slr : ndarray
@@ -55,6 +57,8 @@ class SolarIrradiance:
         self.sky_conditions = config.ATMOSPHERE.SKY_CONDITIONS
 
         self.sza = config.SOLAR.SZA
+        
+        self.saa = config.SOLAR.SAA
 
         self.atmosphere_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
         

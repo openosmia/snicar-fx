@@ -34,7 +34,7 @@ class Solver(BaseModel):
     """
 
     # radiative transfer solver to use
-    TYPE: Literal["two-stream", "multi-stream"] = Field(
+    TYPE: Literal["two-stream-ad", "multi-stream-ada", "multi-stream-disort"] = Field(
         description="Radiative transfer solver to use. two-stream uses the Delta-Eddington formulation, multi-stream uses the advanced matrix operator method and adding solver. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for details."
     )
 
@@ -68,12 +68,20 @@ class Solver(BaseModel):
         description="Number of Fourier modes to solve for azimuth dependency. Defaults to 1 (no azimuth dependency).",
     )
 
-    RELATIVE_AZIMUTH: (
+    AZIMUTH_ANGLES: (
         tuple[confloat(ge=0, le=360), confloat(ge=0, le=360), confloat(ge=0.01, le=360)]
         | None
     ) = Field(
         default=(0.0, 180.0, 20.0),
-        description="The relative azimuth resolution to cover.",
+        description="Viewing azimuth angle (degrees).",
+    )
+        
+    POLAR_ANGLES: (
+        tuple[confloat(ge=0, le=360), confloat(ge=0, le=360), confloat(ge=0.01, le=360)]
+        | None
+    ) = Field(
+        default=(5.0, 55.0, 5.0),
+        description="Viewing polar angle (degrees).",
     )
 
     # only fields validated here are allowed
@@ -112,37 +120,37 @@ class Solver(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def check_relative_azimuth_range(self):
+    def check_azimuth_range(self):
         """
         Validate end > start and step < end - start.
         """
 
-        start, end, step = self.RELATIVE_AZIMUTH
+        start, end, step = self.AZIMUTH_ANGLES
         if end <= start:
             raise ValueError(
-                f"RELATIVE_AZIMUTH must be a valid range ([start, end, step]), with end ({end}) larger than start ({start})."
+                f"AZIMUTH_ANGLES must be a valid range ([start, end, step]), with end ({end}) larger than start ({start})."
             )
 
         if step > (end - start):
             raise ValueError(
-                f"RELATIVE_AZIMUTH must be a valid range ([start, end, step]), with step ({step}) smaller than the difference between start and end ({end-start})."
+                f"AZIMUTH_ANGLES must be a valid range ([start, end, step]), with step ({step}) smaller than the difference between start and end ({end-start})."
             )
 
         return self
 
     @model_validator(mode="after")
     def check_type_atmosphere_coupling(self):
-        if self.TYPE == "two-stream" and self.ATMOSPHERE_COUPLING:
+        if self.TYPE == "two-stream-ad" and self.ATMOSPHERE_COUPLING:
             raise ValueError(
-                "SOLVER.ATMOSPHERE_COUPLING is not supported when SOLVER.TYPE='two-stream'."
+                "SOLVER.ATMOSPHERE_COUPLING is not supported when SOLVER.TYPE='two-stream-ad'."
             )
         return self
 
     @model_validator(mode="after")
     def check_output_levels(self):
-        if self.TYPE == "two-stream" and "TOA" in self.OUTPUT_LEVELS:
+        if self.TYPE == "two-stream-ad" and "TOA" in self.OUTPUT_LEVELS:
             raise ValueError(
-                "TOA output level is not supported when SOLVER.TYPE='two-stream'."
+                "TOA output level is not supported when SOLVER.TYPE='two-stream-ad'."
             )
 
         if not self.ATMOSPHERE_COUPLING and "TOA" in self.OUTPUT_LEVELS:
@@ -220,6 +228,9 @@ class Solar(BaseModel):
 
     # Solar Zenith Angle (unit: degrees)
     SZA: int = Field(..., ge=0, le=89, description="The Solar Zenigh Angle (SZA).")
+    
+    # Solar Zenith Angle (unit: degrees)
+    SAA: int = Field(..., ge=0, le=360, description="The Solar Azimuth Angle (SAA).")
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
@@ -471,20 +482,18 @@ class Config(BaseModel):
     @model_validator(mode="after")
     def check_solver_atmosphere_compatibility(self):
         if (
-            self.SOLVER.TYPE == "multi-stream"
-            and self.ATMOSPHERE.SKY_CONDITIONS == "cloudy"
+            self.ATMOSPHERE.SKY_CONDITIONS == "cloudy"
         ):
             raise ValueError(
-                "ATMOSPHERE.SKY_CONDITIONS='cloudy' is not supported when "
-                "SOLVER.TYPE='multi-stream'."
+                "ATMOSPHERE.SKY_CONDITIONS='cloudy' is not supported for now. "
             )
         return self
 
     @model_validator(mode="after")
     def check_solver_layer_type_compatibility(self):
-        if self.SOLVER.TYPE == "multi-stream" and 1 in self.LAND.LAYER_TYPE:
+        if ("multi-stream" in self.SOLVER.TYPE and 1 in self.LAND.LAYER_TYPE):
             raise ValueError(
-                "LAND.LAYER_TYPE=1 is not supported when " "SOLVER.TYPE='multi-stream'."
+                "Fresnel boundaries are not supported when " "SOLVER.TYPE='multi-stream'."
             )
         return self
 
