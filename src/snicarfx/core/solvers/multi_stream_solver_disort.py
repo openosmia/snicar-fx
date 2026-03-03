@@ -346,7 +346,7 @@ class _MultiStreamSolverDISORT:
 
                     scale_factor = np.vstack(
                         [
-                            np.zeros((boundary_layer_aerosols, atmosphere.nbr_wvl)),
+                            np.zeros((boundary_layer_aerosols, self.nbr_wvl)),
                             (1.0 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f),
                             scale_factor,
                         ]
