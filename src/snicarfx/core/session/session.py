@@ -335,7 +335,7 @@ class Session:
                 self.solar_irradiance.sza = updates["SZA"]
                 
             if "SAA" in updates: 
-                self.solar_irradiance.sza = updates["SZA"]
+                self.solar_irradiance.saa = updates["SAA"]
 
             if not self.config.SOLVER.ATMOSPHERE_COUPLING:
 

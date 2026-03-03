@@ -7,7 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 
-from snicarfx.core.solvers.multi_stream_solver import solve_multi_stream_rt
+from snicarfx.core.solvers.multi_stream_solver_ada import solve_multi_stream_rt_ada
 
 
 def test_multistream_outputs(
@@ -55,7 +55,7 @@ def test_multistream_outputs(
     )
 
     # solve RTE
-    results = solve_multi_stream_rt(
+    results = solve_multi_stream_rt_ada(
         land_column, atmosphere, irradiance, session.config.SOLVER
     )
 

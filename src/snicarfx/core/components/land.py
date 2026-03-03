@@ -110,7 +110,7 @@ class LandColumn:
 
         self.set_refractive_index()
         
-        if config.SOLVER.TYPE == "two-stream":
+        if config.SOLVER.TYPE == "two-stream-ad":
             self.set_diffuse_fresnel_coeffs()
 
         self.set_column_ops_without_laps()

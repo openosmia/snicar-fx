@@ -45,12 +45,22 @@ def test_get_package_root(session):
             "SZA",
             42,
         ),
+        (
+            "SOLAR",
+            "SAA",
+            180,
+        ),
         # SOLVER
         ("SOLVER", "OUTPUT_LEVELS", "TOA"),
         ("SOLVER", "N_FOURIER_MODES", 3),
         (
             "SOLVER",
-            "RELATIVE_AZIMUTH",
+            "AZIMUTH_ANGLES",
+            (10, 170, 5),
+        ),
+        (
+            "SOLVER",
+            "POLAR_ANGLES",
             (10, 170, 5),
         ),
         # ATMOSPHERE

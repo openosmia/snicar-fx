@@ -2,10 +2,12 @@
 # https://github.com/openosmia/snicar-fx
 
 SOLVER:
-  TYPE: "multi-stream"
+  TYPE: "multi-stream-ada"
   ATMOSPHERE_COUPLING: true
   OUTPUT_LEVELS: "BOA+TOA"
   N_FOURIER_MODES: 2
+  AZIMUTH_ANGLES: [0, 180, 10]
+  POLAR_ANGLES: [0, 180, 10]
     
 SPECTRAL:
   MODE: "band-solar-weighted-mean"
@@ -13,6 +15,7 @@ SPECTRAL:
   
 SOLAR:
   SZA: 50
+  SAA: 170
 
 ATMOSPHERE:
   SKY_CONDITIONS: "clear"

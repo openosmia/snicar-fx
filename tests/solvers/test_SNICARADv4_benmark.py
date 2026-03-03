@@ -8,7 +8,7 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 import xarray as xr
 
-from snicarfx.core.solvers.two_stream_solver import solve_two_stream_rt
+from snicarfx.core.solvers.two_stream_solver_ad import solve_two_stream_rt_ad
 from tests.solvers.utils import use_data_snicaradv4
 
 
@@ -118,7 +118,7 @@ def test_twostreams_outputs(
     land_column.update_column_ops_with_laps()
 
     # solve RTE
-    outputs = solve_two_stream_rt(land_column, irradiance)
+    outputs = solve_two_stream_rt_ad(land_column, irradiance)
 
     # spectral albedo only until 2705nm for now, as the asymmetry parameter is
     # clipped to 0.99 in SNICAR-ADv4 but not in snicar-fx, producing larger
