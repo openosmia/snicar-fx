@@ -77,7 +77,7 @@ class Solver(BaseModel):
     )
         
     POLAR_ANGLES: (
-        tuple[confloat(ge=0, le=360), confloat(ge=0, le=360), confloat(ge=0.01, le=360)]
+        tuple[confloat(ge=0, le=90), confloat(ge=0, le=90), confloat(ge=0.01, le=50)]
         | None
     ) = Field(
         default=(5.0, 55.0, 5.0),
