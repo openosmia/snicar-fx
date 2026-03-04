@@ -141,7 +141,7 @@ class AtmosphereColumn:
         dz = np.abs(np.diff(profile["z(km)"].values))
 
         # transform profile into layer variables (mid-point)
-        profile = profile.rolling(2).mean().iloc[1:, :]
+        profile = profile.rolling(2).mean().iloc[1:, :].reset_index()
 
         # add layer thicknesses
         profile["dz(km)"] = dz
