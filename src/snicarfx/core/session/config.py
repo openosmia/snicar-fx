@@ -317,7 +317,7 @@ class Atmosphere(BaseModel):
     )
 
     # type of atmospheric profile
-    ATMOSPHERIC_PROFILE_TYPE: Literal["afglss"] = Field(
+    ATMOSPHERIC_PROFILE_TYPE: Literal["afglss", "afglss_downscaled"] = Field(
         description="Type of atmospheric profile to use. It includes elevation, pressure, temperature, air density, as well as O3, H2O, CO2 and NO2 concentrations."
     )
 
@@ -432,7 +432,7 @@ class Land(BaseModel):
     )
 
     # surface altitude (km)
-    ALTITUDE: float = Field(..., ge=0.0, le=9.0, description="Surface altitude in km.")
+    ALTITUDE: float = Field(..., ge=0.0, le=30.0, description="Surface altitude in km.")
 
     # all provided light absorbing particles
     LIGHT_ABSORBING_PARTICLES: LightAbsorbingParticles | None = None

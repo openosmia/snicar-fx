@@ -175,6 +175,7 @@ class AtmosphereColumn:
 
         # convert profile to molecules/m3
         n_gas = self.atmosphere_profile[gas_keys].values * 1e6
+
         dz = self.atmosphere_profile["dz(km)"].values * 1e3
 
         # Compute current columns (kg/m²) for all valid gases
@@ -186,7 +187,6 @@ class AtmosphereColumn:
         scale_factors = np.array(
             [valid_gases[g] / c for g, c in zip(valid_gases.keys(), current_columns)]
         )
-
         # Apply scaling (back to cm⁻³)
         self.atmosphere_profile[gas_keys] *= scale_factors
 
@@ -290,7 +290,7 @@ class AtmosphereColumn:
 
         # get absorption in (c)m2 / molecule for each gas
         self.gas_cross_sections = xr.open_dataset(
-            f"{self.ROOT_PATH}/data/atmospheric_profiles/uvspec_afglss_test_file_cross_sections.nc"
+            f"{self.ROOT_PATH}/data/gases/uvspec_{self.atmosphere_profile_type}_cross_sections.nc"
         )
 
         # truncate depending on altitude
