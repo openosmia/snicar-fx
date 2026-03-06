@@ -82,7 +82,12 @@ class AtmosphereColumn:
             self.surface_elevation = config.LAND.ALTITUDE
             self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
             self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
-            self.atmosphere_profile = self.set_atmospheric_profile()
+            self.initial_atmosphere_profile = self.set_atmospheric_profile()
+            self.set_profile_integrated_gas_concentrations()
+            # as no scaling is applied for now, the atmospheric
+            # profile is just the initial profile
+            self.atmosphere_profile = self.initial_atmosphere_profile.copy(deep=True)
+
             self.nbr_lyr = self.atmosphere_profile.shape[0]
             self.aerosol_boundary_height = 30
             self.AOD = config.ATMOSPHERE.INTEGRATED_AOD_550
@@ -140,7 +145,7 @@ class AtmosphereColumn:
 
         dz = np.abs(np.diff(profile["z(km)"].values))
 
-        # transform profile into layer variables (mid-point)
+        # # TODO: ransform profile into layer variables (mid-point)
         profile = profile.rolling(2).mean().iloc[1:, :].reset_index()
 
         # add layer thicknesses
@@ -148,14 +153,15 @@ class AtmosphereColumn:
 
         return profile
 
-    def scale_atmospheric_profile(self):
+    def set_profile_integrated_gas_concentrations(self):
         """
-        Scale atmospheric profile by given integrated gas concentrations.
+        Compute integrated gas concentrations based on the
+        atmospheric profile.
         """
 
         AVOGADRO_NUMBER = 6.02214076e23
 
-        # molecular masses of gases of interest (kg/mol)
+        # molecular masses of gases (kg/mol)
         MOLECULAR_MASSES = {
             "O3": 0.048,
             "O2": 0.032,
@@ -164,31 +170,52 @@ class AtmosphereColumn:
             "NO2": 0.04601,
         }
 
-        # Filter out gases with None concentration
-        valid_gases = {
-            g: val
-            for g, val in self.integrated_gas_concentrations.items()
-            if val is not None
+        # create a key matching dict between AFGL keys (gas in lower
+        # case + "(cm-3)") and input file keys (gas in upper case)
+        profile_key_matching = {
+            g.split("(")[0].upper(): g for g in self.initial_atmosphere_profile.columns
+        }
+        self.gas_key_matching = {
+            k: v
+            for k, v in profile_key_matching.items()
+            if k in MOLECULAR_MASSES.keys()
         }
 
-        gas_keys = [f"{g.lower()}(cm-3)" for g in valid_gases.keys()]
+        # Compute integrated gas concentrations (kg/m²) for all gases
+        # of the atmospheric profile
+        self.profile_integrated_gas_concentrations = {
+            input_key: np.sum(
+                self.initial_atmosphere_profile[profile_key].values
+                * 1e6  # convert to molecules/m3
+                * self.initial_atmosphere_profile["dz(km)"].values
+                * 1e3  # convert to m
+            )
+            * (MOLECULAR_MASSES[input_key] / AVOGADRO_NUMBER)
+            for input_key, profile_key in self.gas_key_matching.items()
+        }
 
-        # convert profile to molecules/m3
-        n_gas = self.atmosphere_profile[gas_keys].values * 1e6
+    def scale_atmospheric_profile(self):
+        """
+        Scale atmospheric profile by given integrated gas
+        concentrations.
 
-        dz = self.atmosphere_profile["dz(km)"].values * 1e3
+        """
 
-        # Compute current columns (kg/m²) for all valid gases
-        current_columns = np.sum(n_gas * dz[:, None], axis=0) * np.array(
-            [MOLECULAR_MASSES[g] / AVOGADRO_NUMBER for g in valid_gases.keys()]
-        )
+        for input_key, gas_igc in self.integrated_gas_concentrations.items():
 
-        # Scale factors
-        scale_factors = np.array(
-            [valid_gases[g] / c for g, c in zip(valid_gases.keys(), current_columns)]
-        )
-        # Apply scaling (back to cm⁻³)
-        self.atmosphere_profile[gas_keys] *= scale_factors
+            # Filter out gases with None concentration
+            if gas_igc is not None:
+                profile_key = self.gas_key_matching[input_key]
+
+                # compute scale factor based on input
+                scale_factor = (
+                    gas_igc / self.profile_integrated_gas_concentrations[input_key]
+                )
+
+                # Apply scaling (back to cm⁻³)
+                self.atmosphere_profile[profile_key] = (
+                    self.initial_atmosphere_profile[profile_key] * scale_factor
+                )
 
     def compute_rayleigh_cross_section_bodhaine(self, co2_ppm):
         """

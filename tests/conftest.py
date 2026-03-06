@@ -248,10 +248,16 @@ def multistream_pythonicdisort_params(request):
         {"component": "SOLVER", "field": "POLAR_ANGLES", "value": (10, 90, 5)},
         # ATMOSPHERE
         {"component": "ATMOSPHERE", "field": "INTEGRATED_AOD_550", "value": 0.42},
+        {"component": "ATMOSPHERE", "field": "INTEGRATED_AOD_550", "value": 0},
         {
             "component": "ATMOSPHERE",
             "field": "INTEGRATED_GAS_CONCENTRATIONS",
             "value": {"H2O": 15, "NO2": 1e-02, "O3": 0.01},
+        },
+        {
+            "component": "ATMOSPHERE",
+            "field": "INTEGRATED_GAS_CONCENTRATIONS",
+            "value": {"H2O": 0, "NO2": 0, "O3": 0},
         },
         # LAND
         {"component": "LAND", "field": "LAYER_TYPE", "value": (0, 0, 0)},
