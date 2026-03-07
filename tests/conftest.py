@@ -285,6 +285,31 @@ def update_api_params(request):
     return request.param
 
 
+@pytest.fixture(
+    params=[
+        # Only ATMOSPHERE fields
+        {"field": "INTEGRATED_AOD_550", "sequence": [0.42, 0.0, 0.11, 0.22]},
+        {
+            "field": "INTEGRATED_GAS_CONCENTRATIONS",
+            "sequence": [
+                {"H2O": 15, "NO2": 1e-02, "O3": 0.01, "O2": 0.02},
+                {"H2O": 0, "NO2": 0, "O3": 0, "O2": 0},
+                {"H2O": 7, "NO2": 2e-02, "O3": 0.02, "O2": 0.04},
+                {"H2O": 24, "NO2": 4e-02, "O3": 0.04, "O2": 0.08},
+            ],
+        },
+    ],
+    ids=lambda p: f"{p['field']}_{p['sequence']}",
+)
+def update_api_scaling_params(request):
+    """
+    Create sets of parameters to be used in tests of sequential
+    scaling with the update API (occuring in ATMOSPHERE only).
+
+    """
+    return request.param
+
+
 @pytest.fixture(scope="module")
 def absolute_tolerance_internal_variables():
     """Set absolute tolerance on error for the internal variables."""
@@ -306,16 +331,6 @@ def absolute_tolerance_pythonicdisort():
     """
     Set absolute tolerance on error between backend routine and
     the high-level wrapper of PythonicDISORT
-
-    """
-    return 5e-13
-
-
-@pytest.fixture(scope="module")
-def absolute_tolerance_update_api_gs():
-    """
-    Set absolute tolerance on error for the update API, on
-    atmosphere property scaling, specifically.
 
     """
     return 5e-13
