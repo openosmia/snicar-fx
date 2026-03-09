@@ -34,7 +34,7 @@ class SolarIrradiance:
         Direct solar spectral irradiance.
     fd : ndarray
         Diffuse solar spectral irradiance.
-        
+
     """
 
     def __init__(self, config):
@@ -42,7 +42,7 @@ class SolarIrradiance:
         Initialize the SolarIrradiance class using model configuration inputs.
 
         This constructor extracts parameters from the given
-        `config` object and then triggers irradiance processing via the 
+        `config` object and then triggers irradiance processing via the
         `set_irradiance()` method.
 
         Parameters
@@ -57,11 +57,11 @@ class SolarIrradiance:
         self.sky_conditions = config.ATMOSPHERE.SKY_CONDITIONS
 
         self.sza = config.SOLAR.SZA
-        
+
         self.saa = config.SOLAR.SAA
 
         self.atmosphere_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
-        
+
         self._wavelengths = config._wavelengths_solar
 
         if config.SOLVER.ATMOSPHERE_COUPLING:
@@ -75,8 +75,8 @@ class SolarIrradiance:
     def load_surface_irradiance(self):
         """
         Load surface irradiance file.
-        
-        The surface irradiance file stores pre-computed irradiances simulated 
+
+        The surface irradiance file stores pre-computed irradiances simulated
         with LibRadTran for a given atmospheric profile and range of SZAs.
         """
 
@@ -93,8 +93,8 @@ class SolarIrradiance:
     def load_toa_irradiance(self):
         """
         Load top-of-atmosphere (TOA) irradiance file.
-        
-        The TOA irradiance file corresponds Version 2 of the TSIS-1 Hybrid 
+
+        The TOA irradiance file corresponds Version 2 of the TSIS-1 Hybrid
         Solar Reference Spectrum from Coddington et al. 2022.
         """
 
@@ -109,11 +109,11 @@ class SolarIrradiance:
 
     def set_toa_irradiance(self):
         """
-        Set monochromatic top-of-atmosphere (TOA) solar spectral irradiance 
+        Set monochromatic top-of-atmosphere (TOA) solar spectral irradiance
         array used as boundary for the solver.
-        
+
         This method interpolates the TOA spectral irradiance to the solar
-        wavelength array. 
+        wavelength array.
         """
 
         self.irradiance_dataset["wavelength"] = self.irradiance_dataset[
@@ -122,24 +122,25 @@ class SolarIrradiance:
 
         self.flx_slr = self.irradiance_dataset.interp(
             wavelength=self._wavelengths
-        ).SSI.values  
+        ).SSI.values
 
         return None
 
     def set_surface_irradiance(self):
         """
-        Set monochromatic surface solar spectral irradiance array used as 
+        Set monochromatic surface solar spectral irradiance array used as
         boundary for the solver.
 
-        This method selects the irradiance corresponding to the user-input 
-        solar zenith angle (SZA) and interpolates the spectral irradiance to 
-        the solar wavelength array. 
+        This method selects the irradiance corresponding to the user-input
+        solar zenith angle (SZA) and interpolates the spectral irradiance to
+        the solar wavelength array.
         """
 
         ds_sza = self.irradiance_dataset.sel(SZA=self.sza)
 
-        ds_sza = ds_sza.interp(wavelength=self._wavelengths,
-                               kwargs={"fill_value": "extrapolate"})
+        ds_sza = ds_sza.interp(
+            wavelength=self._wavelengths, kwargs={"fill_value": "extrapolate"}
+        )
 
         irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"]
         irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"]

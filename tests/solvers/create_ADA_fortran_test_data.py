@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-from snicarfx.core import Session
+from snicarfx import Session
 from snicarfx.core.solvers.multi_stream_solver import (
     _MultiStreamSolver,
 )

@@ -238,7 +238,13 @@ class Solar(BaseModel):
     SZA: int = Field(..., ge=0, le=89, description="The Solar Zenigh Angle (SZA).")
 
     # Solar Zenith Angle (unit: degrees)
-    SAA: int = Field(..., ge=0, le=360, description="The Solar Azimuth Angle (SAA).")
+    # SAA: int = Field(..., ge=0, le=360, description="The Solar Azimuth Angle (SAA).")
+    SAA: int | None = Field(
+        default=None,
+        ge=0,
+        le=360,
+        description="The Solar Azimuth Angle (SAA). Required if SOLVER.TYPE is 'multi-stream-ada' or 'multi-stream-disort' AND SOLVER.N_FOURIER_MODES > 1.",
+    )
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
@@ -486,6 +492,25 @@ class Config(BaseModel):
     _ROOT_PATH: pathlib.Path | None = PrivateAttr(default=None)
 
     model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def check_saa_requirement(self):
+        solver_type = self.SOLVER.TYPE
+        n_fourier = self.SOLVER.N_FOURIER_MODES
+        saa = self.SOLAR.SAA
+
+        is_multi_stream = "multi-stream" in solver_type
+
+        needs_azimuth = is_multi_stream and (n_fourier > 1)
+
+        if needs_azimuth and saa is None:
+            raise ValueError(
+                f"SOLAR.SAA is required when (1) a multi-stream solver is selected,  "
+                f"and (2) SOLVER.N_FOURIER_MODES > 1 (current: {n_fourier}). "
+                "Please provide SAA in the SOLAR section."
+            )
+
+        return self
 
     @model_validator(mode="after")
     def check_solver_atmosphere_compatibility(self):

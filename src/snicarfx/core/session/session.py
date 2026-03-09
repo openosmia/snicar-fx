@@ -570,7 +570,7 @@ class Session:
 
         ds = xr.Dataset(
             data_vars={
-                "albedo_boa": ("wavelength", self.outputs["albedo"]),
+                "albedo_boa": ("wavelength", self.outputs["albedo_boa"]),
                 "broadband_albedo_boa": self.outputs["broadband_albedo_boa"],
                 "absorbed_flux_fraction": (
                     "layer",
@@ -586,7 +586,7 @@ class Session:
                     if "band-" in self.config.SPECTRAL.MODE
                     else self.config._wavelengths_land
                 ),
-                "layer": np.arange(len(self.outputs.absorbed_flux_fraction_per_layer)),
+                "layer": np.arange(len(self.outputs["absorbed_flux_fraction"])),
             },
         )
 
@@ -720,14 +720,10 @@ class Session:
         for key, var in self.outputs.items():
 
             if any(tag in key for tag in ["albedo_"]):
-                self.outputs[key] = (
-                    np.nansum(
-                        self.outputs[key][None, :]
-                        * self._spectral_response_function,
-                        axis=-1,
-                    )
-                    / np.nansum(self._spectral_response_function, axis=1)
-                )
+                self.outputs[key] = np.nansum(
+                    self.outputs[key][None, :] * self._spectral_response_function,
+                    axis=-1,
+                ) / np.nansum(self._spectral_response_function, axis=1)
             elif any(tag in key for tag in ["m0"]):
                 self.outputs[key] = (
                     np.nansum(
@@ -740,13 +736,16 @@ class Session:
             elif any(tag in key for tag in ["directional_"]):
                 self.outputs[key] = (
                     np.nansum(
-                        self.outputs[key][:, None, :, :] #polar, wvl1, wvl2, azim
-                        * self._spectral_response_function[None, :, :, None], #polar, wvl, wvl, azim
+                        self.outputs[key][:, None, :, :]  # polar, wvl1, wvl2, azim
+                        * self._spectral_response_function[
+                            None, :, :, None
+                        ],  # polar, wvl, wvl, azim
                         axis=-2,
                     )
-                    / np.nansum(self._spectral_response_function, axis=1)[None, :, :] # polar, wvl, azim
+                    / np.nansum(self._spectral_response_function, axis=1)[
+                        None, :, :
+                    ]  # polar, wvl, azim
                 )
-
 
         # overwrite high-resolution wavelength array (used for
         # computation) with center wavelengths

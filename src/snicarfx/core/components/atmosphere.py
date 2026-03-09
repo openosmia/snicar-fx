@@ -335,7 +335,7 @@ class AtmosphereColumn:
         # not match
         if self._wavelengths[0] < min_gas_wvl or self._wavelengths[-1] > max_gas_wvl:
             raise ValueError(
-                f"Input spectral resolution must be within the spectral range of gas cross sections ([{min_gas_wvl:.1f}, {max_gas_wvl:.1f}]). Either modify the input spectral resolution to match the latter range, or use a different file for gas cross sections (not recommended)."
+                f"Input spectral resolution must be within the spectral range of gas cross sections ([{min_gas_wvl:.1f}, {max_gas_wvl:.1f}], but currently [{self._wavelengths[0]:.1f}, {self._wavelengths[-1]:.1f}]). Either modify the input spectral resolution to match the expected range, or use a different file for gas cross sections (not recommended)."
             )
 
         self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self._wavelengths)

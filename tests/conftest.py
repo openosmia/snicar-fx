@@ -11,10 +11,10 @@ import pytest
 import xarray as xr
 import numpy as np
 
-from snicarfx.core.components.atmosphere import AtmosphereColumn
-from snicarfx.core.components.land import LandColumn
-from snicarfx.core.components.solar import SolarIrradiance
-from snicarfx.core.session.session import Session
+from snicarfx.core import AtmosphereColumn
+from snicarfx.core import LandColumn
+from snicarfx.core import SolarIrradiance
+from snicarfx import Session
 
 TEST_INPUT_FILE1 = "./tests/inputs_tests.yaml"
 TEST_INPUT_FILE2 = "./tests/inputs_tests2.yaml"

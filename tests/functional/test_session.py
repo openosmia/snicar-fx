@@ -7,7 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 import pytest
 import yaml
-from snicarfx.core.session.session import Session
+from snicarfx import Session
 import tempfile
 import os
 import numpy as np
