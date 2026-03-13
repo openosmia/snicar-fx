@@ -458,7 +458,7 @@ class _MultiStreamSolverDISORT:
         # dictionnary with outputs depending on user inputs
         results = {}
 
-        results["polar_angle"] = self.output_polar_angles
+        results["polar_angle"] = np.rad2deg(np.acos(self.output_polar_angles))
 
         if self.n_fourier > 1:
             results["azimuth_angle"] = self.azimuth_angles
