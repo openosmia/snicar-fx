@@ -14,8 +14,8 @@ import numpy as np
 class _MultiStreamSolverDISORT:
     """
     Compute and store the variables necessary to solve the
-    unpolarized radiative transfer equation using the PythonicDISORT python
-    package, an implementation of the DISORT solver.
+    unpolarized radiative transfer equation using the DISORT algorithm via 
+    the PythonicDISORT package.
 
     Attributes
     ----------
@@ -68,10 +68,6 @@ class _MultiStreamSolverDISORT:
         # default value
         self.banded_Nlayers = 10
 
-        # !! set output angles to those of ADA 16 streams for tests
-        # nodes, weights = np.polynomial.legendre.leggauss(16)
-        # self.output_polar_angles = 0.5 * (nodes + 1.0)
-
         if SOLVER.DELTA_SCALING == "M" or SOLVER.DELTA_SCALING == "M+":
             (
                 tau_land,
@@ -104,8 +100,13 @@ class _MultiStreamSolverDISORT:
             self.t_od = np.cumsum(tau_land, axis=0)
             self.w = ss_alb_land
             self.legendre_moments = legendre_moments_land
-            self.tau_surface = self.t_od[0, :]
             self.unscaled_tau = np.cumsum(land.tau, axis=0)
+            self.unscaled_w = np.array(land.ss_alb)
+            self.unscaled_legendre_moments = np.array(
+                land.legendre_moments[: land.n_expansion, :, :]
+            )
+            self.tau_surface = np.zeros((self.nbr_lyr, self.nbr_wvl))
+
 
         else:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
@@ -115,6 +116,11 @@ class _MultiStreamSolverDISORT:
                 [legendre_moments_atm, legendre_moments_land]
             )
             self.unscaled_tau = np.cumsum(np.vstack([atmosphere.tau, land.tau]), axis=0)
+            self.unscaled_w = np.vstack([atmosphere.ss_alb, land.ss_alb])
+            self.unscaled_legendre_moments = np.hstack(
+                [atmosphere.legendre_moments[: atmosphere.n_expansion, :, :], 
+                 land.legendre_moments[: land.n_expansion, :, :]]
+            )
             self.tau_surface = self.unscaled_tau[-land.nbr_lyr - 1, :]
 
         self.albedo_toa = np.zeros(self.nbr_wvl)
@@ -179,7 +185,6 @@ class _MultiStreamSolverDISORT:
         legendre_moments_atm = None
 
         if SOLVER.DELTA_SCALING == "M":
-            # apply delta scaling to land column only -> HG function (!)
             # Delta truncation: get highest Legendre term following
             # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS
             f = np.array(land.legendre_moments[land.n_expansion])
@@ -211,8 +216,6 @@ class _MultiStreamSolverDISORT:
 
         elif SOLVER.DELTA_SCALING == "M+":
 
-            # sigma_sq cannot get negative with HG function so as long as we
-            # use HG we don't need to check that the scaling is applicable
             sigma_sq = ((land.n_expansion + 1) ** 2 - land.n_expansion**2) / (
                 np.log((land.legendre_moments[land.n_expansion]) ** 2)
                 - np.log((land.legendre_moments[land.n_expansion + 1]) ** 2)
@@ -238,8 +241,6 @@ class _MultiStreamSolverDISORT:
 
             if atmosphere.use_atmosphere:
 
-                # boundary aerosol layer, where not only rayleigh ie moment 1 is not 0
-
                 # if rayleigh scattering only, no need to scale
                 if atmosphere.AOD == 0:
                     ss_alb_atm = np.array(atmosphere.ss_alb)
@@ -250,7 +251,7 @@ class _MultiStreamSolverDISORT:
 
                     scale_factor = np.vstack(
                         [
-                            np.zeros((atmosphere.nbr_lyr, atmosphere.nbr_wvl)),
+                            np.ones((atmosphere.nbr_lyr, atmosphere.nbr_wvl)),
                             scale_factor,
                         ]
                     )
@@ -261,7 +262,7 @@ class _MultiStreamSolverDISORT:
                         atmosphere.legendre_moments[1, :, 0] != 0.0
                     )[0][0]
 
-                    # ! DISORT reverts to Delta-M+ under conditions below
+                    # ! DISORT reverts to Delta-M under conditions below
                     if (
                         atmosphere.legendre_moments[
                             atmosphere.n_expansion, boundary_layer_aerosols:, :
@@ -346,7 +347,7 @@ class _MultiStreamSolverDISORT:
 
                     scale_factor = np.vstack(
                         [
-                            np.zeros((boundary_layer_aerosols, self.nbr_wvl)),
+                            np.ones((boundary_layer_aerosols, self.nbr_wvl)),
                             (1.0 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f),
                             scale_factor,
                         ]
@@ -417,7 +418,7 @@ class _MultiStreamSolverDISORT:
             # intensity function only in upward angles
             self.directional_radiance_boa_m0[:, wl_idx] = interp_u(u0)(
                 self.output_polar_angles,  # interpolate at user angles
-                self.tau_surface[wl_idx],
+                self.tau_surface[wl_idx], 
             )
 
             self.directional_reflectance_boa_m0[:, wl_idx] = (
@@ -458,7 +459,7 @@ class _MultiStreamSolverDISORT:
         # dictionnary with outputs depending on user inputs
         results = {}
 
-        results["polar_angle"] = np.rad2deg(np.acos(self.output_polar_angles))
+        results["polar_angle"] = np.rad2deg(np.arccos(self.output_polar_angles))
 
         if self.n_fourier > 1:
             results["azimuth_angle"] = self.azimuth_angles
@@ -579,27 +580,10 @@ def solve_multi_stream_rt_disort_wrapper(
     for wl_idx in range(mssd.nbr_wvl):
 
         outputs_wl = pydisort(
-            tau_arr=np.cumsum(
-                np.hstack(
-                    [
-                        atmosphere.tau[:, wl_idx],
-                        land.tau[:, wl_idx],
-                    ]
-                )
-            ),
-            omega_arr=np.hstack(
-                [
-                    atmosphere.ss_alb[:, wl_idx],
-                    land.ss_alb[:, wl_idx],
-                ]
-            ),
+            tau_arr=mssd.unscaled_tau[:, wl_idx],
+            omega_arr=mssd.unscaled_w[:, wl_idx],
             NQuad=mssd.n_streams,
-            Leg_coeffs_all=np.hstack(
-                [
-                    atmosphere.legendre_moments[: atmosphere.n_expansion, :, :],
-                    land.legendre_moments[: atmosphere.n_expansion, :, :],
-                ]
-            )[:, :, wl_idx].T,
+            Leg_coeffs_all=mssd.unscaled_legendre_moments[:, :, wl_idx].T,
             mu0=mssd.mu0,
             I0=mssd.irradiance[wl_idx],
             phi0=mssd.phi0,
