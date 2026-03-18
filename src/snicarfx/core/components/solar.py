@@ -80,12 +80,15 @@ class SolarIrradiance:
         with LibRadTran for a given atmospheric profile and range of SZAs.
         """
 
-        ds = xr.open_dataset(
-            str(
-                f"{self.ROOT_PATH}/data/solar_fluxes/"
-                + "libradtranv206_surface_irradiance"
-                + f"_{self.atmosphere_type}_{self.sky_conditions}.nc"
+        ds = (
+            xr.open_dataset(
+                str(
+                    f"{self.ROOT_PATH}/data/solar_fluxes/"
+                    + "libradtranv206_surface_irradiance_clean_ice"
+                    + f"_{self.atmosphere_type}_{self.sky_conditions}.nc"
+                )
             )
+            / 1e3
         )
 
         return ds

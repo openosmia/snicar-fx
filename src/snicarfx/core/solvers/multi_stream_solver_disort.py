@@ -14,7 +14,7 @@ import numpy as np
 class _MultiStreamSolverDISORT:
     """
     Compute and store the variables necessary to solve the
-    unpolarized radiative transfer equation using the DISORT algorithm via 
+    unpolarized radiative transfer equation using the DISORT algorithm via
     the PythonicDISORT package.
 
     Attributes
@@ -102,11 +102,8 @@ class _MultiStreamSolverDISORT:
             self.legendre_moments = legendre_moments_land
             self.unscaled_tau = np.cumsum(land.tau, axis=0)
             self.unscaled_w = np.array(land.ss_alb)
-            self.unscaled_legendre_moments = np.array(
-                land.legendre_moments[: land.n_expansion, :, :]
-            )
-            self.tau_surface = np.zeros((self.nbr_lyr, self.nbr_wvl))
-
+            self.unscaled_legendre_moments = np.array(land.legendre_moments)
+            self.tau_surface = np.zeros(self.nbr_wvl)
 
         else:
             self.nbr_lyr = land.nbr_lyr + atmosphere.nbr_lyr
@@ -118,8 +115,10 @@ class _MultiStreamSolverDISORT:
             self.unscaled_tau = np.cumsum(np.vstack([atmosphere.tau, land.tau]), axis=0)
             self.unscaled_w = np.vstack([atmosphere.ss_alb, land.ss_alb])
             self.unscaled_legendre_moments = np.hstack(
-                [atmosphere.legendre_moments[: atmosphere.n_expansion, :, :], 
-                 land.legendre_moments[: land.n_expansion, :, :]]
+                [
+                    atmosphere.legendre_moments,
+                    land.legendre_moments,
+                ]
             )
             self.tau_surface = self.unscaled_tau[-land.nbr_lyr - 1, :]
 
@@ -254,7 +253,7 @@ class _MultiStreamSolverDISORT:
 
                     scale_factor = np.vstack(
                         [
-                            np.ones((atmosphere.nbr_lyr, atmosphere.nbr_wvl)),
+                            np.ones((atmosphere.nbr_lyr, self.nbr_wvl)),
                             scale_factor,
                         ]
                     )
@@ -392,6 +391,7 @@ class _MultiStreamSolverDISORT:
             self.albedo_toa[wl_idx] = flux_up(0) / np.sum(flux_down(0))
 
             # intensity function only in upward angles
+            # radiance in Wm-2nm-1sr-1
             self.directional_radiance_toa_m0[:, wl_idx] = interp_u(u0)(
                 self.output_polar_angles,  # interpolate at user angles
                 0,  # TOA
@@ -421,7 +421,7 @@ class _MultiStreamSolverDISORT:
             # intensity function only in upward angles
             self.directional_radiance_boa_m0[:, wl_idx] = interp_u(u0)(
                 self.output_polar_angles,  # interpolate at user angles
-                self.tau_surface[wl_idx], 
+                self.tau_surface[wl_idx],
             )
 
             self.directional_reflectance_boa_m0[:, wl_idx] = (
@@ -592,17 +592,12 @@ def solve_multi_stream_rt_disort_wrapper(
             phi0=mssd.phi0,
             NFourier=mssd.n_fourier,
             only_flux=mssd.only_fourier_m0,
-            f_arr=np.vstack(
-                [
-                    atmosphere.legendre_moments[atmosphere.n_expansion, :, :],
-                    land.legendre_moments[atmosphere.n_expansion, :, :],
-                ]
-            )[:, wl_idx],
+            f_arr=mssd.unscaled_legendre_moments[mssd.n_expansion, :, wl_idx],
             use_banded_solver_NLayers=mssd.banded_Nlayers,
             NT_cor=NT_cor,
+            NLeg=mssd.n_expansion,
             # b_pos = 0, # dirichlet condition
             # b_neg = 0, # dirichlet condition
-            # NLeg=mssd.n_expansion,
             # NT_cor=mssd.IMS_TMS_correction,
             # BRDF_Fourier_modes=[],
             # s_poly_coeffs=array([], shape=(1, 0), dtype=float64),
