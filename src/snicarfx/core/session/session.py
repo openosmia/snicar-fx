@@ -649,6 +649,9 @@ class Session:
             if "albedo_" in var_name:
                 albedo_variables[var_name] = ("wavelength", data)
 
+            elif "bba" in var_name:
+                albedo_variables[var_name] = data
+
             elif "directional_" in var_name:
                 if "m0" in var_name:
                     directional_variables[var_name] = (

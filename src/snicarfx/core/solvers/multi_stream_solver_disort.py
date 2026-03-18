@@ -118,6 +118,9 @@ class _MultiStreamSolverDISORT:
             self.tau_surface = self.unscaled_tau[-land.nbr_lyr - 1, :]
 
         self.albedo_toa = np.zeros(self.nbr_wvl)
+        self.flux_up_boa = np.zeros(self.nbr_wvl)
+        self.flux_down_boa = np.zeros(self.nbr_wvl)
+
         self.directional_reflectance_toa_m0 = np.zeros(
             (len(self.output_polar_angles), self.nbr_wvl)
         )
@@ -426,9 +429,8 @@ class _MultiStreamSolverDISORT:
                 / np.sum(flux_down(0))
             )
 
-            self.albedo_boa[wl_idx] = flux_up(self.tau_surface[wl_idx]) / np.sum(
-                flux_down(self.tau_surface[wl_idx])
-            )
+            self.flux_up_boa[wl_idx] = flux_up(self.tau_surface[wl_idx])
+            self.flux_down_boa[wl_idx] = np.sum(flux_down(self.tau_surface[wl_idx]))
 
             # calculate all fluxes at BOA
             # sum downward flux (diff + dir)
@@ -463,7 +465,8 @@ class _MultiStreamSolverDISORT:
         if self.n_fourier > 1:
             results["azimuth_angle"] = self.azimuth_angles
 
-        results["albedo_boa"] = self.albedo_boa
+        results["albedo_boa"] = self.flux_up_boa / self.flux_down_boa
+        results["bba_boa"] = np.sum(self.flux_up_boa) / np.sum(self.flux_down_boa)
 
         results["albedo_toa"] = self.albedo_toa
 
