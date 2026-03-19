@@ -466,12 +466,14 @@ class _MultiStreamSolverDISORT:
         if self.n_fourier > 1:
             results["azimuth_angle"] = self.azimuth_angles
 
-        results["albedo_boa"] = self.flux_up_boa / self.flux_down_boa
-        results["bba_boa"] = np.sum(self.flux_up_boa) / np.sum(self.flux_down_boa)
+        if "BOA" in self.output_levels:
+            results["albedo_boa"] = self.flux_up_boa / self.flux_down_boa
+            results["bba_boa"] = np.sum(self.flux_up_boa) / np.sum(self.flux_down_boa)
+            results["directional_reflectance_boa_m0"] = (
+                self.directional_reflectance_boa_m0
+            )
 
         results["albedo_toa"] = self.albedo_toa
-
-        results["directional_reflectance_boa_m0"] = self.directional_reflectance_boa_m0
 
         results["directional_radiance_toa_m0"] = self.directional_radiance_toa_m0
 
@@ -482,7 +484,10 @@ class _MultiStreamSolverDISORT:
             # radiance as a func of phi & mu at the bottom of the atmosphere (BOA)
             # results["directional_radiance_boa"] = self.directional_radiance_boa
             # reflectance as a func of phi & mu at the bottom of the atmosphere (BOA)
-            results["directional_reflectance_boa"] = self.directional_reflectance_boa
+            if "BOA" in self.output_levels:
+                results["directional_reflectance_boa"] = (
+                    self.directional_reflectance_boa
+                )
 
             # radiance as a func of phi & mu at the top of the atmosphere (TOA)
             results["directional_radiance_toa"] = self.directional_radiance_toa
