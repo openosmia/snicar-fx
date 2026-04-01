@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "snicarfx"
-version = "0.0.0"
+version = "0.1.0"
 description = ""
 authors = ["snicar-fx team"]
 packages = [

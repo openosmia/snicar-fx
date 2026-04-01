@@ -918,6 +918,18 @@ class _MultiStreamSolverADA:
                 / (E_diff + E_dir)
             ).flatten()
 
+            results["bba_boa"] = (np.sum(
+                2
+                * np.pi
+                * np.sum(
+                    self.s_level_rad_up_moments[:, self.surface_idx, :, 0]
+                    * np.array(self.cos_angle)[:, None]
+                    * np.array(self.cos_weight)[:, None],
+                    axis=0,
+                ))
+                / np.sum((E_diff + E_dir))
+            )
+
             results["directional_reflectance_boa_m0"] = (
                 self.s_level_rad_up_moments[:, self.surface_idx, :, 0] * np.pi
             ) / (E_diff + E_dir)
