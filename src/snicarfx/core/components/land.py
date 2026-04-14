@@ -106,12 +106,9 @@ class LandColumn:
         self.lwc = config.LAND.LWC
         self.ssa = config.LAND.SPECIFIC_SURFACE_AREA
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
-        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
 
         self.set_refractive_index()
-        
-        if config.SOLVER.TYPE == "two-stream-ad":
-            self.set_diffuse_fresnel_coeffs()
+        self.set_diffuse_fresnel_coeffs()
 
         self.set_column_ops_without_laps()
 
@@ -120,7 +117,9 @@ class LandColumn:
             self.set_lap_properties()
             self.update_column_ops_with_laps()
 
-        self.set_legendre_moments()
+        if 'multi-stream' in config.SOLVER.TYPE: 
+            self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
+            self.set_legendre_moments()
 
     def set_refractive_index(self):
         """

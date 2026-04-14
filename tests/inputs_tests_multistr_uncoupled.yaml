@@ -2,7 +2,7 @@
 # https://github.com/openosmia/snicar-fx
 
 SOLVER:
-  TYPE: "two-stream-ad" # two-stream, multi-stream
+  TYPE: "multi-stream-ada"
   ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
   OUTPUT_LEVELS: "BOA"
 
@@ -12,8 +12,6 @@ SPECTRAL:
 
 SOLAR:
   SZA: 50 
-  SAA: 180
-  
 
 ATMOSPHERE:
   SKY_CONDITIONS: "clear" # clear, cloudy

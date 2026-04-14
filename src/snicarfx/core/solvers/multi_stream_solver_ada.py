@@ -135,12 +135,14 @@ class _MultiStreamSolverADA:
         self.n_fourier = SOLVER.N_FOURIER_MODES
         self.nbr_wvl = len(irradiance.flx_slr.flatten())
         self.output_levels = SOLVER.OUTPUT_LEVELS
-        self.azimuth_angles = np.arange(*SOLVER.AZIMUTH_ANGLES)
-        self.relative_azimuths = np.abs(
-             self.azimuth_angles - irradiance.saa
-            )
-        self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
         self._angle_indices = np.arange(self.n_angles)
+        
+        if self.n_fourier > 1: 
+            self.azimuth_angles = np.arange(*SOLVER.AZIMUTH_ANGLES)
+            self.relative_azimuths = np.abs(
+                 self.azimuth_angles - irradiance.saa
+                )
+            self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
 
         if "BOA" in SOLVER.OUTPUT_LEVELS and atmosphere.use_atmosphere:
             self.run_downward_loop = True

@@ -11,7 +11,7 @@ from snicarfx.core.solvers.multi_stream_solver_ada import solve_multi_stream_rt_
 
 
 def test_multistream_outputs(
-    session,
+    session_multistr_uncoupled,
     params_ada,
     benchmark_ada_spectral_data,
     absolute_tolerance_benchmark,
@@ -40,9 +40,9 @@ def test_multistream_outputs(
     w, t_od, g, wvl_idx = params_ada
 
     # Setup inputs
-    land_column = session.land_column
-    irradiance = session.solar_irradiance
-    atmosphere = session.atmosphere_column
+    land_column = session_multistr_uncoupled.land_column
+    irradiance = session_multistr_uncoupled.solar_irradiance
+    atmosphere = session_multistr_uncoupled.atmosphere_column
 
     land_column.ss_alb[:, :] = w
     land_column.tau[:, :] = t_od
@@ -56,7 +56,7 @@ def test_multistream_outputs(
 
     # solve RTE
     results = solve_multi_stream_rt_ada(
-        land_column, atmosphere, irradiance, session.config.SOLVER
+        land_column, atmosphere, irradiance, session_multistr_uncoupled.config.SOLVER
     )
 
     # a given set of parameters (including a given wavelength)

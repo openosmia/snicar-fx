@@ -16,8 +16,10 @@ from snicarfx.core import LandColumn
 from snicarfx.core import SolarIrradiance
 from snicarfx import Session
 
-TEST_INPUT_FILE1 = "./tests/inputs_tests.yaml"
-TEST_INPUT_FILE2 = "./tests/inputs_tests2.yaml"
+TEST_INPUT_FILE_2STR = "./tests/inputs_tests_2str.yaml"
+TEST_INPUT_FILE_MULTISTR_UNCOUPLED = "./tests/inputs_tests_multistr_uncoupled.yaml"
+TEST_INPUT_FILE_MULTISTR_COUPLED = "./tests/inputs_tests_multistr_coupled.yaml"
+
 CORE_INPUT_FILE = "./src/snicarfx/inputs.yaml"
 
 
@@ -28,39 +30,41 @@ def core_input_file():
 
 
 @pytest.fixture(scope="module")
-def test_input_file():
+def test_input_file_2str():
     """Fetch path to the test input file."""
-    return TEST_INPUT_FILE1
+    return TEST_INPUT_FILE_2STR
 
 
 @pytest.fixture(scope="module")
-def test_input_file2():
+def test_input_file_multistr_uncoupled():
     """Fetch path to the test input file."""
-    return TEST_INPUT_FILE2
-
-
-@pytest.fixture(scope="module")
-def config(session):
-    """Provide a shared instance of Config."""
-    return session.config
-
+    return TEST_INPUT_FILE_MULTISTR_UNCOUPLED
 
 @pytest.fixture(scope="module")
-def session():
+def test_input_file_multistr_coupled():
+    """Fetch path to the test input file."""
+    return TEST_INPUT_FILE_MULTISTR_COUPLED
+
+@pytest.fixture(scope="module")
+def session_2str():
     """Provide a shared Session instance."""
-    return Session(TEST_INPUT_FILE1)
-
-
-@pytest.fixture(scope="module")
-def config2(session2):
-    """Provide a shared instance of Config."""
-    return session2.config
-
+    return Session(TEST_INPUT_FILE_2STR)
 
 @pytest.fixture(scope="module")
-def session2():
+def session_multistr_uncoupled():
     """Provide a shared Session instance."""
-    return Session(TEST_INPUT_FILE2)
+    return Session(TEST_INPUT_FILE_MULTISTR_UNCOUPLED)
+
+@pytest.fixture(scope="module")
+def session_multistr_coupled():
+    """Provide a shared Session instance."""
+    return Session(TEST_INPUT_FILE_MULTISTR_COUPLED)
+
+
+@pytest.fixture(scope="module")
+def config(session_2str):
+    """Provide a shared instance of Config."""
+    return session_2str.config
 
 
 @pytest.fixture(scope="module")
@@ -70,9 +74,9 @@ def land_column(config):
 
 
 @pytest.fixture(scope="module")
-def atmosphere_column(config):
+def atmosphere_column(session_multistr_coupled):
     """Provide a shared AtmosphereColumn instance using shared Config."""
-    return AtmosphereColumn(config)
+    return AtmosphereColumn(session_multistr_coupled.config)
 
 
 @pytest.fixture(scope="module")
@@ -80,34 +84,15 @@ def irradiance(config):
     """Provide a SolarIrradiance instance using shared Config."""
     return SolarIrradiance(config)
 
-
 @pytest.fixture(scope="module")
-def land_column2(config2):
-    """Provide a shared LandColumn instance using shared Config."""
-    return LandColumn(config2)
-
-
-@pytest.fixture(scope="module")
-def atmosphere_column2(config2):
-    """Provide a shared AtmosphereColumn instance using shared Config."""
-    return AtmosphereColumn(config2)
-
-
-@pytest.fixture(scope="module")
-def irradiance2(config2):
-    """Provide a SolarIrradiance instance using shared Config."""
-    return SolarIrradiance(config2)
-
-
-@pytest.fixture(scope="module")
-def expected_shapes(session):
+def expected_shapes(session_2str):
     """Fetch expected shapes in the layer and wavelength dimensions."""
     return {
-        "1d_layers": (session.land_column.nbr_lyr,),
-        "1d_wavelengths_solar": (len(session.config._wavelengths_solar),),
+        "1d_layers": (session_2str.land_column.nbr_lyr,),
+        "1d_wavelengths_solar": (len(session_2str.config._wavelengths_solar),),
         "2d_layers_wavelengths": (
-            session.land_column.nbr_lyr,
-            session.land_column.nbr_wvl,
+            session_2str.land_column.nbr_lyr,
+            session_2str.land_column.nbr_wvl,
         ),
     }
 
@@ -245,14 +230,14 @@ def multistream_pythonicdisort_params(request):
         {"component": "SOLVER", "field": "OUTPUT_LEVELS", "value": "TOA"},
         {"component": "SOLVER", "field": "N_FOURIER_MODES", "value": 3},
         {"component": "SOLVER", "field": "AZIMUTH_ANGLES", "value": (10, 170, 5)},
-        {"component": "SOLVER", "field": "POLAR_ANGLES", "value": (10, 90, 5)},
+        {"component": "SOLVER", "field": "POLAR_ANGLES", "value": (10, 89, 5)},
         # ATMOSPHERE
         {"component": "ATMOSPHERE", "field": "INTEGRATED_AOD_550", "value": 0.42},
         {"component": "ATMOSPHERE", "field": "INTEGRATED_AOD_550", "value": 0},
         {
             "component": "ATMOSPHERE",
             "field": "INTEGRATED_GAS_CONCENTRATIONS",
-            "value": {"H2O": 15, "NO2": 1e-02, "O3": 0.01},
+            "value": {"H2O": 15, "NO2": 1e-06, "O3": 0.007},
         },
         {
             "component": "ATMOSPHERE",
@@ -292,10 +277,10 @@ def update_api_params(request):
         {
             "field": "INTEGRATED_GAS_CONCENTRATIONS",
             "sequence": [
-                {"H2O": 15, "NO2": 1e-02, "O3": 0.01, "O2": 0.02},
+                {"H2O": 15, "NO2": 1e-06, "O3": 0.005, "O2": 100},
                 {"H2O": 0, "NO2": 0, "O3": 0, "O2": 0},
-                {"H2O": 7, "NO2": 2e-02, "O3": 0.02, "O2": 0.04},
-                {"H2O": 24, "NO2": 4e-02, "O3": 0.04, "O2": 0.08},
+                {"H2O": 7, "NO2": 1.2e-6, "O3": 0.002, "O2": 200},
+                {"H2O": 24, "NO2": 0.5e-6, "O3": 0.001, "O2": 1000},
             ],
         },
     ],

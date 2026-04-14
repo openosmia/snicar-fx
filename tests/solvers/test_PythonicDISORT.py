@@ -13,7 +13,7 @@ from snicarfx.core.solvers.multi_stream_solver_disort import (
 
 
 def test_pythonicdisort_outputs(
-    session2, multistream_pythonicdisort_params, absolute_tolerance_pythonicdisort
+    session_multistr_coupled, multistream_pythonicdisort_params, absolute_tolerance_pythonicdisort
 ):
     """
     Test that outputs from the backend PythonicDISORT routine
@@ -25,17 +25,17 @@ def test_pythonicdisort_outputs(
     sza, saa, azimuth, aod = multistream_pythonicdisort_params
 
     results_backend = solve_multi_stream_rt_disort(
-        session2.land_column,
-        session2.atmosphere_column,
-        session2.solar_irradiance,
-        session2.config.SOLVER,
+        session_multistr_coupled.land_column,
+        session_multistr_coupled.atmosphere_column,
+        session_multistr_coupled.solar_irradiance,
+        session_multistr_coupled.config.SOLVER,
     )
 
     results_wrapper = solve_multi_stream_rt_disort_wrapper(
-        session2.land_column,
-        session2.atmosphere_column,
-        session2.solar_irradiance,
-        session2.config.SOLVER,
+        session_multistr_coupled.land_column,
+        session_multistr_coupled.atmosphere_column,
+        session_multistr_coupled.solar_irradiance,
+        session_multistr_coupled.config.SOLVER,
         NT_cor=False,
     )
 

@@ -5,7 +5,6 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import pytest
 import yaml
 from snicarfx import Session
 import tempfile
@@ -14,7 +13,7 @@ import numpy as np
 from pydantic import BaseModel
 
 
-def test_session_attributes(session):
+def test_session_attributes(session_multistr_coupled):
     """
     Verify that the required attributes of Session exist and have the correct
     types.
@@ -25,28 +24,28 @@ def test_session_attributes(session):
         Instance of the Session class
     """
 
-    assert hasattr(session, "config")
-    assert isinstance(session.config, BaseModel)
+    assert hasattr(session_multistr_coupled, "config")
+    assert isinstance(session_multistr_coupled.config, BaseModel)
 
 
-def test_get_package_root(session):
+def test_get_package_root(session_multistr_coupled):
 
-    package_root = session.get_package_root()
+    package_root = session_multistr_coupled.get_package_root()
 
     assert "snicar-fx" in package_root.parts
 
 
-def test_format_multistream_results_to_xarray(session2):
+def test_format_multistream_results_to_xarray(session_multistr_coupled):
     """
     Test that xarray outputs match expected shapes based on user
     inputs.
 
     """
-    results = session2.run(to_xarray=True)
+    results = session_multistr_coupled.run(to_xarray=True)
 
-    n_bands = session2._band_ranges[:, -1].shape[0]
-    n_azimuth_angles = len(np.arange(*session2.config.SOLVER.AZIMUTH_ANGLES))
-    n_polar_angles = len(np.arange(*session2.config.SOLVER.POLAR_ANGLES))
+    n_bands = session_multistr_coupled._band_ranges[:, -1].shape[0]
+    n_azimuth_angles = len(np.arange(*session_multistr_coupled.config.SOLVER.AZIMUTH_ANGLES))
+    n_polar_angles = len(np.arange(*session_multistr_coupled.config.SOLVER.POLAR_ANGLES))
 
     expected_1D_shape = (n_bands,)
     expected_2D_shape = (n_polar_angles, n_bands)
@@ -63,7 +62,7 @@ def test_format_multistream_results_to_xarray(session2):
 
 
 def test_update_api(
-    test_input_file2,
+    test_input_file_multistr_coupled,
     update_api_params,
     absolute_tolerance_update_api,
 ):
@@ -79,7 +78,7 @@ def test_update_api(
     value = update_api_params["value"]
 
     # use fresh session to modify the field with the update API
-    session_uapi = Session(test_input_file2)
+    session_uapi = Session(test_input_file_multistr_coupled)
     updates = {field: value}
 
     if component == "SOLAR":
@@ -96,7 +95,7 @@ def test_update_api(
     # manually modify the input file and create a new session (not
     # recommended in snicarfx but required here to test the update
     # API, which is the recommanded way)
-    with open(test_input_file2, "r") as f:
+    with open(test_input_file_multistr_coupled, "r") as f:
         config_dict = yaml.safe_load(f)
 
     # apply the same update as with the upate API
@@ -141,7 +140,7 @@ def test_update_api(
             for k, v in value.items()
         }
         updates = {field: value_without_file}
-        session_uapi = Session(test_input_file2)
+        session_uapi = Session(test_input_file_multistr_coupled)
         session_uapi.update_land(updates, validate=False)
         results_uapi = session_uapi.run(to_xarray=True)
 
@@ -164,7 +163,7 @@ def test_update_api(
 
 
 def test_update_api_sequential_scaling(
-    test_input_file2,
+    test_input_file_multistr_coupled,
     update_api_scaling_params,
     absolute_tolerance_update_api,
 ):
@@ -185,7 +184,7 @@ def test_update_api_sequential_scaling(
 
     # use fresh session to modify the field with the update API, and
     # use it throughout the sequence of updates
-    session_uapi = Session(test_input_file2)
+    session_uapi = Session(test_input_file_multistr_coupled)
 
     # loop over the sequence containing different updates to scale,
     # including zeros followed by non-zero updates
@@ -198,7 +197,7 @@ def test_update_api_sequential_scaling(
         # manually modify the input file and create a new session (not
         # recommended in snicarfx but required here to test the update
         # API, which is the recommanded way)
-        with open(test_input_file2, "r") as f:
+        with open(test_input_file_multistr_coupled, "r") as f:
             config_dict = yaml.safe_load(f)
 
         # apply the same update as with the upate API

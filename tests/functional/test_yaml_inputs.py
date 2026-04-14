@@ -8,7 +8,7 @@ https://github.com/openosmia/snicar-fx
 from snicarfx.core.session.config import Config
 
 
-def test_test_yaml_input_file(test_input_file):
+def test_test_yaml_input_file(test_input_file_2str):
     """
     Test the range and type of the model parameters parsed from the yaml input
     file used to test snicar-fx.
@@ -20,10 +20,10 @@ def test_test_yaml_input_file(test_input_file):
     """
 
     # validate configuration
-    Config.from_yaml(test_input_file)
+    Config.from_yaml(test_input_file_2str)
 
 
-def test_test_yaml_input_file2(test_input_file2):
+def test_test_yaml_input_file2(test_input_file_multistr_coupled):
     """
     Test the range and type of the model parameters parsed from the yaml input
     file used to test snicar-fx.
@@ -35,7 +35,7 @@ def test_test_yaml_input_file2(test_input_file2):
     """
 
     # validate configuration
-    Config.from_yaml(test_input_file2)
+    Config.from_yaml(test_input_file_multistr_coupled)
 
 
 def test_core_yaml_input_file(core_input_file):

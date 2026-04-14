@@ -6,188 +6,295 @@ https://github.com/openosmia/snicar-fx
 """
 
 import pathlib
-from typing import Literal, Union, get_args
-
+from typing import Literal, Union, get_args, get_origin
 import numpy as np
 import yaml
 from pydantic import (
     BaseModel,
+    RootModel,
     Field,
     PrivateAttr,
-    RootModel,
     confloat,
     conint,
     conlist,
     model_validator,
 )
+import textwrap
 from pydantic.fields import PydanticUndefined
+from types import UnionType
 
 
 class Solver(BaseModel):
     """
-
-    Define the valid ranges and types of the solver used in the configuration.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
-
+    Pydantic BaseModel class defining the valid ranges and types of the solver 
+    configuration.
     """
 
     # radiative transfer solver to use
     TYPE: Literal["two-stream-ad", "multi-stream-ada", "multi-stream-disort"] = Field(
-        description="Radiative transfer solver to use. two-stream uses the Delta-Eddington formulation, multi-stream uses the advanced matrix operator method and adding solver. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for details."
+        description="Radiative transfer solver to use",
+        examples = "'two-stream-ad' selects the two-stream Delta-Eddington formulation, 'multi-stream-ada' selects the multi-stream solver with advanced matrix operator with adding methods, and 'multi-stream-disort' selects the DISORT solver via the PythonicDISORT package. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for references."
     )
 
     # explicit surface-atmosphere coupling
     ATMOSPHERE_COUPLING: bool = Field(
-        description="If true, atmopshere layers are added on top of land layers and the extra-terrestrial solar irradiance at the top of atmosphere is used as boundary condition. If false, only land layers are modeled and the surface solar irradiance is used as boundary condition."
+        description = "Explicit surface-atmosphere coupling",
+        examples ="If True, atmopshere layers are added on top of land layers and the extra-terrestrial solar irradiance at the top of atmosphere is used as boundary condition. if False, only land layers are modeled and the surface solar irradiance is used as boundary condition. Can only be True using multi-stream solvers."
     )
 
     # levels to output
     OUTPUT_LEVELS: Literal["BOA", "TOA", "BOA+TOA"] = Field(
-        description="Levels to output. If Top of Atmosphere (TOA) and ATMOSPHERE_COUPLING, only the upward loop of the solver is computed. If Bottom of Atmosphere (BOA)+TOA and ATMOSPHERE_COUPLING, both upward and downward loops are computed (slower)."
-    )
+        description="Levels at which to return radiance/reflectance",
+        examples="'BOA' = Bottom of Atmosphere, 'TOA' = Top of Atmosphere, 'BOA+TOA' = both. 'TOA' can only be included if ATMOSPHERE_COUPLING is True."
 
-    # number of streams to consider in solver
-    N_STREAMS: int = Field(
-        default=16, ge=12, le=100, description="Number of streams used by the solver."
     )
-
-    N_LEGENDRE_MOMENTS: conint(ge=1, le=100) | None = Field(
-        default=None,
-        description="Number of Legendre moments to use in phase functions (<= N_STREAMS). Defaults to N_STREAMS (which defaults to 16).",
-    )
-
-    DELTA_SCALING: Literal["M", "M+"] | None = Field(
+    
+    DELTA_SCALING: Literal["M", "M+"] = Field(
         default="M",
-        description="Delta scaling to be applied. If M, delta-M scaling (Wiscombe 1977) is applied to single scattering properties by truncating the ice/snow phase function using the last legendre expansion coefficient. If M+, delta-M+ scaling (Lin et al. 2017) is applied to single scattering properties by truncating the ice/snow phase function.",
+        description="Type of Delta scaling to apply",
+        examples="'M' = delta-M scaling (Wiscombe 1977), 'M+' = delta-M+ scaling (Lin et al. 2017). Must be set to 'M' if TYPE = 'two-stream-ad'. Automatically uses the IMS-TMS correction if 'M' and TYPE = 'two-stream-disort'.",
     )
 
-    N_FOURIER_MODES: conint(ge=1, le=100) | None = Field(
+    N_STREAMS: int = Field(
         default=None,
-        description="Number of Fourier modes to solve for azimuth dependency. Defaults to 1 (no azimuth dependency).",
+        ge=8, le=100, 
+        description="Number of streams used by multi-stream solver",
+        examples = "Only used with multi-stream solvers. If no value set in the input file (= None) and multi-stream solver used, set to 16."
     )
+    
+    N_LEGENDRE_MOMENTS: int | None = Field(
+       default=None,
+       ge=1, 
+       le=100,
+       description="Number of Legendre moments to use in phase functions",
+       examples = "Only used with multi-stream solvers. Must be <= N_STREAMS. If no value set in the input file (= None), the value is set to N_STREAMS."
+   )
 
-    AZIMUTH_ANGLES: (
-        tuple[confloat(ge=0, le=360), confloat(ge=0, le=360), confloat(ge=0.01, le=360)]
-        | None
-    ) = Field(
-        default=(0.0, 180.0, 20.0),
-        description="Viewing azimuth angle (degrees).",
+    N_FOURIER_MODES: int = Field(
+        default=1,
+        ge=1, 
+        le=100,
+        description="Number of Fourier modes (for azimuth dependency)",
+        examples = "Only used with multi-stream solvers. Must be <= N_STREAMS. Default is no azimuth dependency (= 1), which works with all solvers.",
     )
 
     POLAR_ANGLES: (
-        tuple[confloat(ge=0, le=90), confloat(ge=0, le=90), confloat(ge=0.01, le=50)]
+        tuple[confloat(ge=1, le=89), confloat(ge=1, le=89), confloat(ge=1, le=89)]
         | None
     ) = Field(
         default=None,
-        description="Viewing polar angle (degrees). Defaults to None for TYPE two-stream-ad (it does not have angular resolution) and multi-stream-ada (polar angle resolution is set by N_STREAMS and the gaussian quadrature). If TYPE is multi-stream-disort, defaults to [5.0, 55.0, 5.0].",
+        description="Viewing polar angle (degrees)", 
+        examples = "Only used with multi-stream-disort solver, as the multi-stream-ada solver uses a fixed array of viewing polar angles. Must be prescribed as a range (start, end, step). If no value set in the input file (= None), set to (5.0, 55.0, 5.0).",
+    )
+        
+    AZIMUTH_ANGLES: (
+        tuple[confloat(ge=0, le=360), confloat(ge=0, le=360), confloat(ge=1, le=359)]
+    | None 
+    ) = Field(
+        default=None, 
+        description="Viewing azimuth angle (degrees)",
+        examples = "Only used with multi-stream solvers when N_FOURIER_MODES > 1. Must be prescribed as a range (start, end, step). If no value set in the input file (= None), set to (0.0, 180.0, 20.0).",
+
     )
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
-
+    
     @model_validator(mode="after")
-    def check_n_streams_even(self):
-        if self.N_STREAMS % 2 != 0:
-            raise ValueError(f"N_STREAMS must be even, got {self.N_STREAMS}")
-        return self
-
-    @model_validator(mode="after")
-    def set_n_legendre_moments(self):
-        # Default N_LEGENDRE_MOMENTS to N_STREAMS if not set
-        if self.N_LEGENDRE_MOMENTS is None:
-            self.N_LEGENDRE_MOMENTS = self.N_STREAMS
-
-        # Validate it does not exceed N_STREAMS (see Chandrasekhar book)
-        if self.N_LEGENDRE_MOMENTS > self.N_STREAMS:
-            raise ValueError(
-                f"N_LEGENDRE_MOMENTS cannot exceed " f"N_STREAMS ({self.N_STREAMS})"
-            )
-
-        return self
-
-    @model_validator(mode="after")
-    def set_n_fourier_modes(self):
-        # Default N_FOURIER_MODES to 0 if not set
-        if self.N_FOURIER_MODES is None:
-            self.N_FOURIER_MODES = 1
-
-        # Validate it does not exceed N_STREAMS (see Chandrasekhar book)
-        if self.N_FOURIER_MODES > self.N_STREAMS:
-            raise ValueError(f"N_FOURIER_MODES cannot exceed " f"N_STREAMS")
-
-        return self
-
-    @model_validator(mode="after")
-    def check_azimuth_range(self):
+    def check_atmosphere_coupling(self):
         """
-        Validate end > start and step < end - start.
+        Verify that atmosphere coupling is not True when using the two-stream 
+        solver.
         """
-
-        start, end, step = self.AZIMUTH_ANGLES
-        if end <= start:
-            raise ValueError(
-                f"AZIMUTH_ANGLES must be a valid range ([start, end, step]), with end ({end}) larger than start ({start})."
-            )
-
-        if step > (end - start):
-            raise ValueError(
-                f"AZIMUTH_ANGLES must be a valid range ([start, end, step]), with step ({step}) smaller than the difference between start and end ({end-start})."
-            )
-
-        return self
-
-    @model_validator(mode="after")
-    def check_type_atmosphere_coupling(self):
+        
         if self.TYPE == "two-stream-ad" and self.ATMOSPHERE_COUPLING:
             raise ValueError(
-                "SOLVER.ATMOSPHERE_COUPLING is not supported when SOLVER.TYPE='two-stream-ad'."
+                "Atmosphere coupling is not supported with the two-stream solver (TYPE = 'two-stream-ad')."
             )
+        return self
+    
+    @model_validator(mode="after")
+    def check_output_levels(self):
+        """
+        Verify that top-of-atmosphere outputs are not requested for uncoupled
+        simulations / with the two-stream solver.
+        """
+        
+        if "TOA" in self.OUTPUT_LEVELS:
+            if self.TYPE == "two-stream-ad":
+                raise ValueError(
+                    "TOA output level is not supported with the two-stream solver (TYPE = 'two-stream-ad')."
+                )
+    
+            if not self.ATMOSPHERE_COUPLING:
+                raise ValueError(
+                    "TOA output level is not supported without atmosphere coupling (ATMOSPHERE_COUPLING = False)."
+                )
+        return self
+    
+    @model_validator(mode="after")
+    def check_delta_scaling(self):
+        """
+        Verify that Delta-M+ scaling is not requested when using the two-stream 
+        solver.
+        """
+        
+        if self.TYPE == "two-stream-ad" and "+" in self.DELTA_SCALING:
+            raise ValueError(
+                "Delta-M+ scaling is not available with two-stream solver (TYPE = 'two-stream-ad')."
+            )
+
+        return self
+    
+    
+    @model_validator(mode="after")
+    def set_streams_and_legendre_moments(self):
+        """
+        Set number of streams and Legendre moments to default if not read from 
+        the input file, else check that the user-defined values are valid, i.e.
+        even number of streams and number Legendre moments lower or equal to
+        number of streams (see Chandrasekhar, Radiative Transfer, 1950).
+        """
+        
+        if 'multi-stream' in self.TYPE: 
+            if self.N_STREAMS is None: 
+                self.N_STREAMS = 16
+            if self.N_LEGENDRE_MOMENTS is None: 
+                self.N_LEGENDRE_MOMENTS = self.N_STREAMS
+        else: 
+            self.N_STREAMS = 2
+            
+        if self.N_STREAMS is not None and self.N_STREAMS % 2 != 0:
+            raise ValueError(f"N_STREAMS must be even, but received {self.N_STREAMS}")
+            
+        if self.N_LEGENDRE_MOMENTS is not None and self.TYPE == "two-stream-ad":
+            raise ValueError(
+                "Legendre decomposition not available with two-stream solver (TYPE = 'two-stream-ad') so N_LEGENDRE_MOMENTS cannot be used."
+            )
+
+        if 'multi-stream' in self.TYPE and self.N_LEGENDRE_MOMENTS > self.N_STREAMS:
+            raise ValueError(
+                f"N_LEGENDRE_MOMENTS cannot exceed N_STREAMS ({self.N_STREAMS})"
+            )
+
         return self
 
     @model_validator(mode="after")
-    def check_output_levels(self):
-        if self.TYPE == "two-stream-ad" and "TOA" in self.OUTPUT_LEVELS:
+    def check_n_fourier_modes(self):
+        """
+        Verify that the number of Fourier modes does not exceed the number of 
+        streams (see Chandrasekhar, Radiative Transfer, 1950) and does not 
+        exceed 1 with the two-stream solver (no azimuth dependency).
+        """
+        
+        if self.N_FOURIER_MODES > 1 and self.TYPE == "two-stream-ad":
             raise ValueError(
-                "TOA output level is not supported when SOLVER.TYPE='two-stream-ad'."
+                "Fourier modes are not available with two-stream solver (TYPE = 'two-stream-ad')."
             )
+            
+        if self.N_FOURIER_MODES > self.N_STREAMS:
+            raise ValueError(f"N_FOURIER_MODES cannot exceed N_STREAMS ({self.N_STREAMS})")
 
-        if not self.ATMOSPHERE_COUPLING and "TOA" in self.OUTPUT_LEVELS:
-            raise ValueError(
-                "TOA output level is not supported when SOLVER.ATMOSPHERE_COUPLING=False."
-            )
         return self
+
 
     @model_validator(mode="after")
     def set_polar_angles(self):
+        """
+        Set polar angle array to default if not provided in the input file, 
+        and check that no polar angle array exists when using the 
+        two-stream solver (no polar angle dependency).
+        """
 
         if self.POLAR_ANGLES is None and self.TYPE == "multi-stream-disort":
             self.POLAR_ANGLES = [5.0, 55.0, 5.0]
+            
+        if self.POLAR_ANGLES is not None and self.TYPE == "two-stream-ad":
+            raise ValueError(
+                "Polar angle resolution not available with two-stream solver (TYPE = 'two-stream-ad')."
+            )
+            
+        return self
+    
+    @model_validator(mode="after")
+    def check_polar_angle_range(self):
+        """
+        Verify that the range of polar angles provided is valid, ie:
+        end > start and step < end - start.
+        """
+        if self.POLAR_ANGLES is not None: 
+            start, end, step = self.POLAR_ANGLES
+            if end <= start:
+                raise ValueError(
+                    "POLAR_ANGLES must be a valid range ([start, end, step]), with end larger than start, but received end ({end}) <= start ({start})."
+                )
+    
+            if step > (end - start):
+                raise ValueError(
+                    f"POLAR_ANGLES must be a valid range ([start, end, step]), with step smaller than the total range, but received step ({step}) > range ({end-start})."
+                )
+
+        return self
+    
+    @model_validator(mode="after")
+    def set_azimuth_angles(self):
+        """
+        Set azimuth angle array to default if not provided in the input file, 
+        and check that no azimuth angle array exists when the number of Fourier
+        modes is 1 or when using the two-stream solver (no polar angle dependency).
+        """
+
+        if self.AZIMUTH_ANGLES is None and "multi-stream" in self.TYPE and self.N_FOURIER_MODES > 1:
+            self.AZIMUTH_ANGLES = [0.0, 180.0, 20]
+            
+        if self.AZIMUTH_ANGLES is not None and self.TYPE == "two-stream-ad":
+            raise ValueError(
+                "Azimuth angle resolution not available with two-stream solver (TYPE = 'two-stream-ad')."
+            )
+        if self.AZIMUTH_ANGLES is not None and self.N_FOURIER_MODES == 1:
+            raise ValueError(
+                "Azimuth angle resolution not available with only one Fourier mode (N_FOURIER_MODES = 1)."
+            )
+        return self
+    
+    @model_validator(mode="after")
+    def check_azimuth_angle_range(self):
+        """
+        Verify that the range of azimuth angles provided is valid, ie:
+        end > start and step < end - start.
+        """
+        
+        if self.AZIMUTH_ANGLES is not None: 
+            start, end, step = self.AZIMUTH_ANGLES
+            if end <= start:
+                raise ValueError(
+                    "AZIMUTH_ANGLES must be a valid range ([start, end, step]), with end larger than start, but received end ({end}) <= start ({start})."
+                )
+    
+            if step > (end - start):
+                raise ValueError(
+                    f"AZIMUTH_ANGLES must be a valid range ([start, end, step]), with step smaller than the total range, but received step ({step}) > range ({end-start})."
+                )
 
         return self
 
 
 class Spectral(BaseModel):
     """
-
-    Define the valid ranges and types of the spectral settings.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
+    Pydantic BaseModel class defining the valid ranges and types of the spectral 
+    configuration.
     """
-
-    # Mode for spectral calculations
+    
     MODE: Literal[
-        "monochromatic",
-        "band-srf-integration",
-        "band-snicar-default",
-        "band-solar-weighted-mean",
-    ] = Field(
-        description="Mode to use for spectral calculations. `monochromatic` solves for discrete wavelengths with virtually infinitesimal band widths. `band-srf-integration` solves at a high 1cm-1 resolution within each band before integrating using the Spectral Response Functions (SRF) of the specified satellite platform. `band-snicar-default` applies an unweighted band average to high-resolution (1cm-1) optical properties of the atmosphere and solar components, and selects the center wavelength of the high-resolution (1cm-1) optical properties of the land component, before solve. `band-solar-weighted-mean` applies an solar-weighted band average to high-resolution (1cm-1) optical properties of all components before solve."
-    )
+            "monochromatic",
+            "band-snicar-default",
+            "band-solar-weighted-mean",
+            "band-srf-integration",
+        ] = Field(
+            description="Type of spectral mode in calculations",
+            examples="'monochromatic' solves and returns the output at discrete wavelengths, while all other modes return bands. 'band-snicar-default' is the default mode of the SNICAR model - it calculates band averages for atmosphere and solar properties, and selects the center wavelength for land optical properties, before solve. 'band-solar-weighted-mean' applies a solar-weighted integration for each band for all components before solve. 'band-srf-integration' is only available for satellite platforms - it solves at a high 1cm-1 resolution and then integrates into satellite bands."
+        )
 
-    # spectral range (start, end, step) or satellite instrument
     RESOLUTION: (
         tuple[
             confloat(ge=200, le=5000),
@@ -196,8 +303,10 @@ class Spectral(BaseModel):
         ]
         | Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"]
     ) = Field(
-        description="The spectral resolution to cover. If a satellite platform is passed, then all bands are solved for."
+        description="Spectral resolution of the output (continuous or sensor-based range)",
+        examples="If a tuple is passed, the output is returned for each band or each monochromatic wavelength in the range. (!) the spectral range is restricted to 300 - 2500 when using coupled simulations. For satellite platforms, the output is returned either for each band or for each wavelength within the satellite sensor reponse function."
     )
+        
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
@@ -205,242 +314,261 @@ class Spectral(BaseModel):
     @model_validator(mode="after")
     def check_spectral_range(self):
         """
-        If SPECTRAL_RESOLUTION is numeric (start, end, step), validate
-        end > start and step < end - start.
-        Skip validation if it's a satellite platform string.
+        Verify that the spectral resolution provided as a tuple is valid, 
+        ie:
+            - end > start and step < end - start.
+            - the range is not too large when using coupled simulations
         """
 
         if isinstance(self.RESOLUTION, tuple):
             start, end, step = self.RESOLUTION
             if end <= start:
                 raise ValueError(
-                    f"SPECTRAL_RESOLUTION must be a valid spectral range ([start, end, step]), with end ({end}) larger than start ({start})."
+                    "SPECTRAL_RESOLUTION must be a valid range ([start, end, step]), with end larger than start, but received end ({end}) <= start ({start})."
                 )
 
             if step > (end - start):
                 raise ValueError(
-                    f"SPECTRAL_RESOLUTION must be a valid spectral range ([start, end, step]), with step ({step}) smaller than the difference between start and end ({end-start})."
+                    f"SPECTRAL_RESOLUTION must be a valid range ([start, end, step]), with step smaller than the total range, but received step ({step}) > range ({end-start})."
                 )
+            
+        return self
+    
+    @model_validator(mode="after")
+    def check_spectral_mode(self):
+        """
+        Verify that spectral resolution is a satellite platform if the spectral
+        mode is integrating over a spectral response function.
+        """
 
+        if self.MODE == 'band-srf-integration' and isinstance(self.RESOLUTION, tuple): 
+            raise ValueError(
+                "The spectral resolution must be a satellite platform, not a tuple/range when using the 'band-srf-integration' spectral mode."
+            )
         return self
 
 
 class Solar(BaseModel):
     """
-
-    Define the valid ranges and types of the solar properties.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
+    Pydantic BaseModel class defining the valid ranges and types of the solar 
+    configuration.
     """
 
-    # Solar Zenith Angle (unit: degrees)
-    SZA: int = Field(..., ge=0, le=89, description="The Solar Zenigh Angle (SZA).")
+    SZA: int = Field(..., ge=0, le=89, description="Solar zenith angle")
 
-    # Solar Zenith Angle (unit: degrees)
-    # SAA: int = Field(..., ge=0, le=360, description="The Solar Azimuth Angle (SAA).")
     SAA: int | None = Field(
         default=None,
         ge=0,
         le=360,
-        description="The Solar Azimuth Angle (SAA). Required if SOLVER.TYPE is 'multi-stream-ada' or 'multi-stream-disort' AND SOLVER.N_FOURIER_MODES > 1.",
+        description="Solar azimuth angle.",
+        examples= "Only used for multi-stream solvers if azimuth dependency is calculated (i.e. number of Fourier modes > 1).",
     )
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
-
+    
 
 class IntegratedGasConcentrations(BaseModel):
     """
-    Define an object for the configuration of all gas concentrations.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
-
+    Pydantic BaseModel class defining the valid ranges and types of the 
+    integrated gas concentrations.
     """
 
-    # O3 concentration used to scale the atmospheric profile
-    O3: confloat(ge=0.0) | None = Field(
+    O3: float | None = Field(
         default=None,
+        ge = 0.0,
+        le = 0.01,
         description=(
-            "Ozone concentration used to scale the atmospheric profile."
-            "If a numeric value is provided (in kg.m-2), it is used to scale the O3 profile. "
+            "Column-integrated O3 concentration"
         ),
+        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the O3 profile."
+
     )
 
-    # # O2 concentration used to scale the atmospheric profile
-    O2: confloat(ge=0.0) | None = Field(
+    H2O: float | None = Field(
         default=None,
+        ge = 0.0,
+        le = 50,
         description=(
-            "Oxygen concentration used to scale the atmospheric profile."
-            "If a numeric value is provided (in kg.m-2), it is used to scale the O2 profile. "
+            "Column-integrated H2O concentration"
         ),
+        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the H2O profile."
+
     )
 
-    # H2O concentration used to scale the atmospheric profile
-    H2O: confloat(ge=0.0) | None = Field(
+    NO2: float | None = Field(
         default=None,
+        ge = 0.0,
+        le = 2e-6,
         description=(
-            "Water wapor concentration used to scale the atmospheric profile."
-            "If a numeric value is provided (in kg.m-2), it is used to scale the H2O profile. "
+            "Column-integrated NO2 concentration"
         ),
-    )
+        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the NO2 profile."
 
-    # CO2 concentration used to scale the atmospheric profile
-    CO2: confloat(ge=0.0) | None = Field(
-        default=None,
-        description=(
-            "Carbon dioxide concentration used to scale the atmospheric profile."
-            "If a numeric value is provided (in kg.m-2), it is used to scale the CO2 profile. "
-        ),
     )
-
-    # NO2 concentration used to scale the atmospheric profile
-    NO2: confloat(ge=0.0) | None = Field(
+    
+    CO2: float | None = Field(
         default=None,
+        ge = 0.0,
+        le = 5,
         description=(
-            "Nitrogen dioxide concentration used to scale the atmospheric profile."
-            "If a numeric value is provided (in kg.m-2), it is used to scale the NO2 profile. "
+            "Column-integrated CO2 concentration"
         ),
+        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the CO2 profile."
+
+    )
+    
+    O2: float | None = Field(
+        default=None,
+        ge = 0.0,
+        le = 5000,
+        description=(
+            "Column-integrated O2 concentration"
+        ),
+        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the O2 profile."
+
     )
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
 
+    
 class Atmosphere(BaseModel):
     """
-
-    Define the valid ranges and types of the atmosphere properties.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
+    Pydantic BaseModel class defining the valid ranges and types of the 
+    atmosphere configuration.
     """
 
-    # sky conditions to apply direct- or diffuse-dominated radiation
     SKY_CONDITIONS: Literal["clear", "cloudy"] = Field(
-        description="Sky conditions to appy direct- or diffuse-dominated radiation."
+        default="clear",
+        description="Sky conditions determining type of surface irradiance",
+        examples="Only clear sky conditions are available for now. This field is mostly used for uncoupled simulations to determine the ratio of direct/diffuse radiation arriving at the surface. 'clear' represents direct solar beam dominance and 'cloudy' is fully diffuse irradiance."
     )
 
-    # type of atmospheric profile
     ATMOSPHERIC_PROFILE_TYPE: Literal["afglss", "afglss_downscaled"] = Field(
-        description="Type of atmospheric profile to use. It includes elevation, pressure, temperature, air density, as well as O3, H2O, CO2 and NO2 concentrations."
+        description="Name of standard atmospheric profile",
+        examples="This field selects a type of atmospheric profile (AFGL Atmospheric Constituent Profiles developed by Anderson et al. 1986), which includes pressure, temperature, air density, as well as O3, H2O, CO2 and NO2 concentrations for each atmospheric level. For now only the Subarctic Summer (afglss) profile is available. The downscaled version corresponds to a similar profile with ~2x less layers."
     )
 
-    # Aerosol properties to be used
     AEROSOL_PROPERTIES: str | None = Field(
         default=None,
         pattern=r".*\.(nc|csv)$",
-        description="File containing the optical properties of aerosols.",
+        description="File name for the optical properties of a given aerosol mixture",
+        examples="Only used for coupled simulations. The file must include the single scattering properties of aerosols (e.g. standard OPAC files)."
     )
 
-    # AOD used to scale aerosol optical depth
-    INTEGRATED_AOD_550: confloat(ge=0.0, le=10.0) | None = Field(
-        default=0.0,
+    INTEGRATED_AOD_550: float | None = Field(
+        default=None,
+        ge=0.0, 
+        le=2.0,
         description=(
-            "Aerosol Optical Depth (AOD) at 550nm integrated over the atmosphere column."
+            "Aerosol optical depth (AOD) at 550nm"
         ),
+        examples = "Only used for couple simulations. The AOD value is integrated over the atmosphere column such as the standard CAMS product."
     )
 
-    # all provided gas concentrations
     INTEGRATED_GAS_CONCENTRATIONS: IntegratedGasConcentrations | None = None
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
+    @model_validator(mode="after")
+    def check_sky_conditions(self):
+        """
+        Verify that cloudy sky conditions is not selected as it is not supported
+        for now.
+        """
+
+        if self.SKY_CONDITIONS == 'cloudy': 
+            raise ValueError(
+                "Cloudy sky conditions are not available for now."
+            )
+        return self
 
 class Particle(BaseModel):
     """
-    Define the valid ranges and types for the properties of a light absorbing
+    Pydantic BaseModel class defining the valid ranges and types for a 
     particle.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
-
     """
 
-    # check that file name has netCDF or csv extension
     FILE: str = Field(
-        ...,
         pattern=r".*\.(nc|csv)$",
-        description="File containing the optical properties of a given light absorbing particle.",
+        description="File name for the optical properties of a given particle type",
+        examples="Example: 'ice_algae.nc'"
+
     )
 
-    # light absorbing particle concentration
-    CONC: conlist(confloat(ge=0.0, le=1e10), min_length=1, max_length=1000) = Field(
-        description="Concentration of a given light absorbing particle in ..."
+    CONC: conlist(confloat(ge=0.0, le=1e7), min_length=1, max_length=100) = Field(
+        description="Concentration of a given particle type (ng/g)",
+        examples="The concentration is expressed per g of ice for each layer and thus the absolute amount depends on the density."
     )
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
 
+
 class LightAbsorbingParticles(RootModel[dict[str, Particle]]):
     """
-    Define an object for the configuration of all light absorbing particles.
-    Ensure each key in LIGHT_ABSORBING_PARTICLES is valid.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
-
+    Pydantic RootModel class encapsulating the different Particle instances.
     """
-
+    
 
 class Land(BaseModel):
     """
-    Define the valid ranges and types of the land surface properties.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
-
+    Pydantic BaseModel class defining the valid ranges and types for a 
+    the land configuration.
     """
 
-    # thickness of each vertical layer (unit : m)
-    THICKNESS: conlist(confloat(ge=1e-10, le=1000), min_length=1, max_length=1000) = (
-        Field(description="Thickness of each vertical layer in meters.")
+    THICKNESS: conlist(confloat(ge=1e-5, le=1000), min_length=1, max_length=100) = (
+        Field(description="Thickness of each vertical layer (meters)")
     )
 
-    # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
-    LAYER_TYPE: conlist(Literal[0, 1, 2], min_length=1, max_length=1000) = Field(
-        description="if 0, ice spheres. if 1, solide ice with Fresnel layer. If 2, solid ice without Fresnel layer."
+    LAYER_TYPE: conlist(
+        conint(ge=0, le=2),
+        min_length=1, max_length=100
+        ) = Field(
+        description="Type of each vertical layer",
+        examples="0 is ice spheres, 1 is solid ice with Fresnel layer above and 2 is solid ice without Fresnel layer. (!) Fresnel layers are not available with multi-stream solvers."
     )
 
-    # density of each layer (unit : kg m-3)
     DENSITY: conlist(
-        confloat(ge=10, le=925),
-        min_length=1,
-        max_length=1000,
-    ) = Field(description="Density of each vertical layer in kgm-3.")
+        confloat(ge=10, le=924),
+        min_length=1, max_length=100
+    ) = Field(description="Density of each vertical layer (kg m-3)", 
+              examples="(!) The density corresponds to the bulk medium of solid ice and liquid water, so the upper bound of the density range varies depending on the liquid water content. Without liquid water, the maximum density is 916.999 kg m-3, and this maximum increases when liquid water is added.")
 
-    # m2 kg-1
     SPECIFIC_SURFACE_AREA: conlist(
-        confloat(ge=1e-10, le=100), min_length=1, max_length=1000
-    ) = Field(description="Specific surface area of each vertical layer in m2kg-1.")
+        confloat(ge=1e-5, le=25), min_length=1, max_length=100
+    ) = Field(description="Specific surface area of each vertical layer (m2 kg-1)",
+              examples="For ice surfaces (layer type > 0), the specific surface area will be directly related to the radius of a spherical air bubble. For snow surfaces, the specific surface area will be directly related to the radius of a spherical ice grain if the grain shape if spherical."
+)
 
-    # LWC content in snow/ice
-    LWC: conlist(confloat(ge=0.0, le=1.0), min_length=1, max_length=1000) = Field(
-        description="Liquid Water content (LWC) in snow/ice"
+    LWC: conlist(confloat(ge=0.0, le=0.9), min_length=1, max_length=100) = Field(
+        description="Liquid water content (LWC) in each vertical layer",
+        examples="The liquid water content is modelled by mixing the absorption coefficients of ice and water for both snow and ice surfaces."
+
     )
 
-    # source of refraction index
     RF_TYPE: Literal["Pic16", "Wrn08", "Coop21"] = Field(
-        description="Source of refraction index. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for details."
+        description="Source of ice refractive index",
+        examples= "The ice refractive index used is either from Picard et al. 2016, Warren and Brandt 2008, or Cooper et al. 2021. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for details."
     )
 
-    # reflectance of lower boundary
     SFC: float = Field(
-        ..., ge=0.0, le=1.0, description="Reflectance of the lower boundary."
+        ge=0.0, le=1.0, 
+        description="Reflectance of lower boundary of ice/snow column",
+        examples="The reflectance is assumed Lambertian and constant with the wavelength."
     )
 
-    # grain shape: 0 is sphere, 1 is Robledano et al. 2023
-    GRAIN_SHAPE: conlist(Literal[0, 1], min_length=1, max_length=1000) = Field(
-        description="Grain shape. 0 is sphere, 1 is Robledano et al 2023. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for details."
+    GRAIN_SHAPE: conlist(conint(ge=0, le=1), min_length=1, max_length=100) = Field(
+        description="Ice grain or air bubble shape",
+        examples="0 is sphere, 1 corresponds to the 'optical shape' from Robledano et al 2023. For ice layers (layer type > 0), only the spherical shape is available. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for details."
     )
 
-    # surface altitude (km)
-    ALTITUDE: float = Field(..., ge=0.0, le=30.0, description="Surface altitude in km.")
+    ALTITUDE: float = Field(ge=0.0, le=10.0, description="Surface altitude (km)")
 
-    # all provided light absorbing particles
     LIGHT_ABSORBING_PARTICLES: LightAbsorbingParticles | None = None
 
     # only fields validated here are allowed
@@ -449,9 +577,7 @@ class Land(BaseModel):
     @model_validator(mode="after")
     def check_grain_layer_compatibility(self):
         """
-        GRAIN_SHAPE can't be Robledano et al. 2023 (1) if
-        LAYER_TYPE is solid ice (1 or 2).
-
+        Verify that the grain shape is 0 for ice layers (layer type > 0). 
         """
 
         grain_shapes = np.array(self.GRAIN_SHAPE)
@@ -464,19 +590,34 @@ class Land(BaseModel):
             invalid_layers = np.where(invalid)[0] + 1
 
             raise ValueError(
-                f"GRAIN_SHAPE must be sphere (0) if solid ice LAYER_TYPE is used (1 or 2). Layers {invalid_layers} do not meet this criterion."
+                f"Only spherical grain shape (=0) are allowed for ice layers (layer type > 1). Layers {invalid_layers} do not meet this criterion."
             )
+
+        return self
+    
+    @model_validator(mode="after")
+    def check_density_upper_bound(self):
+        """
+        Verify that the density does not exceed 916.999 kg m-3 when the liquid
+        water content is 0.
+        """
+        
+        high_densities = np.where(np.array(self.DENSITY) > 916.999)[0]
+        
+        if len(high_densities) > 0: 
+            for lyr in high_densities: 
+                if self.LWC[lyr] == 0: 
+                    raise ValueError(
+                        f"The density cannot exceed 916.999 kg m-3 when the liquid water in the layer is 0. Please modify layer {lyr}"
+                    )
 
         return self
 
 
 class Config(BaseModel):
     """
-    Combine the different objects inheriting from BaseModel.
-
-    Inherits from the Pydantic BaseModel class, which enables automatic type
-    validation and parsing of yaml files.
-
+    Pydantic BaseModel class combining the SOLVER, SPECTRAL, SOLAR, ATMOSPHERE
+    and LAND models and defining the valid combinations across them.
     """
 
     SOLVER: Solver
@@ -485,7 +626,6 @@ class Config(BaseModel):
     ATMOSPHERE: Atmosphere
     LAND: Land
 
-    # Private runtime-only attribute
     _wavelengths_land: np.ndarray | None = PrivateAttr(default=None)
     _wavelengths_solar: np.ndarray | None = PrivateAttr(default=None)
     _wavelengths_atmosphere: np.ndarray | None = PrivateAttr(default=None)
@@ -495,46 +635,76 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def check_saa_requirement(self):
-        solver_type = self.SOLVER.TYPE
-        n_fourier = self.SOLVER.N_FOURIER_MODES
-        saa = self.SOLAR.SAA
+        """
+        Verify that azimuth angle array is only provided if azimuth dependency 
+        requested (i.e. multi stream solver + number of Fourier modes > 1).
+        """
+        
+        needs_azimuth = ("multi-stream" in self.SOLVER.TYPE) and (self.SOLVER.N_FOURIER_MODES > 1)
 
-        is_multi_stream = "multi-stream" in solver_type
-
-        needs_azimuth = is_multi_stream and (n_fourier > 1)
-
-        if needs_azimuth and saa is None:
+        if needs_azimuth and self.SOLAR.SAA is None:
             raise ValueError(
-                f"SOLAR.SAA is required when (1) a multi-stream solver is selected,  "
-                f"and (2) SOLVER.N_FOURIER_MODES > 1 (current: {n_fourier}). "
+                f"Solar azimuth angle is required if N_FOURIER_MODES > 1 (current: {self.SOLVER.N_FOURIER_MODES}). "
                 "Please provide SAA in the SOLAR section."
             )
-
-        return self
-
-    @model_validator(mode="after")
-    def check_solver_atmosphere_compatibility(self):
-        if self.ATMOSPHERE.SKY_CONDITIONS == "cloudy":
+        if self.SOLAR.SAA is not None and needs_azimuth is False:
             raise ValueError(
-                "ATMOSPHERE.SKY_CONDITIONS='cloudy' is not supported for now. "
+                "Solar azimuth angle can only be prescribed with multi-stream solvers if N_FOURIER_MODES > 1."
+                "Please remove the SAA from the input file or adapt solver/number of Fourier modes."
             )
         return self
 
     @model_validator(mode="after")
     def check_solver_layer_type_compatibility(self):
+        """
+        Verify that no Fresnel layer requested with a multi-stream solver.
+        """
+        
         if "multi-stream" in self.SOLVER.TYPE and 1 in self.LAND.LAYER_TYPE:
             raise ValueError(
-                "Fresnel boundaries are not supported when "
-                "SOLVER.TYPE='multi-stream'."
+                "Fresnel boundaries are not supported with multi-stream solvers."
+            )
+        return self
+    
+    @model_validator(mode="after")
+    def check_spectral_res_coupled_simulations(self):
+        """
+        Verify that the spectral resolution fits existing atmospheric files 
+        for coupled simulations.
+        """
+        
+        if isinstance(self.SPECTRAL.RESOLUTION, tuple):
+            start, end, step = self.SPECTRAL.RESOLUTION
+            if self.SOLVER.ATMOSPHERE_COUPLING and (start < 300 or end > 2500): 
+                raise ValueError(
+                    "The spectral range must be within 300-2500nm when using atmosphere layers / coupled simulations."
+                )
+        return self
+    
+    
+    
+    @model_validator(mode="after")
+    def check_atmosphere_fields_only_for_coupled(self):
+        """
+        Verify that atmosphere fields used for coupled simulations are None
+        for uncoupled simulations.
+        """
+        
+        if not self.SOLVER.ATMOSPHERE_COUPLING and (
+                self.ATMOSPHERE.AEROSOL_PROPERTIES is not None
+                or self.ATMOSPHERE.INTEGRATED_AOD_550 is not None
+                or self.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS is not None
+                ):
+            raise ValueError(
+                "Aerosol and gas properties cannot be prescribed in uncoupled simulations."
             )
         return self
 
     @model_validator(mode="after")
     def check_lengths(self):
         """
-        Check that all LAND and LIGHT_ABSORBING_PARTICLES
-        layer-related lists have the same length
-
+        Check that all layer-related properties of the LAND BaseModel 
+        have the same length (i.e. same number of layers everywhere).
         """
 
         land_lists = [
@@ -555,7 +725,6 @@ class Config(BaseModel):
 
         land_layers = len(self.LAND.THICKNESS)
 
-        # Check that all particle CONC lists match LAND layers
         laps = getattr(self.LAND, "LIGHT_ABSORBING_PARTICLES", None)
         if laps is not None:
             for particle_name, particle in laps.root.items():  # <-- use .root
@@ -578,56 +747,145 @@ class Config(BaseModel):
     @staticmethod
     def print_help(model: type[BaseModel] = None, indent: int = 0):
         """
-        Print a prettier version of the model scheme including:
-          - regular fields
-          - nested BaseModels
+        Print information about the fields that can be prescribed in the input
+        file (description, type, allowed values, default values and usage).
         """
-
         model = model or Config
-        prefix = "  " * indent
-
-        # Regular fields
+        c_indent = "  " * indent
+        s_indent = "  " * (indent + 2)
+        w = 80 - len(s_indent)
+    
+        # get the type of variable (string, int, list etc)
+        def _fmt(t):
+            o = get_origin(t)
+            if o is Literal: return "string"
+            if o in (Union, UnionType):
+                p = []
+                for a in get_args(t):
+                    if a is type(None): continue
+                    if get_origin(a) is Literal: p.append("string")
+                    else: p.append(a.__name__ if hasattr(a, "__name__") else str(a))
+                return " or ".join(p) or "None"
+            return o.__name__ if o else (t.__name__ if isinstance(t, type) else str(t))
+    
+        # get the bounds if given
+        def _get_bounds(t):
+            mn, mx = None, None
+            for m in getattr(t, '__metadata__', []):
+                if hasattr(m, 'ge') and m.ge is not None:
+                    mn = m.ge if mn is None else min(mn, m.ge)
+                if hasattr(m, 'gt') and m.gt is not None:
+                    mn = m.gt if mn is None else min(mn, m.gt)
+                if hasattr(m, 'le') and m.le is not None:
+                    mx = m.le if mx is None else max(mx, m.le)
+                if hasattr(m, 'lt') and m.lt is not None:
+                    mx = m.lt if mx is None else max(mx, m.lt)
+            return mn, mx
+    
+        # get the allowed range and values if given
+        def _allowed(f, t):
+            def _b(x): return _get_bounds(x)
+            
+            o = get_origin(t)
+            types = [x for x in (get_args(t) if o in (Union, UnionType) else [t]) if x is not type(None)]
+            if bool in types: return "[True, False]"
+            
+            cons, lits = [], []
+            for x in types:
+                xo = get_origin(x)
+                if xo is list:
+                    args = get_args(x)
+                    if args:
+                        mn, mx = _b(args[0])
+                        rng = f"{mn} - {mx}" if mn is not None and mx is not None else "any"
+                        lmin, lmax = None, None
+                        for m in getattr(x, '__metadata__', []):
+                            if hasattr(m, 'min_length'): lmin = m.min_length
+                            if hasattr(m, 'max_length'): lmax = m.max_length
+                        if lmin is None or lmax is None:
+                            for m in f.metadata:
+                                if hasattr(m, 'min_length'): lmin = m.min_length
+                                if hasattr(m, 'max_length'): lmax = m.max_length
+                        cons.append(f"{rng} (Length: {lmin}-{lmax})" if lmin is not None and lmax is not None else f"{rng} (list)")
+                elif xo is tuple:
+                    parts = []
+                    valid = False
+                    for it in get_args(x):
+                        mn, mx = _b(it)
+                        if mn is not None and mx is not None: 
+                            parts.append(f"{mn}-{mx}"); valid = True
+                        else: parts.append("?")
+                    if valid: cons.append(f"({', '.join(parts)})")
+                elif xo is Literal: lits.extend(get_args(x))
+            
+            if not cons and not lits:
+                mn, mx = None, None
+                for m in f.metadata:
+                    if hasattr(m, 'ge') and m.ge is not None:
+                        mn = m.ge if mn is None else min(mn, m.ge)
+                    if hasattr(m, 'gt') and m.gt is not None:
+                        mn = m.gt if mn is None else min(mn, m.gt)
+                    if hasattr(m, 'le') and m.le is not None:
+                        mx = m.le if mx is None else max(mx, m.le)
+                    if hasattr(m, 'lt') and m.lt is not None:
+                        mx = m.lt if mx is None else max(mx, m.lt)
+                if mn is not None and mx is not None: return f"{mn} - {mx}"
+                if mn is not None: return f"value >= {mn}"
+                if mx is not None: return f"value <= {mx}"
+            if lits: cons.append(str(lits))
+            return " or ".join(cons) if cons else None
+    
+        # loop over all model fields (then prints all info if sub-field, 
+        # and print only name if upper-level field)
         for name, field in model.model_fields.items():
-            typ = field.annotation
-
-            # Simplify type display
-            if hasattr(typ, "__origin__"):
-                origin = typ.__origin__
-                args = get_args(typ)
-                if origin is Union:
-                    typ_str = " | ".join(
-                        t.__name__ if hasattr(t, "__name__") else str(t) for t in args
-                    )
+            o = get_origin(field.annotation)
+            is_nested, target, is_root = False, None, False
+            for c in (get_args(field.annotation) if o in (Union, UnionType) else [field.annotation]):
+                if isinstance(c, type):
+                    if issubclass(c, RootModel): 
+                        is_nested, is_root = True, True
+                        target = globals().get('Particle')
+                        break
+                    if issubclass(c, BaseModel): 
+                        is_nested, target = True, c
+                        break
+        
+            print(f"\n{c_indent}{name}\n{c_indent}{'-'*len(name)}")
+            
+            # directly descriptions and values if no pydantic model inside
+            # (ie subfield)
+            if not is_nested:
+                if field.description: 
+                    print(textwrap.fill(field.description, width=w, initial_indent=f"{s_indent}Description: ", subsequent_indent=f"{s_indent}             "))
+                print(f"{s_indent}Type: {_fmt(field.annotation)}")
+                al = _allowed(field, field.annotation)
+                if al: 
+                    print(textwrap.fill(f"Allowed values: {al}", width=w, initial_indent=s_indent, subsequent_indent=f"{s_indent}       "))
+                print(f"{s_indent}Default: {'None' if field.default in (None, PydanticUndefined) else field.default}")
+                if field.examples:
+                    ex = "; ".join(map(str, field.examples)) if isinstance(field.examples, list) else str(field.examples)
+                    print(textwrap.fill(f"Usage: {ex}", width=w, initial_indent=s_indent, subsequent_indent=f"{s_indent}       "))
+            
+            # do not print description if pydantic model inside (ie upper level) 
+            # except for light absorbing particle field that has Particle models inside
+            elif target:
+                # special case for LAP fiedl
+                if is_root and target.__name__ == "Particle":
+                    print(f"\n{s_indent}PARTICLE_NAME\n{s_indent}-------------")
+                    for pn, pf in target.model_fields.items():
+                        ps = "  " * (indent + 2)
+                        pw = 80 - len(ps)
+                        print(f"\n{ps}{pn}\n{ps}{'-'*len(pn)}")
+                        if pf.description: 
+                            print(textwrap.fill(pf.description, width=pw, initial_indent=f"{ps}Description: ", subsequent_indent=f"{ps}             "))
+                        print(f"{ps}Type: {_fmt(pf.annotation)}")
+                        al = _allowed(pf, pf.annotation)
+                        if al: 
+                            print(textwrap.fill(f"Allowed values: {al}", width=pw, initial_indent=ps, subsequent_indent=f"{ps}       "))
+                        print(f"{ps}Default: {'None' if pf.default in (None, PydanticUndefined) else pf.default}")
+                        if pf.examples:
+                            ex = "; ".join(map(str, pf.examples)) if isinstance(pf.examples, list) else str(pf.examples)
+                            print(textwrap.fill(f"Usage: {ex}", width=pw, initial_indent=ps, subsequent_indent=f"{ps}       "))
+                # normal upper level field
                 else:
-                    typ_str = origin.__name__
-            elif isinstance(typ, type):
-                typ_str = typ.__name__
-            else:
-                typ_str = str(typ)
-
-            # Handle Literals / Enums
-            enum_values = []
-            if hasattr(typ, "__args__") and all(
-                isinstance(a, (str, int)) for a in typ.__args__
-            ):
-                enum_values = list(typ.__args__)
-
-            # Default value
-            default = field.default
-            if default is None or default is PydanticUndefined:
-                default_str = "required"
-            else:
-                default_str = default
-
-            # Build line
-            line = f"{prefix}{name} ({typ_str}) [default: {default_str}]"
-            if enum_values:
-                line += f" Options: {enum_values}"
-            if field.description:
-                line += f" Description: '{field.description}'"
-            print(line)
-            print("\n")
-
-            # Recurse into nested BaseModels
-            if isinstance(typ, type) and issubclass(typ, BaseModel):
-                Config.print_help(typ, indent + 1)
+                    Config.print_help(target, indent + 1)
