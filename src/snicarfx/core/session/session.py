@@ -802,10 +802,19 @@ class Session:
         band_means = {}
 
         # Precompute denominator integral
-        denominator_integral = np.trapz(
-            self._spectral_response_function_sw, x=wavelengths, axis=-1
+        denominator_integral_total = np.trapz(
+            self._spectral_response_function_sw_total, x=wavelengths, axis=-1
         )
-
+        
+        denominator_integral_diff = np.trapz(
+            self._spectral_response_function_sw_diff, x=wavelengths, axis=-1
+        )
+        
+        denominator_integral_dir = np.trapz(
+            self._spectral_response_function_sw_dir, x=wavelengths, axis=-1
+        )
+        
+        
         for name in var_names:
             arr = getattr(column, name)
 
@@ -819,17 +828,39 @@ class Session:
                 arr_flat = arr[None, :]
 
             # Compute numerator and denominator
-            if name in ["flx_slr", "fs", "fd"]:
-                numerator = self._spectral_response_function_sw
+            # if name in ["total_irradiance", "direct_beam", "diffuse"]:
+            #     numerator = self._spectral_response_function_sw
+            #     denominator = self._spectral_response_function
+            #     # Recompute denominator integral for these
+            #     denominator_integral_local = np.trapz(
+            #         denominator, x=wavelengths, axis=-1
+            #     )
+            if name == "total_irradiance":
+                numerator = self._spectral_response_function_sw_total
+                denominator = self._spectral_response_function
+                # Recompute denominator integral for these
+                denominator_integral_local = np.trapz(
+                    denominator, x=wavelengths, axis=-1
+                )
+            if name == "direct_beam":
+                numerator = self._spectral_response_function_sw_dir
+                denominator = self._spectral_response_function
+                # Recompute denominator integral for these
+                denominator_integral_local = np.trapz(
+                    denominator, x=wavelengths, axis=-1
+                )
+            if name == "diffuse":
+                numerator = self._spectral_response_function_sw_diff
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
                 denominator_integral_local = np.trapz(
                     denominator, x=wavelengths, axis=-1
                 )
             else:
-                numerator = self._spectral_response_function_sw * arr_flat[:, None, :]
-                denominator = self._spectral_response_function_sw
-                denominator_integral_local = denominator_integral
+                # weigh all variables with srf * total flux
+                numerator = self._spectral_response_function_sw_total * arr_flat[:, None, :]
+                denominator = self._spectral_response_function_sw_total
+                denominator_integral_local = denominator_integral_total
 
             # Integrate along wavelength axis
             numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
@@ -858,20 +889,18 @@ class Session:
                     self.solar_irradiance,
                     self.config._wavelengths_solar,
                     self._band_ranges,
-                    var_names=["flx_slr"],
+                    var_names=["total_irradiance"],
                 )
-                self.solar_irradiance.flx_slr = solar_flat_means["flx_slr"]
+                self.solar_irradiance.total_irradiance = solar_flat_means["total_irradiance"]
 
-            if self.config.SOLVER.TYPE == "two-stream-ad":
-                if "solar" in components:
-                    solar_flat_means = self.compute_flat_band_average(
-                        self.solar_irradiance,
-                        self.config._wavelengths_solar,
-                        self._band_ranges,
-                        var_names=["fs", "fd"],
-                    )
-                    self.solar_irradiance.fs = solar_flat_means["fs"]
-                    self.solar_irradiance.fd = solar_flat_means["fd"]
+                solar_flat_means = self.compute_flat_band_average(
+                    self.solar_irradiance,
+                    self.config._wavelengths_solar,
+                    self._band_ranges,
+                    var_names=["direct_beam", "diffuse"],
+                )
+                self.solar_irradiance.direct_beam = solar_flat_means["direct_beam"]
+                self.solar_irradiance.diffuse = solar_flat_means["diffuse"]
 
             # average atmosphere variables
             if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
@@ -891,10 +920,18 @@ class Session:
         elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
 
             # only compute if it hasn't been yet
-            if not hasattr(self, "_spectral_response_function_sw"):
+            if not hasattr(self, "_spectral_response_function_sw_total"):
                 # cache solar weighted SRF
-                self._spectral_response_function_sw = (
-                    self.solar_irradiance.flx_slr[None, :]
+                self._spectral_response_function_sw_total = (
+                    self.solar_irradiance.total_irradiance[None, :]
+                    * self._spectral_response_function
+                )
+                self._spectral_response_function_sw_diff = (
+                    self.solar_irradiance.diffuse[None, :]
+                    * self._spectral_response_function
+                )
+                self._spectral_response_function_sw_dir = (
+                    self.solar_irradiance.direct_beam[None, :]
                     * self._spectral_response_function
                 )
 
@@ -914,50 +951,55 @@ class Session:
                     ]
 
             if "land" in components:
-                # average land variables
-                land_weighted_means = self.compute_solar_weighted_average(
-                    self.land_column,
-                    self.config._wavelengths_land,
-                    self._band_ranges,
-                    var_names=["tau", "ss_alb", "legendre_moments", "asm_prm"],
-                )
-                self.land_column.tau = land_weighted_means["tau"]
-                self.land_column.ss_alb = land_weighted_means["ss_alb"]
-                self.land_column.legendre_moments = land_weighted_means[
-                    "legendre_moments"
-                ]
-                self.land_column.asm_prm = land_weighted_means["asm_prm"]
-
-            if self.config.SOLVER.TYPE == "two-stream-ad":
-                if "land" in components:
+                if self.config.SOLVER.TYPE == "two-stream-ad":
                     land_weighted_means = self.compute_solar_weighted_average(
                         self.land_column,
                         self.config._wavelengths_land,
                         self._band_ranges,
-                        var_names=["ref_idx_re", "ref_idx_im", "sfc"],
+                        var_names=["ref_idx_re", "ref_idx_im", "sfc",
+                                   "tau", "ss_alb", 
+                                   "asm_prm"],
                     )
                     self.land_column.ref_idx_re = land_weighted_means["ref_idx_re"]
                     self.land_column.ref_idx_im = land_weighted_means["ref_idx_im"]
-                    self.land_column.sfc = land_weighted_means["sfc"].flatten()
+                    self.land_column.tau = land_weighted_means["tau"]
+                    self.land_column.ss_alb = land_weighted_means["ss_alb"]
+                    self.land_column.asm_prm = land_weighted_means["asm_prm"]
 
-                if "solar" in components:
-                    solar_weighted_means = self.compute_solar_weighted_average(
-                        self.solar_irradiance,
-                        self.config._wavelengths_solar,
+                    self.land_column.sfc = land_weighted_means["sfc"].flatten()
+                    
+                else: 
+                    # average land variables
+                    land_weighted_means = self.compute_solar_weighted_average(
+                        self.land_column,
+                        self.config._wavelengths_land,
                         self._band_ranges,
-                        var_names=["fs", "fd"],
+                        var_names=["tau", "ss_alb", "legendre_moments", "asm_prm"],
                     )
-                    self.solar_irradiance.fs = solar_weighted_means["fs"].flatten()
-                    self.solar_irradiance.fd = solar_weighted_means["fd"].flatten()
+                    self.land_column.tau = land_weighted_means["tau"]
+                    self.land_column.ss_alb = land_weighted_means["ss_alb"]
+                    self.land_column.legendre_moments = land_weighted_means[
+                        "legendre_moments"
+                    ]
+                    self.land_column.asm_prm = land_weighted_means["asm_prm"]
 
             if "solar" in components:
+                solar_weighted_means = self.compute_solar_weighted_average(
+                    self.solar_irradiance,
+                    self.config._wavelengths_solar,
+                    self._band_ranges,
+                    var_names=["direct_beam", "diffuse"],
+                )
+                self.solar_irradiance.direct_beam = solar_weighted_means["direct_beam"].flatten()
+                self.solar_irradiance.diffuse = solar_weighted_means["diffuse"].flatten()
+                
                 # average solar variables
                 solar_weighted_means = self.compute_solar_weighted_average(
                     self.solar_irradiance,
                     self.config._wavelengths_solar,
                     self._band_ranges,
-                    var_names=["flx_slr"],
+                    var_names=["total_irradiance"],
                 )
-                self.solar_irradiance.flx_slr = solar_weighted_means[
-                    "flx_slr"
+                self.solar_irradiance.total_irradiance = solar_weighted_means[
+                    "total_irradiance"
                 ].flatten()

@@ -207,7 +207,7 @@ class Solver(BaseModel):
         """
 
         if self.POLAR_ANGLES is None and self.TYPE == "multi-stream-disort":
-            self.POLAR_ANGLES = [5.0, 55.0, 5.0]
+            self.POLAR_ANGLES = (5.0, 55.0, 5.0)
             
         if self.POLAR_ANGLES is not None and self.TYPE == "two-stream-ad":
             raise ValueError(
@@ -245,7 +245,7 @@ class Solver(BaseModel):
         """
 
         if self.AZIMUTH_ANGLES is None and "multi-stream" in self.TYPE and self.N_FOURIER_MODES > 1:
-            self.AZIMUTH_ANGLES = [0.0, 180.0, 20]
+            self.AZIMUTH_ANGLES = (0.0, 180.0, 20)
             
         if self.AZIMUTH_ANGLES is not None and self.TYPE == "two-stream-ad":
             raise ValueError(
@@ -292,7 +292,7 @@ class Spectral(BaseModel):
             "band-srf-integration",
         ] = Field(
             description="Type of spectral mode in calculations",
-            examples="'monochromatic' solves and returns the output at discrete wavelengths, while all other modes return bands. 'band-snicar-default' is the default mode of the SNICAR model - it calculates band averages for atmosphere and solar properties, and selects the center wavelength for land optical properties, before solve. 'band-solar-weighted-mean' applies a solar-weighted integration for each band for all components before solve. 'band-srf-integration' is only available for satellite platforms - it solves at a high 1cm-1 resolution and then integrates into satellite bands."
+            examples="'monochromatic' solves and returns the output at discrete wavelengths, while all other modes return bands. 'band-snicar-default' is the default mode of the SNICAR model - it calculates band averages for atmosphere and solar properties, and selects the center wavelength for land optical properties, before solve. 'band-solar-weighted-mean' applies a solar-weighted integration for each band for all components before solve, (!) it is computationally expensive. 'band-srf-integration' is only available for satellite platforms - it solves at a high 1cm-1 resolution and then integrates into satellite bands, (!) it is computationally expensive."
         )
 
     RESOLUTION: (
@@ -440,10 +440,10 @@ class Atmosphere(BaseModel):
     atmosphere configuration.
     """
 
-    SKY_CONDITIONS: Literal["clear", "cloudy"] = Field(
+    SKY_CONDITIONS: Literal["clear", "clear_fully_direct", "cloudy"] = Field(
         default="clear",
         description="Sky conditions determining type of surface irradiance",
-        examples="Only clear sky conditions are available for now. This field is mostly used for uncoupled simulations to determine the ratio of direct/diffuse radiation arriving at the surface. 'clear' represents direct solar beam dominance and 'cloudy' is fully diffuse irradiance."
+        examples="Only clear sky conditions are available for now. This field is mostly used for uncoupled simulations to determine the ratio of direct/diffuse radiation arriving at the surface (for coupled simulation, the TOA irradiance is always fully direct). 'clear_fully_direct' assumes 100% direct irradiance, 'clear' represents direct solar beam dominance, 'cloudy' is fully diffuse irradiance."
     )
 
     ATMOSPHERIC_PROFILE_TYPE: Literal["afglss", "afglss_downscaled"] = Field(
@@ -459,7 +459,7 @@ class Atmosphere(BaseModel):
     )
 
     INTEGRATED_AOD_550: float | None = Field(
-        default=None,
+        default=0.0,
         ge=0.0, 
         le=2.0,
         description=(
@@ -681,8 +681,6 @@ class Config(BaseModel):
                 )
         return self
     
-    
-    
     @model_validator(mode="after")
     def check_atmosphere_fields_only_for_coupled(self):
         """
@@ -692,7 +690,6 @@ class Config(BaseModel):
         
         if not self.SOLVER.ATMOSPHERE_COUPLING and (
                 self.ATMOSPHERE.AEROSOL_PROPERTIES is not None
-                or self.ATMOSPHERE.INTEGRATED_AOD_550 is not None
                 or self.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS is not None
                 ):
             raise ValueError(

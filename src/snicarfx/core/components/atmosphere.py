@@ -103,7 +103,7 @@ class AtmosphereColumn:
 
             self.load_gas_absorption_cross_sections()
             self.compute_gas_optical_thickness()
-
+            
             if self.AOD == 0.0 or self.surface_elevation > self.aerosol_boundary_height:
                 self.set_atmospheric_properties_without_aerosols()
 
@@ -335,7 +335,7 @@ class AtmosphereColumn:
         # not match
         if self._wavelengths[0] < min_gas_wvl or self._wavelengths[-1] > max_gas_wvl:
             raise ValueError(
-                f"Input spectral resolution must be within the spectral range of gas cross sections ([{min_gas_wvl:.1f}, {max_gas_wvl:.1f}], but currently [{self._wavelengths[0]:.1f}, {self._wavelengths[-1]:.1f}]). Either modify the input spectral resolution to match the expected range, or use a different file for gas cross sections (not recommended)."
+                f"Input spectral resolution must be within the spectral range of gas cross sections ([{min_gas_wvl:.1f}, {max_gas_wvl:.1f}], but currently [{self._wavelengths[0]:.1f}, {self._wavelengths[-1]:.1f}]). Either modify the input spectral resolution to match the expected range, or use a different file for gas cross sections."
             )
 
         self.gas_cross_sections = self.gas_cross_sections.interp(nwvl=self._wavelengths)

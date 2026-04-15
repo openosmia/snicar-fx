@@ -20,16 +20,16 @@ def test_solarirradiance_shapes(irradiance, expected_shapes):
     expected_shapes : array
         Expected shapes of the attributes of `column`
     """
-    for var in [irradiance.fs, irradiance.fd, irradiance.flx_slr]:
+    for var in [irradiance.direct_beam, irradiance.diffuse, irradiance.total_irradiance]:
         assert isinstance(var, np.ndarray)
         assert var.shape == expected_shapes["1d_wavelengths_solar"]
 
 
 def test_solarirradiance_values(
     irradiance,
-    expected_mean_fs,
-    expected_mean_flx_slr,
-    expected_mean_fd,
+    expected_mean_direct,
+    expected_mean_total_irradiance,
+    expected_mean_diffuse,
     absolute_tolerance_internal_variables,
 ):
     """
@@ -40,13 +40,13 @@ def test_solarirradiance_values(
     ----------
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class
-    expected_mean_fs : float
+    expected_mean_diffuse : float
         Expected mean value of the direct collimated beam as sourced in
         the test input file.
-    expected_mean_flx_slr : float
+    expected_mean_total_irradiance : float
         Expected mean value of the total solar flux as sourced
         in the test input file.
-    expected_fd : float
+    expected_mean_direct : float
         Expected mean value of the diffuse solar beam for light as sourced
         in the test input file.
     absolute_tolerance_internal_variables: float
@@ -54,9 +54,9 @@ def test_solarirradiance_values(
 
     """
 
-    assert np.all(~np.isnan(irradiance.fs))
-    assert np.all(~np.isnan(irradiance.flx_slr))
-    assert np.all(~np.isnan(irradiance.fd))
+    assert np.all(~np.isnan(irradiance.direct_beam))
+    assert np.all(~np.isnan(irradiance.total_irradiance))
+    assert np.all(~np.isnan(irradiance.diffuse))
 
     # assert np.isclose(
     #     np.nanmean(irradiance.fs),

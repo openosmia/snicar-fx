@@ -53,7 +53,7 @@ class _TwoStreamSolverAD:
         diffuse radiation coming from above.
     trntdr, trndif, trndir : array
         Spectral transmission (total, diffuse, direct).
-    fdirup, fdirdn : ndarray
+    diffuseirup, fdirdn : ndarray
         Upward/downward direct solar fluxes.
     fdifup, fdifdn : ndarray
         Upward/downward diffuse fluxes.
@@ -101,7 +101,7 @@ class _TwoStreamSolverAD:
 
         self.cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza)))
 
-        self.nbr_wvl = len(irradiance.flx_slr.flatten())
+        self.nbr_wvl = len(irradiance.total_irradiance.flatten())
 
         # cos beam angle = incident beam
         self.mu0 = self.cos_sza * np.ones(self.nbr_wvl)
@@ -652,12 +652,12 @@ class _TwoStreamSolverAD:
 
         for n in np.arange(0, self.column.nbr_lyr + 1, 1):
             self.F_up[:, n] = (
-                self.fdirup[:, n] * (self.irradiance.fs)
-                + self.fdifup[:, n] * self.irradiance.fd
+                self.fdirup[:, n] * (self.irradiance.direct_beam)
+                + self.fdifup[:, n] * self.irradiance.diffuse
             )
             self.F_dwn[:, n] = (
-                self.fdirdn[:, n] * (self.irradiance.fs)
-                + self.fdifdn[:, n] * self.irradiance.fd
+                self.fdirdn[:, n] * (self.irradiance.direct_beam)
+                + self.fdifdn[:, n] * self.irradiance.diffuse
             )
 
         self.F_net = self.F_up - self.F_dwn
@@ -694,8 +694,8 @@ class _TwoStreamSolverAD:
         """
         # Incident direct+diffuse radiation equals (absorbed+transmitted+bulk_reflected)
         energy_sum = (
-            (self.irradiance.fs)
-            + self.irradiance.fd
+            (self.irradiance.direct_beam)
+            + self.irradiance.diffuse
             - (np.sum(self.F_abs, axis=1) + self.F_btm_net + self.F_top_pls)
         )
 
@@ -725,8 +725,8 @@ class _TwoStreamSolverAD:
         f_abs_slr = np.sum(self.F_abs, axis=0)
 
         # Spectrally-integrated solar, visible, and NIR albedos:
-        BBA = np.sum(self.irradiance.flx_slr * self.albedo) / np.sum(
-            self.irradiance.flx_slr
+        BBA = np.sum(self.irradiance.total_irradiance * self.albedo) / np.sum(
+            self.irradiance.total_irradiance
         )
         results["broadband_albedo_boa"] = BBA
         results["albedo_boa"] = self.albedo

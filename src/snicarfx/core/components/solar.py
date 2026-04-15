@@ -28,11 +28,11 @@ class SolarIrradiance:
         Solar azimuth angle in degrees.
     _wavelengths : ndarray
         Wavelength grid (nm).
-    flx_slr : ndarray
+    total_irradiance : ndarray
         Total spectral solar irradiance.
-    fs : ndarray
+    direct_beam : ndarray
         Direct solar spectral irradiance.
-    fd : ndarray
+    diffuse : ndarray
         Diffuse solar spectral irradiance.
 
     """
@@ -79,13 +79,15 @@ class SolarIrradiance:
         The surface irradiance file stores pre-computed irradiances simulated
         with LibRadTran for a given atmospheric profile and range of SZAs.
         """
+        
+        tag = self.sky_conditions.split('_')[0]
 
         ds = (
             xr.open_dataset(
                 str(
                     f"{self.ROOT_PATH}/data/solar_fluxes/"
                     + "libradtranv206_surface_irradiance_clean_ice"
-                    + f"_{self.atmosphere_type}_{self.sky_conditions}.nc"
+                    + f"_{self.atmosphere_type}_{tag}.nc"
                 )
             )
             / 1e3
@@ -123,9 +125,13 @@ class SolarIrradiance:
             "Vacuum Wavelength"
         ]
 
-        self.flx_slr = self.irradiance_dataset.interp(
+        self.direct_beam = self.irradiance_dataset.interp(
             wavelength=self._wavelengths
         ).SSI.values
+        
+        self.total_irradiance = self.direct_beam
+        
+        self.diffuse = self.direct_beam * 0
 
         return None
 
@@ -145,12 +151,20 @@ class SolarIrradiance:
             wavelength=self._wavelengths, kwargs={"fill_value": "extrapolate"}
         )
 
-        irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"]
-        irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"]
+        irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"].clip(min=1e-30).values
+        irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"].clip(min=1e-30).values
 
-        # replace 0s by 1e-30 to avoid invalid operations
-        self.fs = irradiance_direct.clip(min=1e-30).values
-        self.fd = irradiance_diffuse.clip(min=1e-30).values
+        if self.sky_conditions == 'clear':
+            # replace 0s by 1e-30 to avoid invalid operations
+            self.direct_beam = irradiance_direct
+            self.diffuse = irradiance_diffuse
+            
+        if self.sky_conditions == 'clear_fully_direct':
+            # replace 0s by 1e-30 to avoid invalid operations
+            self.direct_beam = irradiance_direct + irradiance_diffuse
+            self.diffuse = irradiance_diffuse * 0
 
         # solar flux is direct + diffuse
-        self.flx_slr = self.fs + self.fd
+        self.total_irradiance = self.direct_beam + self.diffuse
+        
+

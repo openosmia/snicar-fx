@@ -28,7 +28,7 @@ class _MultiStreamSolverADA:
     Attributes
     ----------
     solar_irradiance : ndarray
-        Total spectral solar irradiance.
+        Direct spectral solar irradiance.
     solar_flag : bool
         Controls whether to add a solar source.
     cos_sun : float
@@ -41,6 +41,8 @@ class _MultiStreamSolverADA:
         Current Fourier mode.
     nbr_wvl : ndarray
         Number of wavelengths. 
+    nbr_lyr : int
+        Number of layers for the total column. 
     output_levels : str
         Levels in the column at which to return the results.
     relative_azimuths : ndarray
@@ -127,13 +129,13 @@ class _MultiStreamSolverADA:
             Solver parameters set in the input Yaml file.
         """
 
-        self.solar_irradiance = np.array(irradiance.flx_slr)
+        self.solar_irradiance = np.array(irradiance.direct_beam)
         self.solar_flag = True
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
         self.cosmic_background = 0
         self.n_angles = SOLVER.N_STREAMS
         self.n_fourier = SOLVER.N_FOURIER_MODES
-        self.nbr_wvl = len(irradiance.flx_slr.flatten())
+        self.nbr_wvl = len(irradiance.direct_beam.flatten())
         self.output_levels = SOLVER.OUTPUT_LEVELS
         self._angle_indices = np.arange(self.n_angles)
         

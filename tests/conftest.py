@@ -124,19 +124,19 @@ def expected_tau():
 
 
 @pytest.fixture(scope="module")
-def expected_mean_fs():
+def expected_mean_direct():
     """Fetch mean direct collimated solar beam from test input file."""
     return 0.0018987214821366344
 
 
 @pytest.fixture(scope="module")
-def expected_mean_fd():
+def expected_mean_diffuse():
     """Fetch mean diffuse solar beam from test input file."""
     return 0.0001846118511966984
 
 
 @pytest.fixture(scope="module")
-def expected_mean_flx_slr():
+def expected_mean_total_irradiance():
     """Fetch mean solar flux from test input file."""
     return 0.0020833333333333324
 

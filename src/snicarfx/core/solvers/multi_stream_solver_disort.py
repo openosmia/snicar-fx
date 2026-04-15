@@ -19,8 +19,84 @@ class _MultiStreamSolverDISORT:
 
     Attributes
     ----------
-    solar_irradiance : ndarray
-        Total spectral solar irradiance.
+    direct_irradiance : ndarray
+        Direct spectral solar irradiance.
+    diffuse_irradiance : ndarray
+        Diffuse spectral solar irradiance.
+    solar_flag : bool
+        Controls whether to add a solar source.
+    mu0 : float
+        Cosine of the solar zenith angle.
+    nbr_wvl : ndarray
+        Number of wavelengths.
+    n_fourier : int
+        Number of Fourier modes used in the expansion of the intensity in azimuth.
+    n_streams : int
+        Number of streams used for the Gaussian quadrature.
+    nbr_lyr : int
+        Number of layers for the total column. 
+    cos_angle : ndarray
+        Nodes of the gaussian quadrature.
+    cos_weight : ndarray
+        Weights of the gaussian quadrature.
+    output_polar_angles : array
+        Array of polar angles for output.
+    n_expansion : int
+        Expansion order of Legendre series.
+    only_fourier_m0 : bool
+        Encodes whether the 0th moment is required only.
+    output_levels : str
+        Levels in the column at which to return the results.
+    phi0 : float
+        Solar azimuth angle.
+    azimuth_angles : array
+        Array of azimuth angles (degrees).
+    relative_azimuths : ndarray
+        Relative azimuth angle (viewing - solar). 
+    relative_azimuths_rad : ndarray
+        Relative azimuth angle in radians (viewing - solar). 
+    banded_Nlayers : int
+        Internal variable for PythonicDISORT
+    t_od : ndarray
+        Delta scaled spectral optical depth for all layers. 
+    w : ndarray
+        Delta scaled spectral single scattering albedo for all layers.
+    legendre_moments : ndarray
+        Delta scaled Legendre moments for all layers.
+    unscaled_tau : ndarray
+        Unscaled spectral optical depth for all layers. 
+    unscaled_w : ndarray
+        Unscaled spectral single scattering albedo for all layers.
+    unscaled_legendre_moments : ndarray
+        unscaled Legendre moments for all layers.
+    surface_idx : int
+        Index in the column at the interface atmosphere-land.
+    scale_tau : ndarray
+        Internal variable for PythonicDISORT
+    albedo_toa : array
+        Top of Atmosphere (TOA) albedo.
+    albedo_boa : array
+        Bottom of Atmosphere (BOA) albedo.
+    flux_up_boa : array
+        Flux upward at BOA. 
+    flux_down_boa : array
+        Flux downward at BOA.
+    directional_reflectance_toa_m0 : array
+        Directional reflectance at TOA for 0th fourier moment.
+    directional_radiance_toa_m0 : array
+        Directional radiance at TOA for 0th fourier moment.
+    directional_reflectance_toa_m0 : array
+        Directional reflectance at BOA for 0th fourier moment.
+    directional_radiance_toa_m0 : array
+        Directional radiance at BOA for 0th fourier moment.
+    directional_radiance_toa : array
+        Directional radiance at TOA for all fourier moments.
+    directional_reflectance_toa : array
+        Directional reflectance at TOA for all fourier moments.
+    directional_radiance_boa : array
+        Directional radiance at BOA for all fourier moments.
+    directional_reflectance_boa : array
+        Directional reflectance at BOA for all fourier moments.
     """
 
     def __init__(
@@ -49,21 +125,27 @@ class _MultiStreamSolverDISORT:
             Solver parameters set in the input Yaml file.
         """
 
-        self.irradiance = irradiance.flx_slr
+        self.direct_irradiance = irradiance.direct_beam
+        self.diffuse_irradiance = irradiance.diffuse
         self.mu0 = np.cos(np.deg2rad(irradiance.sza))
-        self.nbr_wvl = len(irradiance.flx_slr)
+        self.nbr_wvl = len(irradiance.direct_beam)
         self.n_streams = SOLVER.N_STREAMS
         self.n_fourier = SOLVER.N_FOURIER_MODES
         self.n_expansion = SOLVER.N_LEGENDRE_MOMENTS
-        self.only_fourier_m0 = self.n_fourier == 1
+        self.only_fourier_m0 = (self.n_fourier == 1)
         self.output_levels = SOLVER.OUTPUT_LEVELS
 
         self.set_gaussian_quadrature()
-        self.phi0 = np.deg2rad(irradiance.saa)
-        self.azimuth_angles = np.arange(*SOLVER.AZIMUTH_ANGLES)
-        self.relative_azimuths = np.abs(self.azimuth_angles - irradiance.saa)
-        self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
         self.output_polar_angles = np.cos(np.deg2rad(np.arange(*SOLVER.POLAR_ANGLES)))
+
+        if not self.only_fourier_m0: 
+            self.phi0 = np.deg2rad(irradiance.saa)
+            self.azimuth_angles = np.arange(*SOLVER.AZIMUTH_ANGLES)
+            self.relative_azimuths = np.abs(self.azimuth_angles - irradiance.saa)
+            self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
+        else:
+            self.phi0 = 0 # not used for n_fourier = 1 but must be prescribed
+        
 
         # default value
         self.banded_Nlayers = 10
@@ -132,11 +214,7 @@ class _MultiStreamSolverDISORT:
         self.directional_radiance_toa_m0 = np.zeros_like(
             self.directional_reflectance_toa_m0
         )
-        self.directional_radiance_toa = np.zeros(
-            (len(self.output_polar_angles), self.nbr_wvl, len(self.relative_azimuths))
-        )
-        self.directional_reflectance_toa = np.zeros_like(self.directional_radiance_toa)
-
+        
         self.albedo_boa = np.zeros(self.nbr_wvl)
         self.directional_reflectance_boa_m0 = np.zeros(
             (len(self.output_polar_angles), self.nbr_wvl)
@@ -144,15 +222,23 @@ class _MultiStreamSolverDISORT:
         self.directional_radiance_boa_m0 = np.zeros_like(
             self.directional_reflectance_boa_m0
         )
-        self.directional_radiance_boa = np.zeros(
-            (len(self.output_polar_angles), self.nbr_wvl, len(self.relative_azimuths))
-        )
-        self.directional_reflectance_boa = np.zeros_like(self.directional_radiance_boa)
+        
+        if not self.only_fourier_m0:
+            self.directional_radiance_toa = np.zeros(
+                (len(self.output_polar_angles), self.nbr_wvl, len(self.relative_azimuths))
+            )
+            self.directional_reflectance_toa = np.zeros_like(self.directional_radiance_toa)
+            self.directional_radiance_boa = np.zeros(
+                (len(self.output_polar_angles), self.nbr_wvl, len(self.relative_azimuths))
+            )
+            self.directional_reflectance_boa = np.zeros_like(self.directional_radiance_boa)
+            
+        
+        
 
     def set_gaussian_quadrature(self):
         """
         Set nodes and weights of gaussian quadrature in [0-1] (cos polar angle).
-
         """
 
         # generate nodes / weights in [-1:1] and then remap to [0-1]
@@ -424,14 +510,14 @@ class _MultiStreamSolverDISORT:
                 self.tau_surface[wl_idx],
             )
 
+            self.flux_up_boa[wl_idx] = flux_up(self.tau_surface[wl_idx])
+            self.flux_down_boa[wl_idx] = np.sum(flux_down(self.tau_surface[wl_idx]))
+            
             self.directional_reflectance_boa_m0[:, wl_idx] = (
                 self.directional_radiance_boa_m0[:, wl_idx]
                 * np.pi
-                / np.sum(flux_down(0))
+                / self.flux_down_boa[wl_idx]
             )
-
-            self.flux_up_boa[wl_idx] = flux_up(self.tau_surface[wl_idx])
-            self.flux_down_boa[wl_idx] = np.sum(flux_down(self.tau_surface[wl_idx]))
 
             # calculate all fluxes at BOA
             # sum downward flux (diff + dir)
@@ -444,7 +530,7 @@ class _MultiStreamSolverDISORT:
                 self.directional_reflectance_boa[:, wl_idx, :] = (
                     self.directional_radiance_boa[:, wl_idx, :]
                     * np.pi
-                    / np.sum(flux_down(0))
+                    / np.sum(flux_down(self.flux_down_boa[wl_idx]))
                 )
 
     def get_outputs(self):
@@ -472,12 +558,16 @@ class _MultiStreamSolverDISORT:
             results["directional_reflectance_boa_m0"] = (
                 self.directional_reflectance_boa_m0
             )
-
-        results["albedo_toa"] = self.albedo_toa
-
-        results["directional_radiance_toa_m0"] = self.directional_radiance_toa_m0
-
-        results["directional_reflectance_toa_m0"] = self.directional_reflectance_toa_m0
+            results["directional_radiance_boa_m0"] = (
+                self.directional_radiance_boa_m0
+            )
+        
+        if "TOA" in self.output_levels:
+            results["albedo_toa"] = self.albedo_toa
+    
+            results["directional_radiance_toa_m0"] = self.directional_radiance_toa_m0
+    
+            results["directional_reflectance_toa_m0"] = self.directional_reflectance_toa_m0
 
         # double-directional radiance with Fourier reconstruction
         if self.n_fourier > 1:
@@ -486,6 +576,9 @@ class _MultiStreamSolverDISORT:
             # reflectance as a func of phi & mu at the bottom of the atmosphere (BOA)
             if "BOA" in self.output_levels:
                 results["directional_reflectance_boa"] = (
+                    self.directional_reflectance_boa
+                )
+                results["directional_radiance_boa"] = (
                     self.directional_reflectance_boa
                 )
 
@@ -524,8 +617,18 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
     """
 
     mssd = _MultiStreamSolverDISORT(land, atmosphere, irradiance, SOLVER)
+    
+    
 
     for wl_idx in range(mssd.nbr_wvl):
+        
+        print(f"{wl_idx} / {mssd.nbr_wvl}")
+        
+        rescale_factor = np.max((mssd.direct_irradiance[wl_idx],  
+                                 mssd.diffuse_irradiance[wl_idx]))
+        if rescale_factor != 0:
+            I0 = (mssd.direct_irradiance[wl_idx] / rescale_factor).copy()
+            b_neg = (mssd.diffuse_irradiance[wl_idx] / rescale_factor).copy()
 
         outputs_wl = _assemble_intensity_and_fluxes(
             scaled_omega_arr=mssd.w[:, wl_idx],
@@ -549,17 +652,18 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
                 * (2 * np.arange(mssd.n_expansion) + 1)[:, None, None]
             )[:, :, wl_idx].T,
             mu0=mssd.mu0,
-            I0=1,  # mssd.irradiance[wl_idx],
-            I0_div_4pi=1 / (4 * np.pi),  # mssd.irradiance[wl_idx] / (4 * np.pi),
-            rescale_factor=mssd.irradiance[wl_idx],  # 1,
+            I0=I0, # direct beam scaled
+            I0_div_4pi = I0 / (4 * np.pi), 
+            rescale_factor= rescale_factor, # internal pythonic disort var
+            b_neg=b_neg, # fisot
             phi0=mssd.phi0,
             there_is_beam_source=True,
             only_flux=mssd.only_fourier_m0,
+            
             # unused arguments
             BDRF_Fourier_modes=[],  # not used
             NBDRF=0,  # not used = len(BDRF_Fourier_modes)
             b_pos=0,  # not used
-            b_neg=0,  # not used
             b_pos_is_scalar=True,  # not used
             b_neg_is_scalar=True,  # not used
             b_pos_is_vector=False,  # not used
@@ -582,6 +686,30 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
 def solve_multi_stream_rt_disort_wrapper(
     land, atmosphere, irradiance, SOLVER, NT_cor=True
 ):
+    """
+
+    Compute upward and downward radiances for a column of homogeneous layers
+    using upper-level function of PythonicDISORT.
+
+    Parameters
+    ----------
+    land : LandColumn
+        Instance of the LandColumn class, storing the physical
+        and optical properties of the ice/snow column.
+    atmosphere : AtmosphereColumn
+        Instance of the AtmosphereColumn class, storing the physical
+        and optical properties of the atmosphere column.
+    irradiance : SolarIrradiance
+        Instance of the SolarIrradiance class, storing the properties of the
+        incoming solar irradiance.
+    SOLVER : dictionary
+        Solver parameters set in the input Yaml file.
+
+    Returns
+    -------
+    outputs : dictionary
+        Results of the solvers (radiance/reflectance/albedo at TOA/BOA).
+    """
 
     mssd = _MultiStreamSolverDISORT(land, atmosphere, irradiance, SOLVER)
 
@@ -593,7 +721,8 @@ def solve_multi_stream_rt_disort_wrapper(
             NQuad=mssd.n_streams,
             Leg_coeffs_all=mssd.unscaled_legendre_moments[:, :, wl_idx].T,
             mu0=mssd.mu0,
-            I0=mssd.irradiance[wl_idx],
+            I0=mssd.direct_irradiance[wl_idx],
+            b_neg = mssd.diffuse_irradiance[wl_idx], 
             phi0=mssd.phi0,
             NFourier=mssd.n_fourier,
             only_flux=mssd.only_fourier_m0,
@@ -602,7 +731,6 @@ def solve_multi_stream_rt_disort_wrapper(
             NT_cor=NT_cor,
             NLeg=mssd.n_expansion,
             # b_pos = 0, # dirichlet condition
-            # b_neg = 0, # dirichlet condition
             # NT_cor=mssd.IMS_TMS_correction,
             # BRDF_Fourier_modes=[],
             # s_poly_coeffs=array([], shape=(1, 0), dtype=float64),

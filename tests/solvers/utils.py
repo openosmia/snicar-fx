@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 
 
-def use_data_snicaradv4(column, irradiance):
+def use_data_snicaradv4(land_column, irradiance):
     """
     Ensures the refractive index and fresnel coefficients used to generate
     snicar-fx benchmark data to test snicar-fx against SNICAR-ADv4 correspond
@@ -17,47 +17,53 @@ def use_data_snicaradv4(column, irradiance):
 
     Parameters
     ----------
-    column : ColumnProperties
-        Instance of the ColumnProperties class
+    land_column : LandColumn
+        Instance of the LandColumn class
+    
+    irradiance : SolarIrradiance
+        Instance of the SolarIrradiance class
 
     Returns
     ----------
-    column : ColumnProperties
-        Updated instance of the ColumnProperties class
+    land_column : LandColumn
+        Instance of the LandColumn class
+    
+    irradiance : SolarIrradiance
+        Instance of the SolarIrradiance class
 
     """
 
-    column.ref_idx_im = xr.open_dataset(
+    land_column.ref_idx_im = xr.open_dataset(
         "./tests/test_data/rfidx_ice.nc"
     ).im_Pic16.values
-    column.ref_idx_re = xr.open_dataset(
+    land_column.ref_idx_re = xr.open_dataset(
         "./tests/test_data/rfidx_ice.nc"
     ).re_Pic16.values
-    column.fl_r_dif_b = xr.open_dataset(
+    land_column.fl_r_dif_b = xr.open_dataset(
         "./tests/test_data/fl_reflection_diffuse.nc"
     ).R_dif_fb_ice_Pic16.values
-    column.fl_r_dif_a = xr.open_dataset(
+    land_column.fl_r_dif_a = xr.open_dataset(
         "./tests/test_data/fl_reflection_diffuse.nc"
     ).R_dif_fa_ice_Pic16.values
-
+    
     if irradiance.sky_conditions == "clear":
-        irradiance.flx_slr = xr.open_dataset(
+        irradiance.total_irradiance = xr.open_dataset(
             "./tests/test_data/swnb_480bnd_"
             + "mls_clr_"
             + str("SZA" + str(irradiance.sza).rjust(2, "0"))
             + ".nc"
         )["flx_frc_sfc"].values
-        irradiance.flx_slr[irradiance.flx_slr == 0] = 1e-30
+        irradiance.total_irradiance[irradiance.total_irradiance == 0] = 1e-30
 
-        irradiance.fs = irradiance.flx_slr
-        irradiance.fd = np.zeros_like(irradiance.fs)
+        irradiance.direct_beam = irradiance.total_irradiance
+        irradiance.diffuse = np.zeros_like(irradiance.total_irradiance)
 
     elif irradiance.sky_conditions == "cloudy":
-        irradiance.flx_slr = xr.open_dataset(
+        irradiance.total_irradiance = xr.open_dataset(
             "./tests/test_data/swnb_480bnd_mls_cld.nc"
         )["flx_frc_sfc"].values
-        irradiance.flx_slr[irradiance.flx_slr == 0] = 1e-30
-        irradiance.fd = irradiance.flx_slr
-        irradiance.fs = np.zeros_like(irradiance.fd)
+        irradiance.total_irradiance[irradiance.total_irradiance == 0] = 1e-30
+        irradiance.diffuse = irradiance.total_irradiance
+        irradiance.direct_beam = np.zeros_like(irradiance.total_irradiance)
 
-    return column, irradiance
+    return land_column, irradiance
