@@ -73,7 +73,6 @@ class Session:
             center_wavelength_homogeneous = (
                 wavelength_homogeneous[:-1] + self.config.SPECTRAL.RESOLUTION[-1] / 2
             )
-            
 
             band_ranges_homogeneous = np.column_stack(
                 (
@@ -107,7 +106,10 @@ class Session:
 
                 self._band_ranges = band_ranges_homogeneous
 
-                if self.config.SPECTRAL.MODE == "band-snicar-default":
+                if self.config.SPECTRAL.MODE in [
+                    "band-snicar-default",
+                    "sub-band-mean",
+                ]:
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
                 elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
@@ -147,22 +149,71 @@ class Session:
 
             ds = xr.open_dataset(srf_file_path)
 
+            self.config._wavelengths = ds.nominal_centre_wavelength.values
+
+            if self.config.SPECTRAL.MODE == "sub-band-mean":
+
+                self._nb_sub_bands = 4
+                self._sub_band_length = int(len(ds.wavelength) / self._nb_sub_bands)
+                nb_all_bands = int(len(self.config._wavelengths) * self._nb_sub_bands)
+
+                srf_wavelength_subband = (
+                    ds["mean_spectral_response_function_wavelength"]
+                    .values.reshape(
+                        len(self.config._wavelengths),
+                        self._nb_sub_bands,
+                        self._sub_band_length,
+                    )
+                    .reshape(
+                        nb_all_bands,
+                        self._sub_band_length,
+                    )
+                )
+                srf_subband = (
+                    ds["mean_spectral_response_function"]
+                    .values.reshape(
+                        len(self.config._wavelengths),
+                        self._nb_sub_bands,
+                        self._sub_band_length,
+                    )
+                    .reshape(nb_all_bands, self._sub_band_length)
+                )
+                srf_wavelength_subband_nom = srf_wavelength_subband[
+                    :, int(self._sub_band_length / 2)
+                ]
+                ds = xr.Dataset(
+                    {
+                        "mean_spectral_response_function_wavelength": (
+                            ("band_number", "wavelength"),
+                            srf_wavelength_subband,
+                        ),
+                        "mean_spectral_response_function": (
+                            ("band_number", "wavelength"),
+                            srf_subband,
+                        ),
+                        "nominal_centre_wavelength": (
+                            ("band_number"),
+                            srf_wavelength_subband_nom,
+                        ),
+                    },
+                    attrs=ds.attrs,
+                    coords={
+                        "wavelength": np.arange(self._sub_band_length),
+                        "band_number": np.arange(nb_all_bands),
+                    },
+                )
+                ds.attrs.update(
+                    {"title": f"{ds.attrs["title"]} for snicar-fx sub-band method"}
+                )
+
             self._wavelengths_srf = ds.mean_spectral_response_function_wavelength.values
 
             # create a global wavelength array
-            mins_per_band_wavelength = np.nanmin(
-                ds.mean_spectral_response_function_wavelength.values, axis=1
-            )
-            maxs_per_band_wavelength = np.nanmax(
-                ds.mean_spectral_response_function_wavelength.values, axis=1
-            )
+            mins_per_band_wavelength = np.nanmin(self._wavelengths_srf, axis=1)
+            maxs_per_band_wavelength = np.nanmax(self._wavelengths_srf, axis=1)
 
-            min_wavelength = np.nanmin(
-                ds.mean_spectral_response_function_wavelength.values
-            )
-            max_wavelength = np.nanmax(
-                ds.mean_spectral_response_function_wavelength.values
-            )
+            min_wavelength = np.nanmin(self._wavelengths_srf)
+            max_wavelength = np.nanmax(self._wavelengths_srf)
 
             restricted_wavelength_1cm_m1 = (
                 1e7
@@ -190,9 +241,9 @@ class Session:
                 )
             )
 
-            if self.config.SPECTRAL.MODE == "band-snicar-default":
+            if self.config.SPECTRAL.MODE in ["band-snicar-default", "sub-band-mean"]:
                 self.config._wavelengths_land = ds.nominal_centre_wavelength.values
-                
+
             # if self.config.SPECTRAL.MODE == "band-solar-srf":
             #     self.config._wavelengths_land = center_wavelength_weighted
 
@@ -541,6 +592,9 @@ class Session:
             if self.config.SPECTRAL.MODE == "band-srf-integration":
                 self.apply_spectral_response_function()
 
+            if self.config.SPECTRAL.MODE == "sub-band-mean":
+                self.compute_sub_band_average()
+
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
                 self.outputs = self.format_multistream_results_to_xarray()
@@ -685,7 +739,7 @@ class Session:
                 data_vars={**albedo_variables, **directional_variables},
                 coords={
                     "wavelength": (
-                        self._band_ranges[:, -1]
+                        self.config._wavelengths
                         if "band-" in self.config.SPECTRAL.MODE
                         else self.config._wavelengths_land
                     ),
@@ -739,7 +793,7 @@ class Session:
                     )
                     / np.nansum(self._spectral_response_function, axis=1)[None, :]
                 )
-                
+
             elif any(tag in key for tag in ["directional_"]):
                 self.outputs[key] = (
                     np.nansum(
@@ -766,7 +820,7 @@ class Session:
         """
 
         band_means = {}
-        for name in var_names:            
+        for name in var_names:
             arr = getattr(component, name)
             print(arr.shape)
             original_shape = arr.shape[:-1]
@@ -787,47 +841,46 @@ class Session:
                     wl_slice = wavelengths[i_start:i_end]
                     values_slice = arr_flat[:, i_start:i_end]
 
-                    # trapzal integration along last axis (wavelength)
-                    integral = np.trapz(values_slice, wl_slice, axis=1)
+                    # trapezoidal integration along last axis (wavelength)
+                    integral = np.trapezoid(values_slice, wl_slice, axis=1)
                     width = wl_slice[-1] - wl_slice[0]
                     averaged_rows[:, b] = integral / width
 
             band_means[name] = averaged_rows.reshape(*original_shape, n_bands)
 
         return band_means
-    
-    def compute_unweighted_bands(self, component, wavelengths, band_ranges, var_names):
-        """
-        
-        """
 
-        def get_band_integrals(x, y, range_min, range_max): 
-            
+    def compute_unweighted_bands(self, component, wavelengths, band_ranges, var_names):
+        """ """
+
+        def get_band_integrals(x, y, range_min, range_max):
+
             block_integrals = [
-                np.trapz(y[(x >= lower_wl) & (x <= upper_wl)], 
-                         x[(x >= lower_wl) & (x <= upper_wl)]) 
+                np.trapezoid(
+                    y[(x >= lower_wl) & (x <= upper_wl)],
+                    x[(x >= lower_wl) & (x <= upper_wl)],
+                )
                 for lower_wl, upper_wl in zip(range_min, range_max)
             ]
             return block_integrals
-        
+
         band_means = {}
 
         for name in var_names:
-            
+
             arr = getattr(component, name)
-            
-            if name in ["total_irradiance", "diffuse", "direct_beam"]: 
+
+            if name in ["total_irradiance", "diffuse", "direct_beam"]:
                 bands = get_band_integrals(
-                    self.config._wavelengths_solar, 
+                    self.config._wavelengths_solar,
                     arr,
-                    band_ranges[:, 0], 
-                    band_ranges[:, 1]
-                    )
-            
+                    band_ranges[:, 0],
+                    band_ranges[:, 1],
+                )
+
             band_means[name] = bands
 
         return band_means
-        
 
     def compute_solar_weighted_average(
         self, column, wavelengths, band_ranges, var_names
@@ -839,10 +892,10 @@ class Session:
         band_means = {}
 
         # Precompute denominator integral
-        denominator_integral_total = np.trapz(
+        denominator_integral_total = np.trapezoid(
             self._spectral_response_function_sw_total, x=wavelengths, axis=-1
         )
-        
+
         for name in var_names:
             arr = getattr(column, name)
 
@@ -859,42 +912,45 @@ class Session:
                 numerator = self._spectral_response_function_sw_total
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
-                denominator_integral_local = np.trapz(
+                denominator_integral_local = np.trapezoid(
                     denominator, x=wavelengths, axis=-1
                 )
             if name == "direct_beam":
                 numerator = self._spectral_response_function_sw_dir
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
-                denominator_integral_local = np.trapz(
+                denominator_integral_local = np.trapezoid(
                     denominator, x=wavelengths, axis=-1
                 )
             if name == "diffuse":
                 numerator = self._spectral_response_function_sw_diff
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
-                denominator_integral_local = np.trapz(
+                denominator_integral_local = np.trapezoid(
                     denominator, x=wavelengths, axis=-1
                 )
-            if name == 'ss_alb': 
-                # srf * flux * w * tau 
-                numerator = ((self._spectral_response_function_sw_total 
-                              * arr_flat[:, None, :] 
-                              )* column.tau.reshape(-1, arr.shape[-1])[:, None, :]
-                )
-                denominator_integral_local = np.trapz(
-                    self._spectral_response_function_sw_total 
-                    * column.tau.reshape(-1, arr.shape[-1])[:, None, :], x=wavelengths, axis=-1
+            if name == "ss_alb":
+                # srf * flux * w * tau
+                numerator = (
+                    self._spectral_response_function_sw_total * arr_flat[:, None, :]
+                ) * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
+                denominator_integral_local = np.trapezoid(
+                    self._spectral_response_function_sw_total
+                    * column.tau.reshape(-1, arr.shape[-1])[:, None, :],
+                    x=wavelengths,
+                    axis=-1,
                 )
 
             else:
                 # weigh all variables with srf * total flux
-                numerator = self._spectral_response_function_sw_total * arr_flat[:, None, :]
+                numerator = (
+                    self._spectral_response_function_sw_total * arr_flat[:, None, :]
+                )
                 denominator = self._spectral_response_function_sw_total
                 denominator_integral_local = denominator_integral_total
 
             # Integrate along wavelength axis
-            numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+            numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
             averaged_rows = numerator_integral / denominator_integral_local[None, :]
 
             # Reshape back
@@ -904,7 +960,7 @@ class Session:
                 averaged_rows = averaged_rows.flatten()
 
             band_means[name] = averaged_rows
-            
+
         return band_means
 
     def compute_band_average(self, components=["solar", "atmosphere", "land"]) -> None:
@@ -912,7 +968,7 @@ class Session:
         Compute band averages for given properties of given components.
         """
 
-        if self.config.SPECTRAL.MODE == "band-snicar-default":
+        if self.config.SPECTRAL.MODE in ["band-snicar-default", "sub-band-mean"]:
 
             # average solar variables
             if "solar" in components:
@@ -922,7 +978,9 @@ class Session:
                     self._band_ranges,
                     var_names=["total_irradiance", "direct_beam", "diffuse"],
                 )
-                self.solar_irradiance.total_irradiance = solar_flat_means["total_irradiance"]
+                self.solar_irradiance.total_irradiance = solar_flat_means[
+                    "total_irradiance"
+                ]
                 self.solar_irradiance.direct_beam = solar_flat_means["direct_beam"]
                 self.solar_irradiance.diffuse = solar_flat_means["diffuse"]
 
@@ -933,15 +991,14 @@ class Session:
                         self.atmosphere_column,
                         self.config._wavelengths_atmosphere,
                         self._band_ranges,
-                        var_names=["tau", "ss_alb", 
-                                   "legendre_moments"],
+                        var_names=["tau", "ss_alb", "legendre_moments"],
                     )
                     self.atmosphere_column.tau = atmosphere_flat_means["tau"]
                     self.atmosphere_column.ss_alb = atmosphere_flat_means["ss_alb"]
                     self.atmosphere_column.legendre_moments = atmosphere_flat_means[
                         "legendre_moments"
                     ]
-                    
+
         elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
 
             # only compute if it hasn't been yet
@@ -967,9 +1024,7 @@ class Session:
                         self.atmosphere_column,
                         self.config._wavelengths_atmosphere,
                         self._band_ranges,
-                        var_names=["tau", "ss_alb", 
-                                    "legendre_moments"
-                                   ],
+                        var_names=["tau", "ss_alb", "legendre_moments"],
                     )
                     self.atmosphere_column.tau = atmosphere_weighted_means["tau"]
                     self.atmosphere_column.ss_alb = atmosphere_weighted_means["ss_alb"]
@@ -983,9 +1038,14 @@ class Session:
                         self.land_column,
                         self.config._wavelengths_land,
                         self._band_ranges,
-                        var_names=["ref_idx_re", "ref_idx_im", "sfc",
-                                   "tau", "ss_alb", 
-                                   "asm_prm"],
+                        var_names=[
+                            "ref_idx_re",
+                            "ref_idx_im",
+                            "sfc",
+                            "tau",
+                            "ss_alb",
+                            "asm_prm",
+                        ],
                     )
                     self.land_column.ref_idx_re = land_weighted_means["ref_idx_re"]
                     self.land_column.ref_idx_im = land_weighted_means["ref_idx_im"]
@@ -993,16 +1053,18 @@ class Session:
                     self.land_column.ss_alb = land_weighted_means["ss_alb"]
                     self.land_column.asm_prm = land_weighted_means["asm_prm"]
                     self.land_column.sfc = land_weighted_means["sfc"].flatten()
-                    
-                else: 
+
+                else:
                     # average land variables
                     land_weighted_means = self.compute_solar_weighted_average(
                         self.land_column,
                         self.config._wavelengths_land,
                         self._band_ranges,
-                        var_names=["tau", "ss_alb", 
-                                    "legendre_moments",
-                                   ],
+                        var_names=[
+                            "tau",
+                            "ss_alb",
+                            "legendre_moments",
+                        ],
                     )
                     self.land_column.tau = land_weighted_means["tau"]
                     self.land_column.ss_alb = land_weighted_means["ss_alb"]
@@ -1017,9 +1079,39 @@ class Session:
                     self._band_ranges,
                     var_names=["direct_beam", "diffuse", "total_irradiance"],
                 )
-                self.solar_irradiance.direct_beam = solar_weighted_means["direct_beam"].flatten()
-                self.solar_irradiance.diffuse = solar_weighted_means["diffuse"].flatten()
+                self.solar_irradiance.direct_beam = solar_weighted_means[
+                    "direct_beam"
+                ].flatten()
+                self.solar_irradiance.diffuse = solar_weighted_means[
+                    "diffuse"
+                ].flatten()
                 self.solar_irradiance.total_irradiance = solar_weighted_means[
                     "total_irradiance"
                 ].flatten()
-                
+
+    def compute_sub_band_average(self):
+
+        for key, data in self.outputs.items():
+
+            if key.startswith("albedo_"):
+                reshaped = data.reshape(
+                    len(self.config._wavelengths), self._nb_sub_bands
+                )
+                self.outputs[key] = reshaped.mean(axis=1)
+
+            elif key.startswith("directional_") and key.endswith("_m0"):
+                reshaped = data.reshape(
+                    len(self.outputs["polar_angle"]),
+                    len(self.config._wavelengths),
+                    self._nb_sub_bands,
+                )
+                self.outputs[key] = reshaped.mean(axis=2)
+
+            elif key.startswith("directional_"):
+                reshaped = data.reshape(
+                    len(self.outputs["polar_angle"]),
+                    len(self.config._wavelengths),
+                    self._nb_sub_bands,
+                    len(self.outputs["azimuth_angle"]),
+                )
+                self.outputs[key] = reshaped.mean(axis=2)
