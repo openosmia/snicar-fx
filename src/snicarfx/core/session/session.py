@@ -112,7 +112,10 @@ class Session:
                 ]:
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
-                elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
+                elif self.config.SPECTRAL.MODE in [
+                    "band-solar-weighted-mean",
+                    "sub-band-mean",
+                ]:
                     # just compute a flat SRF of a given length (which
                     # is arbitrary since it's anyway flat)
                     srf_length = 10
@@ -241,7 +244,7 @@ class Session:
                 )
             )
 
-            if self.config.SPECTRAL.MODE in ["band-snicar-default", "sub-band-mean"]:
+            if self.config.SPECTRAL.MODE == "band-snicar-default":
                 self.config._wavelengths_land = ds.nominal_centre_wavelength.values
 
             # if self.config.SPECTRAL.MODE == "band-solar-srf":
@@ -368,7 +371,8 @@ class Session:
 
             if (
                 not self.config.SOLVER.ATMOSPHERE_COUPLING
-                and self.config.SPECTRAL.MODE == "band-solar-weighted-mean"
+                and self.config.SPECTRAL.MODE
+                in ["band-solar-weighted-mean", "sub-band-mean"]
             ):
                 raise ValueError(
                     "Updating SZA without atmosphere coupling using band-solar-weighted-mean spectral mode requires a new input file."
@@ -968,7 +972,7 @@ class Session:
         Compute band averages for given properties of given components.
         """
 
-        if self.config.SPECTRAL.MODE in ["band-snicar-default", "sub-band-mean"]:
+        if self.config.SPECTRAL.MODE == "band-snicar-default":
 
             # average solar variables
             if "solar" in components:
@@ -999,7 +1003,7 @@ class Session:
                         "legendre_moments"
                     ]
 
-        elif self.config.SPECTRAL.MODE == "band-solar-weighted-mean":
+        elif self.config.SPECTRAL.MODE in ["band-solar-weighted-mean", "sub-band-mean"]:
 
             # only compute if it hasn't been yet
             if not hasattr(self, "_spectral_response_function_sw_total"):
