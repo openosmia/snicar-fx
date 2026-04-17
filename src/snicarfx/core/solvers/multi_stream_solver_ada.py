@@ -129,7 +129,7 @@ class _MultiStreamSolverADA:
             Solver parameters set in the input Yaml file.
         """
 
-        self.solar_irradiance = np.array(irradiance.direct_beam)
+        self.solar_irradiance = np.array(irradiance.total_irradiance)
         self.solar_flag = True
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
         self.cosmic_background = 0
@@ -933,10 +933,15 @@ class _MultiStreamSolverADA:
                 ))
                 / np.sum((E_diff + E_dir))
             )
+            
 
             results["directional_reflectance_boa_m0"] = (
                 self.s_level_rad_up_moments[:, self.surface_idx, :, 0] * np.pi
             ) / (E_diff + E_dir)
+            
+            results["directional_radiance_boa_m0"] = (
+                self.s_level_rad_up_moments[:, self.surface_idx, :, 0] 
+                )
 
             # double-directional radiance with Fourier reconstruction
             if self.n_fourier > 1:

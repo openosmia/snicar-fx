@@ -108,7 +108,7 @@ class Session:
 
                 if self.config.SPECTRAL.MODE in [
                     "band-snicar-default",
-                    "sub-band-mean",
+                    
                 ]:
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
@@ -243,13 +243,7 @@ class Session:
                     ds.nominal_centre_wavelength.values,
                 )
             )
-
-            if self.config.SPECTRAL.MODE == "band-snicar-default":
-                self.config._wavelengths_land = ds.nominal_centre_wavelength.values
-
-            # if self.config.SPECTRAL.MODE == "band-solar-srf":
-            #     self.config._wavelengths_land = center_wavelength_weighted
-
+            
             # interpolate satellite SRF on homogeneous grid
             # (self.config._wavelengths_land could be any
             # self.config._wavelengths_ since they are the same in
@@ -266,6 +260,10 @@ class Session:
                     for band_number in range(self._band_ranges.shape[0])
                 ]
             )
+
+            if self.config.SPECTRAL.MODE == "band-snicar-default":
+                self.config._wavelengths_land = ds.nominal_centre_wavelength.values
+
 
     def _prepare_updates(self, kwargs, allowed_fields):
         forbidden = set(kwargs) - allowed_fields
@@ -780,37 +778,42 @@ class Session:
         return ds
 
     def apply_spectral_response_function(self) -> None:
-
+        
         for key, var in self.outputs.items():
-
+            
             if any(tag in key for tag in ["albedo_"]):
-                self.outputs[key] = np.nansum(
-                    self.outputs[key][None, :] * self._spectral_response_function,
-                    axis=-1,
-                ) / np.nansum(self._spectral_response_function, axis=1)
-            elif any(tag in key for tag in ["m0"]):
-                self.outputs[key] = (
-                    np.nansum(
-                        self.outputs[key][:, None, :]
-                        * self._spectral_response_function[None, :, :],
-                        axis=-1,
-                    )
-                    / np.nansum(self._spectral_response_function, axis=1)[None, :]
-                )
 
-            elif any(tag in key for tag in ["directional_"]):
                 self.outputs[key] = (
-                    np.nansum(
-                        self.outputs[key][:, None, :, :]  # polar, wvl1, wvl2, azim
-                        * self._spectral_response_function[
-                            None, :, :, None
-                        ],  # polar, wvl, wvl, azim
-                        axis=-2,
-                    )
-                    / np.nansum(self._spectral_response_function, axis=1)[
-                        None, :, :
-                    ]  # polar, wvl, azim
-                )
+                    np.trapz(var[None, :] * self._spectral_response_function, 
+                             x=self.config._wavelengths_solar, axis=-1) 
+                    /
+                    np.trapz(self._spectral_response_function, 
+                             x=self.config._wavelengths_solar, axis=-1)
+                                     )
+    
+            elif any(tag in key for tag in ["m0"]):
+    
+                
+                self.outputs[key] = (
+                    np.trapz(var[:, None, :] 
+                             * self._spectral_response_function[None, :, :], 
+                             x=self.config._wavelengths_solar, axis=-1) 
+                    /
+                    np.trapz(self._spectral_response_function, 
+                             x=self.config._wavelengths_solar, axis=-1)
+                                     )[None, :]
+                
+    
+            elif any(tag in key for tag in ["directional_"]):
+                
+                 self.outputs[key] = (
+                     np.trapz(var[:, None, :, :]
+                              * self._spectral_response_function[None, :, :, None], 
+                              x=self.config._wavelengths_solar, axis=-1) 
+                     /
+                     np.trapz(self._spectral_response_function, 
+                              x=self.config._wavelengths_solar, axis=-1)
+                                      )[None, :, :]
 
         # overwrite high-resolution wavelength array (used for
         # computation) with center wavelengths
@@ -845,8 +848,8 @@ class Session:
                     wl_slice = wavelengths[i_start:i_end]
                     values_slice = arr_flat[:, i_start:i_end]
 
-                    # trapezoidal integration along last axis (wavelength)
-                    integral = np.trapezoid(values_slice, wl_slice, axis=1)
+                    # trapzal integration along last axis (wavelength)
+                    integral = np.trapz(values_slice, wl_slice, axis=1)
                     width = wl_slice[-1] - wl_slice[0]
                     averaged_rows[:, b] = integral / width
 
@@ -854,37 +857,6 @@ class Session:
 
         return band_means
 
-    def compute_unweighted_bands(self, component, wavelengths, band_ranges, var_names):
-        """ """
-
-        def get_band_integrals(x, y, range_min, range_max):
-
-            block_integrals = [
-                np.trapezoid(
-                    y[(x >= lower_wl) & (x <= upper_wl)],
-                    x[(x >= lower_wl) & (x <= upper_wl)],
-                )
-                for lower_wl, upper_wl in zip(range_min, range_max)
-            ]
-            return block_integrals
-
-        band_means = {}
-
-        for name in var_names:
-
-            arr = getattr(component, name)
-
-            if name in ["total_irradiance", "diffuse", "direct_beam"]:
-                bands = get_band_integrals(
-                    self.config._wavelengths_solar,
-                    arr,
-                    band_ranges[:, 0],
-                    band_ranges[:, 1],
-                )
-
-            band_means[name] = bands
-
-        return band_means
 
     def compute_solar_weighted_average(
         self, column, wavelengths, band_ranges, var_names
@@ -896,7 +868,7 @@ class Session:
         band_means = {}
 
         # Precompute denominator integral
-        denominator_integral_total = np.trapezoid(
+        denominator_integral_total = np.trapz(
             self._spectral_response_function_sw_total, x=wavelengths, axis=-1
         )
 
@@ -916,21 +888,21 @@ class Session:
                 numerator = self._spectral_response_function_sw_total
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
-                denominator_integral_local = np.trapezoid(
+                denominator_integral_local = np.trapz(
                     denominator, x=wavelengths, axis=-1
                 )
             if name == "direct_beam":
                 numerator = self._spectral_response_function_sw_dir
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
-                denominator_integral_local = np.trapezoid(
+                denominator_integral_local = np.trapz(
                     denominator, x=wavelengths, axis=-1
                 )
             if name == "diffuse":
                 numerator = self._spectral_response_function_sw_diff
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
-                denominator_integral_local = np.trapezoid(
+                denominator_integral_local = np.trapz(
                     denominator, x=wavelengths, axis=-1
                 )
             if name == "ss_alb":
@@ -938,7 +910,7 @@ class Session:
                 numerator = (
                     self._spectral_response_function_sw_total * arr_flat[:, None, :]
                 ) * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
-                denominator_integral_local = np.trapezoid(
+                denominator_integral_local = np.trapz(
                     self._spectral_response_function_sw_total
                     * column.tau.reshape(-1, arr.shape[-1])[:, None, :],
                     x=wavelengths,
@@ -954,7 +926,7 @@ class Session:
                 denominator_integral_local = denominator_integral_total
 
             # Integrate along wavelength axis
-            numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
+            numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
             averaged_rows = numerator_integral / denominator_integral_local[None, :]
 
             # Reshape back
@@ -1009,8 +981,9 @@ class Session:
             if not hasattr(self, "_spectral_response_function_sw_total"):
                 # cache solar weighted SRF
                 self._spectral_response_function_sw_total = (
-                    self.solar_irradiance.total_irradiance[None, :]
-                    * self._spectral_response_function
+                    # self.solar_irradiance.total_irradiance[None, :]
+                    # * 
+                    self._spectral_response_function
                 )
                 self._spectral_response_function_sw_diff = (
                     self.solar_irradiance.diffuse[None, :]
@@ -1094,7 +1067,7 @@ class Session:
                 ].flatten()
 
     def compute_sub_band_average(self):
-
+        
         for key, data in self.outputs.items():
 
             if key.startswith("albedo_"):
@@ -1109,7 +1082,23 @@ class Session:
                     len(self.config._wavelengths),
                     self._nb_sub_bands,
                 )
-                self.outputs[key] = reshaped.mean(axis=2)
+                
+                # self.outputs[key] = reshaped.mean(axis=2)
+                
+                weights = np.trapz(self._spectral_response_function_sw_total.reshape(len(self.config._wavelengths), 
+                                                                                     self._nb_sub_bands, 
+                                                                                     len(self.config._wavelengths_solar)), 
+                           x=self.config._wavelengths_solar, 
+                           axis=2)
+                
+                numerator = np.sum(reshaped 
+                                   * weights[None, :, :], 
+                                   axis=2) # Shape (32, 21)
+
+                denominator = np.sum(weights,axis=1) # Shape (21,)
+            
+                self.outputs[key] = numerator / denominator[np.newaxis, :]
+
 
             elif key.startswith("directional_"):
                 reshaped = data.reshape(

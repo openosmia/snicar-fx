@@ -125,8 +125,8 @@ class _MultiStreamSolverDISORT:
             Solver parameters set in the input Yaml file.
         """
 
-        self.direct_irradiance = irradiance.direct_beam
-        self.diffuse_irradiance = irradiance.diffuse
+        self.direct_irradiance = irradiance.total_irradiance 
+        self.diffuse_irradiance = 0 * irradiance.diffuse / (np.pi *4) 
         self.mu0 = np.cos(np.deg2rad(irradiance.sza))
         self.nbr_wvl = len(irradiance.direct_beam)
         self.n_streams = SOLVER.N_STREAMS
@@ -516,7 +516,7 @@ class _MultiStreamSolverDISORT:
             self.directional_reflectance_boa_m0[:, wl_idx] = (
                 self.directional_radiance_boa_m0[:, wl_idx]
                 * np.pi
-                / self.flux_down_boa[wl_idx]
+                / (self.flux_down_boa[wl_idx])
             )
 
             # calculate all fluxes at BOA
