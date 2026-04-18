@@ -793,7 +793,7 @@ class Session:
                 )
 
             elif any(tag in key for tag in ["m0"]):
-
+                # (polar, None, wl) * (None, bands, wl)
                 self.outputs[key] = (
                     np.trapz(
                         var[:, None, :] * self._spectral_response_function[None, :, :],
@@ -805,23 +805,25 @@ class Session:
                         x=self.config._wavelengths_solar,
                         axis=-1,
                     )
-                )[None, :]
+                )
 
             elif any(tag in key for tag in ["directional_"]):
-
+                
                 self.outputs[key] = (
                     np.trapz(
+                        # (polar, 1, wl, azimuth)
                         var[:, None, :, :]
+                        # (1, 21, wl, 1)
                         * self._spectral_response_function[None, :, :, None],
                         x=self.config._wavelengths_solar,
-                        axis=-1,
+                        axis=-2,
                     )
                     / np.trapz(
                         self._spectral_response_function,
                         x=self.config._wavelengths_solar,
                         axis=-1,
-                    )
-                )[None, :, :]
+                    )[None, :, None]
+                )
 
         # overwrite high-resolution wavelength array (used for
         # computation) with center wavelengths
@@ -886,6 +888,7 @@ class Session:
                 arr_flat = arr[None, :]
 
             if name == "total_irradiance":
+                # shape (1, wl) * (21, wl) integ on wl 
                 numerator = (
                     self.solar_irradiance.total_irradiance[None, :]
                     * self._spectral_response_function
@@ -916,11 +919,12 @@ class Session:
 
             elif name == "ss_alb":
                 # srf * flux * w * tau
+                # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl 
                 numerator = (
-                    self._spectral_response_function
+                    self._spectral_response_function 
                     * arr_flat[:, None, :]
                     * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
-                )
+                    )
                 numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
                 denominator_integral_local = np.trapz(
                     self._spectral_response_function
@@ -939,10 +943,24 @@ class Session:
                 )
                 arr_flat_interp = f(self.config._wavelengths)
 
-                print(arr_flat_interp.shape)
-
                 numerator_integral = arr_flat_interp
                 denominator_integral_local = np.ones_like(numerator_integral)
+                
+                # shape  (21, wl) * (1, lyr, 1, wl) * (1, lyr, 1, wl) integ on wl 
+                # numerator = (
+                #     self._spectral_response_function 
+                #     * column.tau.reshape(-1, arr.shape[-1])[None, :, None, :]
+                #     * column.ss_alb.reshape(-1, arr.shape[-1])[None, :, None, :]
+                #     * arr[:, :, None, :]
+                #     )
+                # numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+                # denominator_integral_local = np.trapz(
+                #     self._spectral_response_function
+                #     * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
+                #     * column.ss_alb.reshape(-1, arr.shape[-1])[:, None, :],
+                #     x=wavelengths,
+                #     axis=-1,
+                # )
 
             else:
                 # weigh all variables with srf * total flux
