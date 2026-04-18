@@ -23,6 +23,7 @@ from ..solvers.multi_stream_solver_disort import (
 )
 from ..solvers.two_stream_solver_ad import solve_two_stream_rt_ad
 from .config import Config
+import scipy
 
 
 class Session:
@@ -836,7 +837,6 @@ class Session:
         band_means = {}
         for name in var_names:
             arr = getattr(component, name)
-            print(arr.shape)
             original_shape = arr.shape[:-1]
             arr_flat = arr.reshape(-1, arr.shape[-1])
 
@@ -931,10 +931,18 @@ class Session:
 
             # TO CHANGE, right now simple average
             elif name == "legendre_moments":
-                # weigh all variables with srf * total flux
-                numerator = self._spectral_response_function * arr_flat[:, None, :]
-                numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
-                denominator_integral_local = denominator_integral_srf
+
+                f = scipy.interpolate.interp1d(
+                    self.config._wavelengths_atmosphere,
+                    arr_flat,
+                    axis=1,
+                )
+                arr_flat_interp = f(self.config._wavelengths)
+
+                print(arr_flat_interp.shape)
+
+                numerator_integral = arr_flat_interp
+                denominator_integral_local = np.ones_like(numerator_integral)
 
             else:
                 # weigh all variables with srf * total flux
@@ -942,7 +950,6 @@ class Session:
                 numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
                 denominator_integral_local = denominator_integral_srf
 
-            # Integrate along wavelength axis
             averaged_rows = numerator_integral / denominator_integral_local[None, :]
 
             # Reshape back
