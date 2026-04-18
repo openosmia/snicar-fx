@@ -856,6 +856,111 @@ class Session:
             band_means[name] = averaged_rows.reshape(*original_shape, n_bands)
 
         return band_means
+    
+    def compute_srf_weighted_average(
+        self, column, wavelengths, band_ranges, var_names
+    ):
+        
+        band_means = {}
+
+        # Precompute denominator integral
+        denominator_integral_srf = np.trapz(
+            self._spectral_response_function, x=wavelengths, axis=-1
+        )
+
+        for name in var_names:
+            arr = getattr(column, name)
+
+            n_bands = len(band_ranges)
+            original_shape = arr.shape[:-1] if arr.ndim > 1 else ()
+
+            # Reshape to (n_flat, n_wl) for broadcasting
+            if arr.ndim > 1:
+                arr_flat = arr.reshape(-1, arr.shape[-1])
+            else:
+                arr_flat = arr[None, :]
+
+            if name == "total_irradiance":
+                numerator = (
+                    self.solar_irradiance.total_irradiance[None, :]
+                    * 
+                    self._spectral_response_function
+                )
+                numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = denominator_integral_srf
+            elif name == "direct_beam":
+                numerator = (
+                    self.solar_irradiance.direct_beam[None, :]
+                    * 
+                    self._spectral_response_function
+                )
+                numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = denominator_integral_srf
+                
+            elif name == "diffuse":
+                numerator = (
+                    self.solar_irradiance.diffuse[None, :]
+                    * 
+                    self._spectral_response_function
+                )
+                numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = denominator_integral_srf
+                
+            elif name == "tau":
+                numerator = (
+                    self._spectral_response_function 
+                    * arr_flat[:, None, :]
+                )
+                numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = denominator_integral_srf
+
+            elif name == "ss_alb":
+                # srf * flux * w * tau
+                numerator = (
+                    self._spectral_response_function 
+                    * arr_flat[:, None, :]
+                    * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
+                    )
+                numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = np.trapz(
+                    self._spectral_response_function
+                    * column.tau.reshape(-1, arr.shape[-1])[:, None, :],
+                    x=wavelengths,
+                    axis=-1,
+                )
+                
+            # TO CHANGE, right now simple average
+            elif name == "legendre_moments": 
+                # weigh all variables with srf * total flux
+                numerator = (
+                    self._spectral_response_function 
+                    * arr_flat[:, None, :]
+                )
+                numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = denominator_integral_srf
+                
+            else: 
+                # weigh all variables with srf * total flux
+                numerator = (
+                    self._spectral_response_function 
+                    * arr_flat[:, None, :]
+                )
+                numerator_integral = np.trapz(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = denominator_integral_srf
+                
+
+            # Integrate along wavelength axis
+            averaged_rows = numerator_integral / denominator_integral_local[None, :]
+
+            # Reshape back
+            if arr.ndim > 1:
+                averaged_rows = averaged_rows.reshape(*original_shape, n_bands)
+            else:
+                averaged_rows = averaged_rows.flatten()
+
+            band_means[name] = averaged_rows
+
+        return band_means
 
 
     def compute_solar_weighted_average(
@@ -891,21 +996,21 @@ class Session:
                 denominator_integral_local = np.trapz(
                     denominator, x=wavelengths, axis=-1
                 )
-            if name == "direct_beam":
+            elif name == "direct_beam":
                 numerator = self._spectral_response_function_sw_dir
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
                 denominator_integral_local = np.trapz(
                     denominator, x=wavelengths, axis=-1
                 )
-            if name == "diffuse":
+            elif name == "diffuse":
                 numerator = self._spectral_response_function_sw_diff
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
                 denominator_integral_local = np.trapz(
                     denominator, x=wavelengths, axis=-1
                 )
-            if name == "ss_alb":
+            elif name == "ss_alb":
                 # srf * flux * w * tau
                 numerator = (
                     self._spectral_response_function_sw_total * arr_flat[:, None, :]
@@ -916,6 +1021,14 @@ class Session:
                     x=wavelengths,
                     axis=-1,
                 )
+            
+            # TO CHANGE
+            elif name == "legendre_moments":
+                numerator = (
+                    self._spectral_response_function_sw_total * arr_flat[:, None, :]
+                )
+                denominator = self._spectral_response_function_sw_total
+                denominator_integral_local = denominator_integral_total
 
             else:
                 # weigh all variables with srf * total flux
@@ -975,14 +1088,89 @@ class Session:
                         "legendre_moments"
                     ]
 
+        elif self.config.SPECTRAL.MODE in ["band-srf-weighted-mean"]:
+            
+            # average atmosphere variables
+            if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
+                if "atmosphere" in components:
+                    atmosphere_weighted_means = self.compute_srf_weighted_average(
+                        self.atmosphere_column,
+                        self.config._wavelengths_atmosphere,
+                        self._band_ranges,
+                        var_names=["tau", "ss_alb", "legendre_moments"],
+                    )
+                    self.atmosphere_column.tau = atmosphere_weighted_means["tau"]
+                    self.atmosphere_column.ss_alb = atmosphere_weighted_means["ss_alb"]
+                    self.atmosphere_column.legendre_moments = atmosphere_weighted_means[
+                        "legendre_moments"
+                    ]
+
+            if "land" in components:
+                if self.config.SOLVER.TYPE == "two-stream-ad":
+                    land_weighted_means = self.compute_srf_weighted_average(
+                        self.land_column,
+                        self.config._wavelengths_land,
+                        self._band_ranges,
+                        var_names=[
+                            "ref_idx_re",
+                            "ref_idx_im",
+                            "sfc",
+                            "tau",
+                            "ss_alb",
+                            "asm_prm",
+                        ],
+                    )
+                    self.land_column.ref_idx_re = land_weighted_means["ref_idx_re"]
+                    self.land_column.ref_idx_im = land_weighted_means["ref_idx_im"]
+                    self.land_column.tau = land_weighted_means["tau"]
+                    self.land_column.ss_alb = land_weighted_means["ss_alb"]
+                    self.land_column.asm_prm = land_weighted_means["asm_prm"]
+                    self.land_column.sfc = land_weighted_means["sfc"].flatten()
+
+                else:
+                    # average land variables
+                    land_weighted_means = self.compute_srf_weighted_average(
+                        self.land_column,
+                        self.config._wavelengths_land,
+                        self._band_ranges,
+                        var_names=[
+                            "tau",
+                            "ss_alb",
+                            "legendre_moments",
+                        ],
+                    )
+                    self.land_column.tau = land_weighted_means["tau"]
+                    self.land_column.ss_alb = land_weighted_means["ss_alb"]
+                    self.land_column.legendre_moments = land_weighted_means[
+                        "legendre_moments"
+                    ]
+
+            if "solar" in components:
+                solar_weighted_means = self.compute_srf_weighted_average(
+                    self.solar_irradiance,
+                    self.config._wavelengths_solar,
+                    self._band_ranges,
+                    var_names=["direct_beam", "diffuse", "total_irradiance"],
+                )
+                self.solar_irradiance.direct_beam = solar_weighted_means[
+                    "direct_beam"
+                ].flatten()
+                self.solar_irradiance.diffuse = solar_weighted_means[
+                    "diffuse"
+                ].flatten()
+                self.solar_irradiance.total_irradiance = solar_weighted_means[
+                    "total_irradiance"
+                ].flatten()
+            
+            
         elif self.config.SPECTRAL.MODE in ["band-solar-weighted-mean", "sub-band-mean"]:
 
             # only compute if it hasn't been yet
             if not hasattr(self, "_spectral_response_function_sw_total"):
                 # cache solar weighted SRF
                 self._spectral_response_function_sw_total = (
-                    # self.solar_irradiance.total_irradiance[None, :]
-                    # * 
+                    self.solar_irradiance.total_irradiance[None, :]
+                    * 
                     self._spectral_response_function
                 )
                 self._spectral_response_function_sw_diff = (

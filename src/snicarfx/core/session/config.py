@@ -292,6 +292,7 @@ class Spectral(BaseModel):
         "monochromatic",
         "band-snicar-default",
         "band-solar-weighted-mean",
+        "band-srf-weighted-mean",
         "band-srf-integration",
         "sub-band-mean",
     ] = Field(
