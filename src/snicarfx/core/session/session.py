@@ -99,6 +99,9 @@ class Session:
                 self.config._wavelengths_solar = wavelength_homogeneous
                 self.config._wavelengths_land = wavelength_homogeneous
                 self.config._wavelengths_atmosphere = wavelength_homogeneous
+                # self.config._wavelengths_solar = wavelength_1cm_m1
+                # self.config._wavelengths_land = wavelength_1cm_m1
+                # self.config._wavelengths_atmosphere = wavelength_1cm_m1
 
             elif "band-" in self.config.SPECTRAL.MODE:
                 self.config._wavelengths_solar = wavelength_1cm_m1
@@ -152,7 +155,7 @@ class Session:
 
             ds = xr.open_dataset(srf_file_path)
 
-            self.config._wavelengths = ds.nominal_centre_wavelength.values
+            self.config._wavelengths = ds.srf_centre_wavelength.values
 
             if self.config.SPECTRAL.MODE == "sub-band-mean":
 
@@ -194,7 +197,7 @@ class Session:
                             ("band_number", "wavelength"),
                             srf_subband,
                         ),
-                        "nominal_centre_wavelength": (
+                        "srf_centre_wavelength": (
                             ("band_number"),
                             srf_wavelength_subband_nom,
                         ),
@@ -240,7 +243,7 @@ class Session:
                 (
                     mins_per_band_wavelength,
                     maxs_per_band_wavelength,
-                    ds.nominal_centre_wavelength.values,
+                    ds.srf_centre_wavelength.values,
                 )
             )
 
@@ -262,7 +265,7 @@ class Session:
             )
 
             if self.config.SPECTRAL.MODE == "band-snicar-default":
-                self.config._wavelengths_land = ds.nominal_centre_wavelength.values
+                self.config._wavelengths_land = ds.srf_centre_wavelength.values
 
     def _prepare_updates(self, kwargs, allowed_fields):
         forbidden = set(kwargs) - allowed_fields
@@ -933,7 +936,7 @@ class Session:
                     axis=-1,
                 )
 
-            # TO CHANGE, right now simple average
+            # TO CHANGE to cleaner
             elif name == "legendre_moments":
 
                 f = scipy.interpolate.interp1d(
