@@ -134,6 +134,8 @@ class _MultiStreamSolverDISORT:
         self.n_expansion = SOLVER.N_LEGENDRE_MOMENTS
         self.only_fourier_m0 = (self.n_fourier == 1)
         self.output_levels = SOLVER.OUTPUT_LEVELS
+        
+        self.wavelengths = irradiance._wavelengths
 
         self.set_gaussian_quadrature()
         self.output_polar_angles = np.cos(np.deg2rad(np.arange(*SOLVER.POLAR_ANGLES)))
@@ -555,6 +557,8 @@ class _MultiStreamSolverDISORT:
         if "BOA" in self.output_levels:
             results["albedo_boa"] = self.flux_up_boa / self.flux_down_boa
             results["bba_boa"] = np.sum(self.flux_up_boa) / np.sum(self.flux_down_boa)
+            # results["bba_boa"] = np.trapezoid(self.flux_up_boa, x=self.wavelengths) / np.trapezoid(self.flux_down_boa, x=self.wavelengths)
+            
             results["directional_reflectance_boa_m0"] = (
                 self.directional_reflectance_boa_m0
             )
