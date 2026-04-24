@@ -106,6 +106,8 @@ class LandColumn:
         self.lwc = config.LAND.LWC
         self.ssa = config.LAND.SPECIFIC_SURFACE_AREA
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
+        
+        self.n_expansion = None
 
         self.set_refractive_index()
         self.set_diffuse_fresnel_coeffs()
