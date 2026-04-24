@@ -469,6 +469,16 @@ class Atmosphere(BaseModel):
         if self.SKY_CONDITIONS == "cloudy":
             raise ValueError("Cloudy sky conditions are not available for now.")
         return self
+    
+    @model_validator(mode="after")
+    def check_aerosol_file(self):
+        """
+        Verify that an aerosol file is given if AOD > 0.
+        """
+
+        if self.INTEGRATED_AOD_550 > 0 and self.AEROSOL_PROPERTIES is None:
+            raise ValueError("An aerosol file is required to set an aerosol optical thickness.")
+        return self
 
 
 class Particle(BaseModel):
