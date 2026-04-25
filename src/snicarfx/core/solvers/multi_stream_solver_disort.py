@@ -633,8 +633,6 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
 
     for wl_idx in range(mssd.nbr_wvl):
 
-        print(f"{wl_idx} / {mssd.nbr_wvl}")
-
         rescale_factor = np.max(
             (mssd.direct_irradiance[wl_idx], mssd.diffuse_irradiance[wl_idx])
         )
