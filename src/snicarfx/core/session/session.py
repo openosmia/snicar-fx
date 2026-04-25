@@ -65,12 +65,12 @@ class Session:
 
             # create a homogeneous array based on user input
 
-            wavelength_homogeneous = np.concatenate(
-                [
-                    np.arange(*self.config.SPECTRAL.RESOLUTION),
-                    [self.config.SPECTRAL.RESOLUTION[-2]],
-                ]
+            wavelength_homogeneous = np.arange(
+                self.config.SPECTRAL.RESOLUTION[0],
+                self.config.SPECTRAL.RESOLUTION[1] + self.config.SPECTRAL.RESOLUTION[2],
+                self.config.SPECTRAL.RESOLUTION[2],
             )
+
             center_wavelength_homogeneous = (
                 wavelength_homogeneous[:-1] + self.config.SPECTRAL.RESOLUTION[-1] / 2
             )
@@ -110,7 +110,7 @@ class Session:
 
                 self._band_ranges = band_ranges_homogeneous
                 self.config._wavelengths = center_wavelength_homogeneous
-                
+
                 if self.config.SPECTRAL.MODE in [
                     "band-snicar-default",
                 ]:
@@ -543,7 +543,7 @@ class Session:
                 self.land_column.update_column_ops_with_laps()
 
             # finally update legendre moments if necessary
-            if self.land_column.n_expansion is not None: 
+            if self.land_column.n_expansion is not None:
                 self.land_column.set_legendre_moments()
 
             # and recompute band-averaged properties
@@ -799,21 +799,18 @@ class Session:
 
             elif any(tag in key for tag in ["m0"]):
                 # (polar, None, wl) * (None, bands, wl)
-                self.outputs[key] = (
-                    np.trapezoid(
-                        var[:, None, :] * self._spectral_response_function[None, :, :],
-                        x=self.config._wavelengths_solar,
-                        axis=-1,
-                    )
-                    / np.trapezoid(
-                        self._spectral_response_function,
-                        x=self.config._wavelengths_solar,
-                        axis=-1,
-                    )
+                self.outputs[key] = np.trapezoid(
+                    var[:, None, :] * self._spectral_response_function[None, :, :],
+                    x=self.config._wavelengths_solar,
+                    axis=-1,
+                ) / np.trapezoid(
+                    self._spectral_response_function,
+                    x=self.config._wavelengths_solar,
+                    axis=-1,
                 )
 
             elif any(tag in key for tag in ["directional_"]):
-                
+
                 self.outputs[key] = (
                     np.trapezoid(
                         # (polar, 1, wl, azimuth)
@@ -893,7 +890,7 @@ class Session:
                 arr_flat = arr[None, :]
 
             if name == "total_irradiance":
-                # shape (1, wl) * (21, wl) integ on wl 
+                # shape (1, wl) * (21, wl) integ on wl
                 numerator = (
                     self.solar_irradiance.total_irradiance[None, :]
                     * self._spectral_response_function
@@ -924,12 +921,12 @@ class Session:
 
             elif name == "ss_alb":
                 # srf * flux * w * tau
-                # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl 
+                # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl
                 numerator = (
-                    self._spectral_response_function 
+                    self._spectral_response_function
                     * arr_flat[:, None, :]
                     * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
-                    )
+                )
                 numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
                 denominator_integral_local = np.trapezoid(
                     self._spectral_response_function
@@ -950,11 +947,11 @@ class Session:
 
                 numerator_integral = arr_flat_interp
                 denominator_integral_local = np.ones_like(numerator_integral)
-                
+
                 # proper formula to mix leg coeffs
-                # shape  (21, wl) * (1, lyr, 1, wl) * (1, lyr, 1, wl) integ on wl 
+                # shape  (21, wl) * (1, lyr, 1, wl) * (1, lyr, 1, wl) integ on wl
                 # numerator = (
-                #     self._spectral_response_function 
+                #     self._spectral_response_function
                 #     * column.tau.reshape(-1, arr.shape[-1])[None, :, None, :]
                 #     * column.ss_alb.reshape(-1, arr.shape[-1])[None, :, None, :]
                 #     * arr[:, :, None, :]
@@ -985,7 +982,7 @@ class Session:
             band_means[name] = averaged_rows
 
         return band_means
-    
+
     def compute_solar_weighted_average(
         self, column, wavelengths, band_ranges, var_names
     ):
@@ -1033,24 +1030,24 @@ class Session:
                 denominator_integral_local = np.trapezoid(
                     denominator, x=wavelengths, axis=-1
                 )
-                
+
             elif name == "ss_alb":
                 # srf * flux * w * tau
                 numerator = (
                     self._spectral_response_function_sw_total
                     * arr_flat[:, None, :]
                     * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
-                    )
+                )
                 denominator_integral_local = np.trapezoid(
                     self._spectral_response_function_sw_total
                     * column.tau.reshape(-1, arr.shape[-1])[:, None, :],
                     x=wavelengths,
                     axis=-1,
                 )
-                
+
             # leg moments are taken at central wl to reduce comp. burden
             elif name == "legendre_moments":
-                
+
                 f = scipy.interpolate.interp1d(
                     self.config._wavelengths_atmosphere,
                     arr_flat,
@@ -1062,7 +1059,7 @@ class Session:
                 denominator_integral_local = np.ones_like(numerator_integral)
 
                 # numerator = (
-                #     self._spectral_response_function_sw_total 
+                #     self._spectral_response_function_sw_total
                 #     * column.tau.reshape(-1, arr.shape[-1])[None, :, None, :]
                 #     * column.ss_alb.reshape(-1, arr.shape[-1])[None, :, None, :]
                 #     * arr[:, :, None, :]
@@ -1098,7 +1095,6 @@ class Session:
 
         return band_means
 
-    
     def compute_band_average(self, components=["solar", "atmosphere", "land"]) -> None:
         """
         Compute band averages for given properties of given components.
