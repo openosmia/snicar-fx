@@ -96,12 +96,12 @@ class Session:
             )
 
             if self.config.SPECTRAL.MODE == "monochromatic":
-                self.config._wavelengths_solar = wavelength_homogeneous
-                self.config._wavelengths_land = wavelength_homogeneous
-                self.config._wavelengths_atmosphere = wavelength_homogeneous
-                # self.config._wavelengths_solar = wavelength_1cm_m1
-                # self.config._wavelengths_land = wavelength_1cm_m1
-                # self.config._wavelengths_atmosphere = wavelength_1cm_m1
+                # self.config._wavelengths_solar = wavelength_homogeneous
+                # self.config._wavelengths_land = wavelength_homogeneous
+                # self.config._wavelengths_atmosphere = wavelength_homogeneous
+                self.config._wavelengths_solar = wavelength_1cm_m1
+                self.config._wavelengths_land = wavelength_1cm_m1
+                self.config._wavelengths_atmosphere = wavelength_1cm_m1
 
             elif "band-" in self.config.SPECTRAL.MODE:
                 self.config._wavelengths_solar = wavelength_1cm_m1
