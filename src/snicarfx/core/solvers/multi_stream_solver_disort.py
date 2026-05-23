@@ -104,7 +104,7 @@ class _MultiStreamSolverDISORT:
         land,
         atmosphere,
         irradiance,
-        SOLVER,
+        config,
     ):
         """
         Initialize all variables required for the solver and applies delta
@@ -121,28 +121,30 @@ class _MultiStreamSolverDISORT:
         irradiance : SolarIrradiance
             Instance of the SolarIrradiance class, storing the properties of the
             incoming solar irradiance.
-        SOLVER : dictionary
+        config : dictionary
             Solver parameters set in the input Yaml file.
         """
 
         self.direct_irradiance = irradiance.total_irradiance
         self.diffuse_irradiance = 0 * irradiance.diffuse / (np.pi * 4)
         self.mu0 = np.cos(np.deg2rad(irradiance.sza))
-        self.nbr_wvl = len(irradiance.direct_beam)
-        self.n_streams = SOLVER.N_STREAMS
-        self.n_fourier = SOLVER.N_FOURIER_MODES
-        self.n_expansion = SOLVER.N_LEGENDRE_MOMENTS
+        self.n_streams = config.SOLVER.N_STREAMS
+        self.n_fourier = config.SOLVER.N_FOURIER_MODES
+        self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
         self.only_fourier_m0 = self.n_fourier == 1
-        self.output_levels = SOLVER.OUTPUT_LEVELS
+        self.output_levels = config.SOLVER.OUTPUT_LEVELS
 
-        self.wavelengths = irradiance._wavelengths
+        self.wavelengths = config._wavelengths
+        self.nbr_wvl = len(self.wavelengths)
 
         self.set_gaussian_quadrature()
-        self.output_polar_angles = np.cos(np.deg2rad(np.arange(*SOLVER.POLAR_ANGLES)))
+        self.output_polar_angles = np.cos(
+            np.deg2rad(np.arange(*config.SOLVER.POLAR_ANGLES))
+        )
 
         if not self.only_fourier_m0:
             self.phi0 = np.deg2rad(irradiance.saa)
-            self.azimuth_angles = np.arange(*SOLVER.AZIMUTH_ANGLES)
+            self.azimuth_angles = np.arange(*config.SOLVER.AZIMUTH_ANGLES)
             self.relative_azimuths = np.abs(self.azimuth_angles - irradiance.saa)
             self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
         else:
@@ -151,7 +153,7 @@ class _MultiStreamSolverDISORT:
         # default value
         self.banded_Nlayers = 10
 
-        if SOLVER.DELTA_SCALING == "M" or SOLVER.DELTA_SCALING == "M+":
+        if config.SOLVER.DELTA_SCALING == "M" or config.SOLVER.DELTA_SCALING == "M+":
             (
                 tau_land,
                 ss_alb_land,
@@ -160,7 +162,7 @@ class _MultiStreamSolverDISORT:
                 ss_alb_atm,
                 legendre_moments_atm,
                 scale_factor,
-            ) = self.apply_delta_scaling(atmosphere, land, SOLVER)
+            ) = self.apply_delta_scaling(atmosphere, land, config.SOLVER)
 
             self.scale_tau = scale_factor
 
@@ -603,7 +605,7 @@ class _MultiStreamSolverDISORT:
         return results
 
 
-def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
+def solve_multi_stream_rt_disort(land, atmosphere, irradiance, config):
     """
 
     Compute upward and downward radiances for a column of homogeneous layers.
@@ -619,7 +621,7 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class, storing the properties of the
         incoming solar irradiance.
-    SOLVER : dictionary
+    config : dictionary
         Solver parameters set in the input Yaml file.
 
     Returns
@@ -628,7 +630,7 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
         Results of the solvers (radiance/reflectance/albedo at TOA/BOA).
     """
 
-    mssd = _MultiStreamSolverDISORT(land, atmosphere, irradiance, SOLVER)
+    mssd = _MultiStreamSolverDISORT(land, atmosphere, irradiance, config)
 
     for wl_idx in range(mssd.nbr_wvl):
 
@@ -692,7 +694,7 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, SOLVER):
 
 
 def solve_multi_stream_rt_disort_wrapper(
-    land, atmosphere, irradiance, SOLVER, NT_cor=True
+    land, atmosphere, irradiance, config, NT_cor=True
 ):
     """
 
@@ -710,7 +712,7 @@ def solve_multi_stream_rt_disort_wrapper(
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class, storing the properties of the
         incoming solar irradiance.
-    SOLVER : dictionary
+    config : dictionary
         Solver parameters set in the input Yaml file.
 
     Returns
@@ -719,7 +721,7 @@ def solve_multi_stream_rt_disort_wrapper(
         Results of the solvers (radiance/reflectance/albedo at TOA/BOA).
     """
 
-    mssd = _MultiStreamSolverDISORT(land, atmosphere, irradiance, SOLVER)
+    mssd = _MultiStreamSolverDISORT(land, atmosphere, irradiance, config)
 
     for wl_idx in range(mssd.nbr_wvl):
 

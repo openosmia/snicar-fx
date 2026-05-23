@@ -15,7 +15,7 @@ class _MultiStreamSolverADA:
     Compute and store the variables necessary to solve the
     unpolarized radiative transfer equation using the ADA solver, which employs
     the Advanced Matrix Operator Method (AMOM) and the adding method.
-    
+
     The solver in this file is a translation of the Fortran-based solver from CRTM,
     originally written by Quanhua Liu (QSS at JCSDA;
     quanhua.liu@noaa.gov), Yong Han (NOAA/NESDIS, yong.han@noaa.gov) and
@@ -24,7 +24,7 @@ class _MultiStreamSolverADA:
     References:
     Liu and Weng, 2013: 10.1109/JSTARS.2013.2247026
     Liu and Weng, 2006: https://doi.org/10.1175/JAS3808.1
-    
+
     Attributes
     ----------
     solar_irradiance : ndarray
@@ -40,15 +40,15 @@ class _MultiStreamSolverADA:
     mth_azi : int
         Current Fourier mode.
     nbr_wvl : ndarray
-        Number of wavelengths. 
+        Number of wavelengths.
     nbr_lyr : int
-        Number of layers for the total column. 
+        Number of layers for the total column.
     output_levels : str
         Levels in the column at which to return the results.
     relative_azimuths : ndarray
-        Relative azimuth angle (viewing - solar). 
+        Relative azimuth angle (viewing - solar).
     relative_azimuths_rad : ndarray
-        Relative azimuth angle in radians (viewing - solar). 
+        Relative azimuth angle in radians (viewing - solar).
     cos_angle : ndarray
         Nodes of the gaussian quadrature.
     cos_weight : ndarray
@@ -60,7 +60,7 @@ class _MultiStreamSolverADA:
     run_downward_loop : bool
         Controls whether to compute radiative quantities at all levels or not.
     t_od : ndarray
-        Spectral optical depth for all layers. 
+        Spectral optical depth for all layers.
     w : ndarray
         Spectral single scattering albedo for all layers.
     legendre_moments : ndarray
@@ -108,7 +108,7 @@ class _MultiStreamSolverADA:
         land,
         atmosphere,
         irradiance,
-        SOLVER,
+        config,
     ):
         """
         Initialize all variables required for the solver and applies delta
@@ -125,7 +125,7 @@ class _MultiStreamSolverADA:
         irradiance : SolarIrradiance
             Instance of the SolarIrradiance class, storing the properties of the
             incoming solar irradiance.
-        SOLVER : dictionary
+        config : dictionary
             Solver parameters set in the input Yaml file.
         """
 
@@ -133,20 +133,20 @@ class _MultiStreamSolverADA:
         self.solar_flag = True
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
         self.cosmic_background = 0
-        self.n_angles = SOLVER.N_STREAMS
-        self.n_fourier = SOLVER.N_FOURIER_MODES
-        self.nbr_wvl = len(irradiance.direct_beam.flatten())
-        self.output_levels = SOLVER.OUTPUT_LEVELS
+        self.n_angles = config.SOLVER.N_STREAMS
+        self.n_fourier = config.SOLVER.N_FOURIER_MODES
+
+        self.wavelengths = config._wavelengths
+        self.nbr_wvl = len(self.wavelengths)
+        self.output_levels = config.SOLVER.OUTPUT_LEVELS
         self._angle_indices = np.arange(self.n_angles)
-        
-        if self.n_fourier > 1: 
-            self.azimuth_angles = np.arange(*SOLVER.AZIMUTH_ANGLES)
-            self.relative_azimuths = np.abs(
-                 self.azimuth_angles - irradiance.saa
-                )
+
+        if self.n_fourier > 1:
+            self.azimuth_angles = np.arange(*config.SOLVER.AZIMUTH_ANGLES)
+            self.relative_azimuths = np.abs(self.azimuth_angles - irradiance.saa)
             self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
 
-        if "BOA" in SOLVER.OUTPUT_LEVELS and atmosphere.use_atmosphere:
+        if "BOA" in config.SOLVER.OUTPUT_LEVELS and atmosphere.use_atmosphere:
             self.run_downward_loop = True
         else:
             self.run_downward_loop = False
@@ -157,7 +157,7 @@ class _MultiStreamSolverADA:
 
         # apply delta scaling
 
-        if SOLVER.DELTA_SCALING == "M" or SOLVER.DELTA_SCALING == "M+":
+        if config.SOLVER.DELTA_SCALING == "M" or config.SOLVER.DELTA_SCALING == "M+":
             (
                 tau_land,
                 ss_alb_land,
@@ -165,7 +165,7 @@ class _MultiStreamSolverADA:
                 tau_atm,
                 ss_alb_atm,
                 legendre_moments_atm,
-            ) = self.apply_delta_scaling(atmosphere, land, SOLVER)
+            ) = self.apply_delta_scaling(atmosphere, land, config.SOLVER)
 
         else:
             tau_land = np.array(land.tau)
@@ -209,8 +209,7 @@ class _MultiStreamSolverADA:
         )
         self.direct_reflectivity = np.zeros((self.n_angles, self.nbr_wvl))
         self.reflectivity = np.zeros((self.nbr_wvl, self.n_angles, self.n_angles))
-        
-        
+
         ## attributes for adding method
         self.s_level_refl_up = np.zeros(
             (self.nbr_wvl, self.n_angles, self.n_angles, self.nbr_lyr + 1)
@@ -254,10 +253,10 @@ class _MultiStreamSolverADA:
             )
 
     def set_gaussian_quadrature(self):
-        '''
+        """
         Set nodes and weights of gaussian quadrature in [0-1] (cos polar angle).
 
-        '''
+        """
 
         # generate nodes / weights in [-1:1] and then remap to [0-1]
         nodes, weights = np.polynomial.legendre.leggauss(self.n_angles)
@@ -265,10 +264,10 @@ class _MultiStreamSolverADA:
         self.cos_weight = 0.5 * weights
 
     def apply_delta_scaling(self, atmosphere, land, SOLVER):
-        '''
+        """
         Apply optional Delta-M or Delta-M+ scaling to expansion coefficients
         to truncate strongly forward-scattering phase functions.
-        
+
         Parameters
         ----------
         land : LandColumn
@@ -283,7 +282,7 @@ class _MultiStreamSolverADA:
         SOLVER : dictionary
             Solver parameters set in the input Yaml file.
 
-        '''
+        """
 
         # initialize and set in case atmosphere is not used
         tau_atm = None
@@ -456,7 +455,7 @@ class _MultiStreamSolverADA:
     def set_phase_matrices(self):
         """
         Calculate phase function expansion from legendre moments and legendre
-        polynomials, then compute forward + backward phase matrices and finally 
+        polynomials, then compute forward + backward phase matrices and finally
         check conservation of energy distributed among the streams.
         """
 
@@ -532,11 +531,10 @@ class _MultiStreamSolverADA:
                 "Invalid phase matrix elements. Try increasing stream numbers or use aspherical shapes."
             )
 
-
     def reset_state(self, m):
         """
         Change Fourier moment order and reset required variables.
-        
+
         Parameters
         ----------
         m : int
@@ -788,7 +786,7 @@ class _MultiStreamSolverADA:
 
     def verify_balance_of_fluxes(self):
         """
-        Verify that the energy coming in is either reflected back, absorbed by 
+        Verify that the energy coming in is either reflected back, absorbed by
         the layers or 'lost' at the model boundary.
         """
 
@@ -922,7 +920,18 @@ class _MultiStreamSolverADA:
                 / (E_diff + E_dir)
             ).flatten()
 
-            results["bba_boa"] = (np.sum(
+            # results["bba_boa"] = np.sum(
+            #     2
+            #     * np.pi
+            #     * np.sum(
+            #         self.s_level_rad_up_moments[:, self.surface_idx, :, 0]
+            #         * np.array(self.cos_angle)[:, None]
+            #         * np.array(self.cos_weight)[:, None],
+            #         axis=0,
+            #     )
+            # ) / np.sum((E_diff + E_dir))
+
+            results["bba_boa"] = np.trapezoid(
                 2
                 * np.pi
                 * np.sum(
@@ -930,18 +939,17 @@ class _MultiStreamSolverADA:
                     * np.array(self.cos_angle)[:, None]
                     * np.array(self.cos_weight)[:, None],
                     axis=0,
-                ))
-                / np.sum((E_diff + E_dir))
-            )
-            
+                ),
+                x=self.wavelengths,
+            ) / np.trapezoid(E_diff + E_dir, x=self.wavelengths)
 
             results["directional_reflectance_boa_m0"] = (
                 self.s_level_rad_up_moments[:, self.surface_idx, :, 0] * np.pi
             ) / (E_diff + E_dir)
-            
-            results["directional_radiance_boa_m0"] = (
-                self.s_level_rad_up_moments[:, self.surface_idx, :, 0] 
-                )
+
+            results["directional_radiance_boa_m0"] = self.s_level_rad_up_moments[
+                :, self.surface_idx, :, 0
+            ]
 
             # double-directional radiance with Fourier reconstruction
             if self.n_fourier > 1:
@@ -1036,7 +1044,7 @@ class _MultiStreamSolverADA:
         return results
 
 
-def solve_multi_stream_rt_ada(land, atmosphere, irradiance, SOLVER):
+def solve_multi_stream_rt_ada(land, atmosphere, irradiance, config):
     """
 
     Compute upward and downward radiances for a column of homogeneous layers
@@ -1053,19 +1061,19 @@ def solve_multi_stream_rt_ada(land, atmosphere, irradiance, SOLVER):
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class, storing the properties of the
         incoming solar irradiance.
-    SOLVER : dictionary
+    config : dictionary
         Solver parameters set in the input Yaml file.
-        
-    Returns 
+
+    Returns
     -------
     outputs : dictionary
         Results of the solvers (radiance/reflectance/albedo at TOA/BOA).
-    
+
 
     """
 
     # initialize solver
-    aads = _MultiStreamSolverADA(land, atmosphere, irradiance, SOLVER)
+    aads = _MultiStreamSolverADA(land, atmosphere, irradiance, config)
 
     for m in range(aads.n_fourier):
 

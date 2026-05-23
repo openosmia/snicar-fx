@@ -565,7 +565,7 @@ class Session:
                 self.land_column,
                 self.atmosphere_column,
                 self.solar_irradiance,
-                self.config.SOLVER,
+                self.config,
             )
 
             if self.config.SPECTRAL.MODE == "band-srf-integration":
@@ -582,14 +582,14 @@ class Session:
                     self.land_column,
                     self.atmosphere_column,
                     self.solar_irradiance,
-                    self.config.SOLVER,
+                    self.config,
                 )
             elif self.config.SOLVER.DELTA_SCALING == "M":
                 self.outputs = solve_multi_stream_rt_disort_wrapper(
                     self.land_column,
                     self.atmosphere_column,
                     self.solar_irradiance,
-                    self.config.SOLVER,
+                    self.config,
                 )
 
             if self.config.SPECTRAL.MODE == "band-srf-integration":
@@ -823,10 +823,6 @@ class Session:
                         axis=-1,
                     )[None, :, None]
                 )
-
-        # overwrite high-resolution wavelength array (used for
-        # computation) with center wavelengths
-        self.config._wavelengths = self._band_ranges[:, -1]
 
     def compute_flat_band_average(self, component, wavelengths, band_ranges, var_names):
         """

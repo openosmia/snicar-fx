@@ -56,7 +56,7 @@ def test_multistream_outputs(
 
     # solve RTE
     results = solve_multi_stream_rt_ada(
-        land_column, atmosphere, irradiance, session_multistr_uncoupled.config.SOLVER
+        land_column, atmosphere, irradiance, session_multistr_uncoupled.config
     )
 
     # a given set of parameters (including a given wavelength)
