@@ -405,7 +405,7 @@ class IntegratedGasConcentrations(BaseModel):
     CO2: float | None = Field(
         default=None,
         ge=0.0,
-        le=5,
+        le=10.0,
         description=("Column-integrated CO2 concentration"),
         examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the CO2 profile.",
     )
@@ -469,7 +469,7 @@ class Atmosphere(BaseModel):
         if self.SKY_CONDITIONS == "cloudy":
             raise ValueError("Cloudy sky conditions are not available for now.")
         return self
-    
+
     @model_validator(mode="after")
     def check_aerosol_file(self):
         """
@@ -477,7 +477,9 @@ class Atmosphere(BaseModel):
         """
 
         if self.INTEGRATED_AOD_550 > 0 and self.AEROSOL_PROPERTIES is None:
-            raise ValueError("An aerosol file is required to set an aerosol optical thickness.")
+            raise ValueError(
+                "An aerosol file is required to set an aerosol optical thickness."
+            )
         return self
 
 
