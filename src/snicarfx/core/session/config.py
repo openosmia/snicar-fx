@@ -405,7 +405,7 @@ class IntegratedGasConcentrations(BaseModel):
     CO2: float | None = Field(
         default=None,
         ge=0.0,
-        le=10.0,
+        le=10,
         description=("Column-integrated CO2 concentration"),
         examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the CO2 profile.",
     )
