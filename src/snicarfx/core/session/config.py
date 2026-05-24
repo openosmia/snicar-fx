@@ -43,9 +43,9 @@ class Solver(BaseModel):
     )
 
     # levels to output
-    OUTPUT_LEVELS: Literal["BOA", "TOA", "BOA+TOA"] = Field(
+    OUTPUT_LEVELS: Literal["BOA", "TOA", "BOA+TOA", "TOA+BOA"] = Field(
         description="Levels at which to return radiance/reflectance",
-        examples="'BOA' = Bottom of Atmosphere, 'TOA' = Top of Atmosphere, 'BOA+TOA' = both. 'TOA' can only be included if ATMOSPHERE_COUPLING is True.",
+        examples="'BOA' = Bottom of Atmosphere, 'TOA' = Top of Atmosphere, 'BOA+TOA' or 'TOA+BOA' = both. 'TOA' can only be included if ATMOSPHERE_COUPLING is True.",
     )
 
     DELTA_SCALING: Literal["M", "M+"] = Field(
