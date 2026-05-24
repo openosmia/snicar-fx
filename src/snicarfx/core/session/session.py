@@ -408,6 +408,13 @@ class Session:
         Update allowed atmospheric fields from user-defined dictionary.
         """
 
+        # raise error if update atmopshere is called but not
+        # atmosphere is set
+        if not self.config.SOLVER.ATMOSPHERE_COUPLING:
+            raise ValueError(
+                "Cannot update atmosphere properties when SOLVER.ATMOSPHERE_COUPLING is false. Please set SOLVER.ATMOSPHERE_COUPLING to true in input file before attempting to update atmosphere."
+            )
+
         # for now we do not change sky conditions, atmospheric profile type
         # & aerosol properties
 
