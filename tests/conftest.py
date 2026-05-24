@@ -16,11 +16,15 @@ from snicarfx.core import LandColumn
 from snicarfx.core import SolarIrradiance
 from snicarfx import Session
 
-TEST_INPUT_FILE_2STR = "./tests/inputs_tests_2str.yaml"
-TEST_INPUT_FILE_MULTISTR_UNCOUPLED = "./tests/inputs_tests_multistr_uncoupled.yaml"
-TEST_INPUT_FILE_MULTISTR_COUPLED = "./tests/inputs_tests_multistr_coupled.yaml"
+TEST_INPUT_FILE_TWOSTREAM = "./tests/input_files/inputs_tests_twostream.yaml"
+TEST_INPUT_FILE_MULTISTREAM_UNCOUPLED = (
+    "./tests/input_files/inputs_tests_disort_multistream_uncoupled.yaml"
+)
+TEST_INPUT_FILE_MULTISTREAM_COUPLED = (
+    "./tests/input_files/inputs_tests_disort_multistream_coupled.yaml"
+)
 
-CORE_INPUT_FILE = "./src/snicarfx/inputs.yaml"
+CORE_INPUT_FILE = "./tests/input_files/inputs_tests_ada_multistream_coupled.yaml"
 
 
 @pytest.fixture(scope="module")
@@ -30,41 +34,45 @@ def core_input_file():
 
 
 @pytest.fixture(scope="module")
-def test_input_file_2str():
+def test_input_file_twostream():
     """Fetch path to the test input file."""
-    return TEST_INPUT_FILE_2STR
+    return TEST_INPUT_FILE_TWOSTREAM
 
 
 @pytest.fixture(scope="module")
-def test_input_file_multistr_uncoupled():
+def test_input_file_multistream_uncoupled():
     """Fetch path to the test input file."""
-    return TEST_INPUT_FILE_MULTISTR_UNCOUPLED
+    return TEST_INPUT_FILE_MULTISTREAM_UNCOUPLED
+
 
 @pytest.fixture(scope="module")
-def test_input_file_multistr_coupled():
+def test_input_file_multistream_coupled():
     """Fetch path to the test input file."""
-    return TEST_INPUT_FILE_MULTISTR_COUPLED
+    return TEST_INPUT_FILE_MULTISTREAM_COUPLED
+
 
 @pytest.fixture(scope="module")
-def session_2str():
+def session_twostream():
     """Provide a shared Session instance."""
-    return Session(TEST_INPUT_FILE_2STR)
+    return Session(TEST_INPUT_FILE_TWOSTREAM)
+
 
 @pytest.fixture(scope="module")
-def session_multistr_uncoupled():
+def session_multistream_uncoupled():
     """Provide a shared Session instance."""
-    return Session(TEST_INPUT_FILE_MULTISTR_UNCOUPLED)
+    return Session(TEST_INPUT_FILE_MULTISTREAM_UNCOUPLED)
+
 
 @pytest.fixture(scope="module")
-def session_multistr_coupled():
+def session_multistream_coupled():
     """Provide a shared Session instance."""
-    return Session(TEST_INPUT_FILE_MULTISTR_COUPLED)
+    return Session(TEST_INPUT_FILE_MULTISTREAM_COUPLED)
 
 
 @pytest.fixture(scope="module")
-def config(session_2str):
+def config(session_twostream):
     """Provide a shared instance of Config."""
-    return session_2str.config
+    return session_twostream.config
 
 
 @pytest.fixture(scope="module")
@@ -74,9 +82,9 @@ def land_column(config):
 
 
 @pytest.fixture(scope="module")
-def atmosphere_column(session_multistr_coupled):
+def atmosphere_column(session_multistream_coupled):
     """Provide a shared AtmosphereColumn instance using shared Config."""
-    return AtmosphereColumn(session_multistr_coupled.config)
+    return AtmosphereColumn(session_multistream_coupled.config)
 
 
 @pytest.fixture(scope="module")
@@ -84,15 +92,16 @@ def irradiance(config):
     """Provide a SolarIrradiance instance using shared Config."""
     return SolarIrradiance(config)
 
+
 @pytest.fixture(scope="module")
-def expected_shapes(session_2str):
+def expected_shapes(session_twostream):
     """Fetch expected shapes in the layer and wavelength dimensions."""
     return {
-        "1d_layers": (session_2str.land_column.nbr_lyr,),
-        "1d_wavelengths_solar": (len(session_2str.config._wavelengths_solar),),
+        "1d_layers": (session_twostream.land_column.nbr_lyr,),
+        "1d_wavelengths_solar": (len(session_twostream.config._wavelengths_solar),),
         "2d_layers_wavelengths": (
-            session_2str.land_column.nbr_lyr,
-            session_2str.land_column.nbr_wvl,
+            session_twostream.land_column.nbr_lyr,
+            session_twostream.land_column.nbr_wvl,
         ),
     }
 
@@ -198,10 +207,10 @@ def pytest_generate_tests(metafunc):
         ds = xr.open_dataset("./tests/test_data/benchmark_ADA_spectral_albedo.nc")
         grid = list(multistream_ada_parameter_grid(ds))
         metafunc.parametrize("params_ada", grid)
-    if {"params_2str"} <= set(metafunc.fixturenames):
+    if {"params_twostream"} <= set(metafunc.fixturenames):
         ds = xr.open_dataset("./tests/test_data/benchmark_SNICARADv4_BBA.nc")
         grid = list(twostream_parameter_grid(ds))
-        metafunc.parametrize("params_2str", grid)
+        metafunc.parametrize("params_twostream", grid)
 
 
 @pytest.fixture(

@@ -13,8 +13,8 @@ from tests.solvers.utils import use_data_snicaradv4
 
 
 def test_twostreams_outputs(
-    session_2str,
-    params_2str,
+    session_twostream,
+    params_twostream,
     benchmark_snicaradv4_spectral_data,
     benchmark_snicaradv4_bba_data,
     benchmark_snicaradv4_absorbed_flux_data,
@@ -50,11 +50,11 @@ def test_twostreams_outputs(
 
     """
 
-    layer_type, density, radius, sza, bc, thickness_profile, direct = params_2str
+    layer_type, density, radius, sza, bc, thickness_profile, direct = params_twostream
 
     # Setup inputs
-    land_column = session_2str.land_column
-    irradiance = session_2str.solar_irradiance
+    land_column = session_twostream.land_column
+    irradiance = session_twostream.solar_irradiance
 
     # # calculate irradiance
     irradiance.sza = sza

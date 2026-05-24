@@ -20,7 +20,7 @@ ATMOSPHERE:
   SKY_CONDITIONS: "clear" # clear, cloudy
   ATMOSPHERIC_PROFILE_TYPE: "afglss"
   INTEGRATED_AOD_550: 0.1
-  AEROSOL_PROPERTIES: "aerosol_mixture_SW_Greenland.nc"
+  AEROSOL_PROPERTIES: "aerosol_mixture_SW_KN.nc"
   INTEGRATED_GAS_CONCENTRATIONS:
     H2O:  13.077
     NO2: 5.78e-07

@@ -24,7 +24,7 @@ ATMOSPHERE:
     NO2: 5.78e-07
     O3: 0.006294
 
-  AEROSOL_PROPERTIES: "aerosol_mixture_SW_Greenland.nc"
+  AEROSOL_PROPERTIES: "aerosol_mixture_SW_KN.nc"
   INTEGRATED_AOD_550: 0.1
     
 LAND:  
