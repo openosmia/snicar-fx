@@ -588,20 +588,25 @@ class Land(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def check_density_upper_bound(self):
+    def check_ice_and_air_fraction_validity(self):
         """
-        Verify that the density does not exceed 916.999 kg m-3 when the liquid
-        water content is 0.
+        Verify physical validity of ice and air fractions (>1 and >0, respectively).
         """
 
-        high_densities = np.where(np.array(self.DENSITY) > 916.999)[0]
+        ice_volume_fraction = (np.array(self.DENSITY) - np.array(self.LWC) * 1000) / 917
+        air_volume_fraction = 1 - ice_volume_fraction - np.array(self.LWC)
 
-        if len(high_densities) > 0:
-            for lyr in high_densities:
-                if self.LWC[lyr] == 0:
-                    raise ValueError(
-                        f"The density cannot exceed 916.999 kg m-3 when the liquid water in the layer is 0. Please modify layer {lyr}"
-                    )
+        if any(ice_volume_fraction >= 1):
+            invalid_layers = np.where(ice_volume_fraction >= 1)[0]
+            raise ValueError(
+                f"Volume ice fraction invalid. Please reduce density in layers {invalid_layers}."
+            )
+
+        if any(air_volume_fraction <= 0):
+            invalid_layers = np.where(air_volume_fraction <= 0)[0]
+            raise ValueError(
+                f"Volume air fraction invalid. Please reduce density in layers {invalid_layers}."
+            )
 
         return self
 
