@@ -15,7 +15,7 @@ SOLAR:
 
 ATMOSPHERE:
   SKY_CONDITIONS: "clear" # clear, cloudy
-  ATMOSPHERIC_PROFILE_TYPE: "afglss"
+  ATMOSPHERIC_PROFILE_TYPE: "test"
 
 LAND:
   THICKNESS: [1, 1, 1]  # thickness of each vertical layer (unit : m)

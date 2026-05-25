@@ -1,4 +1,5 @@
 # AFGL atmospheric constituent profile. subarctic summer. ( AFGL-TR-86-0110). Trunctated to the first and last layer for testing purposes.
 #     z(km)      p(mb)        T(K)    air(cm-3)    o3(cm-3)     o2(cm-3)    h2o(cm-3)    co2(cm-3)     no2(cm-3)
     120.000     0.00002     380.000 4.307612E+11 2.155500E+02 3.125475E+10 8.622001E+04 1.508850E+07 6.509610E+01
+      1.000   896.00000     281.700 2.303737E+19 6.776700E+11 4.817450E+18 2.005581E+17 7.606500E+15 5.301500E+08
       0.000  1010.00000     287.200 2.547116E+19 6.148188E+11 5.327410E+18 3.043506E+17 8.411700E+15 5.862700E+08

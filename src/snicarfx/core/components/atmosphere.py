@@ -103,7 +103,7 @@ class AtmosphereColumn:
 
             self.load_gas_absorption_cross_sections()
             self.compute_gas_optical_thickness()
-            
+
             if self.AOD == 0.0 or self.surface_elevation > self.aerosol_boundary_height:
                 self.set_atmospheric_properties_without_aerosols()
 

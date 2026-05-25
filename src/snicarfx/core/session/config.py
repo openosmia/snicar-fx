@@ -435,9 +435,9 @@ class Atmosphere(BaseModel):
         examples="Only clear sky conditions are available for now. This field is mostly used for uncoupled simulations to determine the ratio of direct/diffuse radiation arriving at the surface (for coupled simulation, the TOA irradiance is always fully direct). 'clear_fully_direct' assumes 100% direct irradiance, 'clear' represents direct solar beam dominance, 'cloudy' is fully diffuse irradiance.",
     )
 
-    ATMOSPHERIC_PROFILE_TYPE: Literal["afglss", "afglss_downscaled"] = Field(
+    ATMOSPHERIC_PROFILE_TYPE: Literal["afglss", "afglss_downscaled", "test"] = Field(
         description="Name of standard atmospheric profile",
-        examples="This field selects a type of atmospheric profile (AFGL Atmospheric Constituent Profiles developed by Anderson et al. 1986), which includes pressure, temperature, air density, as well as O3, H2O, CO2 and NO2 concentrations for each atmospheric level. For now only the Subarctic Summer (afglss) profile is available. The downscaled version corresponds to a similar profile with ~2x less layers.",
+        examples="This field selects a type of atmospheric profile (AFGL Atmospheric Constituent Profiles developed by Anderson et al. 1986), which includes pressure, temperature, air density, as well as O3, H2O, CO2 and NO2 concentrations for each atmospheric level. For now only the Subarctic Summer (afglss) profile is available. The downscaled version corresponds to a similar profile with ~2x less layers. Test is a two-layer atmosphere for testing purposes only.",
     )
 
     AEROSOL_PROPERTIES: str | None = Field(
@@ -753,35 +753,37 @@ class Config(BaseModel):
                     )
 
         return self
-    
+
     def raise_warnings(self):
         """
-        Print warnings regarding physical assumptions made based on the 
+        Print warnings regarding physical assumptions made based on the
         selected configuration (e.g., irradiance treatment).
         """
 
-        if (self.ATMOSPHERE.SKY_CONDITIONS == "clear" 
+        if (
+            self.ATMOSPHERE.SKY_CONDITIONS == "clear"
             and self.SOLVER != "two-stream-ad"
-            and self.SOLVER.ATMOSPHERE_COUPLING == False): 
+            and self.SOLVER.ATMOSPHERE_COUPLING == False
+        ):
             warnings.warn(
                 "The irradiance is currently treated as 100% direct beam when "
                 "the multi-stream solvers are used.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-    
+
     @classmethod
     def from_yaml(cls, yaml_file: str) -> "Config":
         """Load YAML and trigger physical assumption warnings."""
         with open(yaml_file) as f:
             input_data = yaml.load(f, Loader=yaml.FullLoader)
-        
+
         config_instance = cls.model_validate(input_data)
-        
+
         config_instance.raise_warnings()
-        
+
         return config_instance
-            
+
     @staticmethod
     def print_help(model: type[BaseModel] = None, indent: int = 0):
         """
