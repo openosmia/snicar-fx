@@ -8,7 +8,7 @@ SOLVER:
 
 SPECTRAL:
   MODE: "band-snicar-default"
-  RESOLUTION: [200, 5000, 10] # [start, end, step] or satellite instrument
+  RESOLUTION: [300, 2700, 10] # [start, end, step] or satellite instrument
 
 SOLAR:
   SZA: 50 

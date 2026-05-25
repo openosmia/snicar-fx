@@ -158,24 +158,7 @@ class _MultiStreamSolverADA:
         # apply delta scaling
 
         if config.SOLVER.DELTA_SCALING == "M" or config.SOLVER.DELTA_SCALING == "M+":
-            
-            # Check from DISORT v.4.0.98
-            if ((
-                    (atmosphere.legendre_moments[atmosphere.n_expansion, :, :] < 1e-4).any()
-                    or (land.legendre_moments[land.n_expansion, :, :] < 1e-4).any()
-                    or (
-                        atmosphere.legendre_moments[atmosphere.n_expansion + 1, :, :]
-                        < 0.7 * atmosphere.legendre_moments[atmosphere.n_expansion, :, :]
-                        ).any()
-                    or (
-                        land.legendre_moments[land.n_expansion + 1, :, :]
-                        < 0.7 * land.legendre_moments[land.n_expansion, :, :]
-                        ).any()
-                    )
-            and (config.SOLVER.DELTA_SCALING == "M+")):
-                
-                raise ValueError("Delta-M+ scaling cannot be applied to Legendre moments - select Delta-M instead.")
-                
+             
             (
                 tau_land,
                 ss_alb_land,
@@ -281,6 +264,7 @@ class _MultiStreamSolverADA:
         self.cos_angle = 0.5 * (nodes + 1.0)
         self.cos_weight = 0.5 * weights
 
+
     def apply_delta_scaling(self, atmosphere, land, SOLVER):
         """
         Apply optional Delta-M or Delta-M+ scaling to expansion coefficients
@@ -307,39 +291,34 @@ class _MultiStreamSolverADA:
         ss_alb_atm = None
         legendre_moments_atm = None
         
-        if SOLVER.DELTA_SCALING == "M":
-            # Delta truncation: get highest Legendre term following
-            # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS
-            f = np.array(land.legendre_moments[land.n_expansion])
-            scale_factor = 1.0 - land.ss_alb * f
-            legendre_moments_land = np.array(
-                (land.legendre_moments[: land.n_expansion, :, :] - f[None, :, :])
-                / (1 - f[None, :, :])
-            )
-            tau_land = np.array((1.0 - land.ss_alb * f) * land.tau)
-            ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
-
-            if atmosphere.use_atmosphere:
-                # could be applied only from aerosol boundary down as no effect in rayleigh layers
-                f = np.array(atmosphere.legendre_moments[atmosphere.n_expansion])
-                legendre_moments_atm = np.array(
-                    (
-                        atmosphere.legendre_moments[: atmosphere.n_expansion, :, :]
-                        - f[None, :, :]
-                    )
-                    / (1 - f[None, :, :])
-                )
-                tau_atm = np.array((1.0 - atmosphere.ss_alb * f) * atmosphere.tau)
-                ss_alb_atm = np.array(
-                    (1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f)
-                )
-
-                # update scale factor
-                scale_factor = np.vstack([(1.0 - atmosphere.ss_alb * f), scale_factor])
-
-
-        elif SOLVER.DELTA_SCALING == "M+":
-
+        if SOLVER.DELTA_SCALING == "M+":
+            # Check from DISORT v.4.0.98
+            if atmosphere.use_atmosphere: 
+                if (
+                        (atmosphere.legendre_moments[atmosphere.n_expansion, :, :] < 1e-4).any()
+                        or (land.legendre_moments[land.n_expansion, :, :] < 1e-4).any()
+                        or (
+                            atmosphere.legendre_moments[atmosphere.n_expansion + 1, :, :]
+                            < 0.7 * atmosphere.legendre_moments[atmosphere.n_expansion, :, :]
+                            ).any()
+                        or (
+                            land.legendre_moments[land.n_expansion + 1, :, :]
+                            < 0.7 * land.legendre_moments[land.n_expansion, :, :]
+                            ).any()
+                        ):
+                    
+                    raise ValueError("Delta-M+ scaling cannot be applied to Legendre moments - select Delta-M instead.")
+            else: 
+                if (
+                        (land.legendre_moments[land.n_expansion, :, :] < 1e-4).any()
+                        or (
+                            land.legendre_moments[land.n_expansion + 1, :, :]
+                            < 0.7 * land.legendre_moments[land.n_expansion, :, :]
+                            ).any()
+                        ):
+                    
+                    raise ValueError("Delta-M+ scaling cannot be applied to Legendre moments - select Delta-M instead.")
+            
             sigma_sq = ((land.n_expansion + 1) ** 2 - land.n_expansion**2) / (
                 np.log((land.legendre_moments[land.n_expansion]) ** 2)
                 - np.log((land.legendre_moments[land.n_expansion + 1]) ** 2)
@@ -431,13 +410,33 @@ class _MultiStreamSolverADA:
                     [atmosphere.ss_alb[:, :], ss_alb_scaled]
                 )
 
-                scale_factor = np.vstack(
-                    [
-                        np.ones((atmosphere.nbr_lyr, self.nbr_wvl)),
-                        (1.0 - atmosphere.ss_alb[:, :] * f),
-                        scale_factor,
-                    ]
+                
+        elif SOLVER.DELTA_SCALING == "M":
+            # Delta truncation: get highest Legendre term following
+            # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS
+            f = np.array(land.legendre_moments[land.n_expansion])
+            legendre_moments_land = np.array(
+                (land.legendre_moments[: land.n_expansion, :, :] - f[None, :, :])
+                / (1 - f[None, :, :])
+            )
+            tau_land = np.array((1.0 - land.ss_alb * f) * land.tau)
+            ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
+
+            if atmosphere.use_atmosphere:
+                # could be applied only from aerosol boundary down as no effect in rayleigh layers
+                f = np.array(atmosphere.legendre_moments[atmosphere.n_expansion])
+                legendre_moments_atm = np.array(
+                    (
+                        atmosphere.legendre_moments[: atmosphere.n_expansion, :, :]
+                        - f[None, :, :]
+                    )
+                    / (1 - f[None, :, :])
                 )
+                tau_atm = np.array((1.0 - atmosphere.ss_alb * f) * atmosphere.tau)
+                ss_alb_atm = np.array(
+                    (1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f)
+                )
+
                 
         return (
             tau_land,
@@ -446,9 +445,7 @@ class _MultiStreamSolverADA:
             tau_atm,
             ss_alb_atm,
             legendre_moments_atm,
-            scale_factor,
         )
-    
 
     def set_phase_matrices(self):
         """

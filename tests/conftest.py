@@ -18,7 +18,7 @@ from snicarfx import Session
 
 TEST_INPUT_FILE_TWOSTREAM = "./tests/input_files/inputs_tests_twostream.yaml"
 TEST_INPUT_FILE_MULTISTREAM_UNCOUPLED = (
-    "./tests/input_files/inputs_tests_disort_multistream_uncoupled.yaml"
+    "./tests/input_files/inputs_tests_ada_multistream_uncoupled.yaml"
 )
 TEST_INPUT_FILE_MULTISTREAM_COUPLED = (
     "./tests/input_files/inputs_tests_disort_multistream_coupled.yaml"
