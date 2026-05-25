@@ -22,6 +22,7 @@ from pydantic import (
 import textwrap
 from pydantic.fields import PydanticUndefined
 from types import UnionType
+import warnings
 
 
 class Solver(BaseModel):
@@ -752,14 +753,35 @@ class Config(BaseModel):
                     )
 
         return self
+    
+    def raise_warnings(self):
+        """
+        Print warnings regarding physical assumptions made based on the 
+        selected configuration (e.g., irradiance treatment).
+        """
 
+        if (self.ATMOSPHERE.SKY_CONDITIONS == "clear" 
+            and self.SOLVER != "two-stream-ad"
+            and self.SOLVER.ATMOSPHERE_COUPLING == False): 
+            warnings.warn(
+                "The irradiance is currently treated as 100% direct beam when "
+                "the multi-stream solvers are used.",
+                UserWarning,
+                stacklevel=2
+            )
+    
     @classmethod
     def from_yaml(cls, yaml_file: str) -> "Config":
-        """Wrap the yaml file validation"""
+        """Load YAML and trigger physical assumption warnings."""
         with open(yaml_file) as f:
             input_data = yaml.load(f, Loader=yaml.FullLoader)
-        return cls.model_validate(input_data)
-
+        
+        config_instance = cls.model_validate(input_data)
+        
+        config_instance.raise_warnings()
+        
+        return config_instance
+            
     @staticmethod
     def print_help(model: type[BaseModel] = None, indent: int = 0):
         """
