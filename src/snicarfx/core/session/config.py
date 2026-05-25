@@ -302,21 +302,21 @@ class Spectral(BaseModel):
 
     RESOLUTION: (
         tuple[
-            confloat(ge=200, le=5000),
-            confloat(ge=200, le=5000),
+            confloat(ge=300, le=5000),
+            confloat(ge=300, le=5000),
             confloat(ge=0.001, le=100),
         ]
         | Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"]
     ) = Field(
         description="Spectral resolution of the output (continuous or sensor-based range)",
-        examples="If a tuple is passed, the output is returned for each band or each monochromatic wavelength in the range. (!) the spectral range is restricted to 300 - 2500 when using coupled simulations. For satellite platforms, the output is returned either for each band or for each wavelength within the satellite sensor reponse function.",
+        examples="If a tuple is passed, the output is returned for each band or each monochromatic wavelength in the range. (!) the spectral range is restricted to 300 - 2700nm when using coupled simulations. For satellite platforms, the output is returned either for each band or for each wavelength within the satellite sensor reponse function.",
     )
 
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
     @model_validator(mode="after")
-    def check_spectral_range(self):
+    def check_spectral_range_tuple(self):
         """
         Verify that the spectral resolution provided as a tuple is valid,
         ie:
@@ -729,6 +729,26 @@ class Config(BaseModel):
                         f"Particle '{particle_name}' CONC list length "
                         f"({len(particle.CONC)}) does not match number of land "
                         f"layers ({land_layers})"
+                    )
+
+        return self
+
+    @model_validator(mode="after")
+    def check_spectral_range_validity(self):
+        """
+        Verify that the spectral bounds provided as a tuple are valid,
+        ie:
+            - range is within 300-2700nm in all cases except for a non-coupled
+              simulation with two-stream-ad solver.
+        """
+
+        if isinstance(self.SPECTRAL.RESOLUTION, tuple):
+            start, end, step = self.SPECTRAL.RESOLUTION
+
+            if self.SOLVER.TYPE != "two-stream-ad":
+                if start < 300 and end > 2700:
+                    raise ValueError(
+                        "SPECTRAL_RESOLUTION must cover a valid range. Please modify SPECTRAL_RESOLUTION to be within 300-2700nm."
                     )
 
         return self
