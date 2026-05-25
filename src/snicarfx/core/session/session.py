@@ -99,6 +99,7 @@ class Session:
                 self.config._wavelengths_solar = wavelength_homogeneous
                 self.config._wavelengths_land = wavelength_homogeneous
                 self.config._wavelengths_atmosphere = wavelength_homogeneous
+                self.config._wavelengths = wavelength_homogeneous
 
             elif "band-" in self.config.SPECTRAL.MODE:
                 self.config._wavelengths_solar = wavelength_1cm_m1

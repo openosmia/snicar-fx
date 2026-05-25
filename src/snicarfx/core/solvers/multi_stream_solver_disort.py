@@ -27,6 +27,8 @@ class _MultiStreamSolverDISORT:
         Controls whether to add a solar source.
     mu0 : float
         Cosine of the solar zenith angle.
+    wavelengths : ndarray
+        Wavelength array at which RTE is solved.
     nbr_wvl : ndarray
         Number of wavelengths.
     n_fourier : int
@@ -55,8 +57,6 @@ class _MultiStreamSolverDISORT:
         Relative azimuth angle (viewing - solar).
     relative_azimuths_rad : ndarray
         Relative azimuth angle in radians (viewing - solar).
-    banded_Nlayers : int
-        Internal variable for PythonicDISORT
     t_od : ndarray
         Delta scaled spectral optical depth for all layers.
     w : ndarray
@@ -150,10 +150,25 @@ class _MultiStreamSolverDISORT:
         else:
             self.phi0 = 0  # not used for n_fourier = 1 but must be prescribed
 
-        # default value
-        self.banded_Nlayers = 10
-
         if config.SOLVER.DELTA_SCALING == "M" or config.SOLVER.DELTA_SCALING == "M+":
+            
+            # Check from DISORT v.4.0.98
+            if ((
+                    (atmosphere.legendre_moments[atmosphere.n_expansion, :, :] < 1e-4).any()
+                    or (land.legendre_moments[land.n_expansion, :, :] < 1e-4).any()
+                    or (
+                        atmosphere.legendre_moments[atmosphere.n_expansion + 1, :, :]
+                        < 0.7 * atmosphere.legendre_moments[atmosphere.n_expansion, :, :]
+                        ).any()
+                    or (
+                        land.legendre_moments[land.n_expansion + 1, :, :]
+                        < 0.7 * land.legendre_moments[land.n_expansion, :, :]
+                        ).any()
+                    )
+            and (config.SOLVER.DELTA_SCALING == "M+")):
+                
+                raise ValueError("Delta-M+ scaling cannot be applied to Legendre moments - select Delta-M instead.")
+                
             (
                 tau_land,
                 ss_alb_land,
@@ -180,8 +195,6 @@ class _MultiStreamSolverDISORT:
 
         if not atmosphere.use_atmosphere:
             self.nbr_lyr = land.nbr_lyr
-            # in DISORT the optical depth of each layer is calculated as
-            # tau(n) - tau(n-1) so we need to cumsum
             self.t_od = np.cumsum(tau_land, axis=0)
             self.w = ss_alb_land
             self.legendre_moments = legendre_moments_land
@@ -258,6 +271,7 @@ class _MultiStreamSolverDISORT:
         self.cos_angle = 0.5 * (nodes + 1.0)
         self.cos_weight = 0.5 * weights
 
+
     def apply_delta_scaling(self, atmosphere, land, SOLVER):
         """
         Apply optional Delta-M or Delta-M+ scaling to expansion coefficients
@@ -283,7 +297,7 @@ class _MultiStreamSolverDISORT:
         tau_atm = None
         ss_alb_atm = None
         legendre_moments_atm = None
-
+        
         if SOLVER.DELTA_SCALING == "M":
             # Delta truncation: get highest Legendre term following
             # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS
@@ -314,6 +328,7 @@ class _MultiStreamSolverDISORT:
                 # update scale factor
                 scale_factor = np.vstack([(1.0 - atmosphere.ss_alb * f), scale_factor])
 
+
         elif SOLVER.DELTA_SCALING == "M+":
 
             sigma_sq = ((land.n_expansion + 1) ** 2 - land.n_expansion**2) / (
@@ -341,118 +356,80 @@ class _MultiStreamSolverDISORT:
 
             if atmosphere.use_atmosphere:
 
-                # if rayleigh scattering only, no need to scale
-                if atmosphere.AOD == 0:
-                    ss_alb_atm = np.array(atmosphere.ss_alb)
-                    tau_atm = np.array(atmosphere.tau)
-                    legendre_moments_atm = np.array(
-                        atmosphere.legendre_moments[: atmosphere.n_expansion, :, :]
-                    )
-
-                    scale_factor = np.vstack(
-                        [
-                            np.ones((atmosphere.nbr_lyr, self.nbr_wvl)),
-                            scale_factor,
-                        ]
-                    )
-
-                if atmosphere.AOD > 0:
-
-                    boundary_layer_aerosols = np.where(
-                        atmosphere.legendre_moments[1, :, 0] != 0.0
-                    )[0][0]
-
-                    # ! DISORT reverts to Delta-M under conditions below
-                    if (
-                        atmosphere.legendre_moments[
-                            atmosphere.n_expansion, boundary_layer_aerosols:, :
-                        ]
-                        < 1e-4
-                    ).any() or (
-                        atmosphere.legendre_moments[
-                            atmosphere.n_expansion + 1, boundary_layer_aerosols:, :
-                        ]
-                        < 0.7
-                        * atmosphere.legendre_moments[
-                            atmosphere.n_expansion, boundary_layer_aerosols:, :
-                        ]
-                    ).any():
-                        print("WARNING with Delta-M+ scaling.")
-
-                    sigma_sq = (
-                        (atmosphere.n_expansion + 1) ** 2 - atmosphere.n_expansion**2
-                    ) / (
-                        np.log(
-                            (
-                                atmosphere.legendre_moments[
-                                    atmosphere.n_expansion, boundary_layer_aerosols:, :
-                                ]
-                            )
-                            ** 2
-                        )
-                        - np.log(
-                            (
-                                atmosphere.legendre_moments[
-                                    atmosphere.n_expansion + 1,
-                                    boundary_layer_aerosols:,
-                                    :,
-                                ]
-                            )
-                            ** 2
-                        )
-                    )
-                    f = atmosphere.legendre_moments[
-                        atmosphere.n_expansion,
-                        boundary_layer_aerosols:,
-                    ] * np.exp(atmosphere.n_expansion**2 / (2 * sigma_sq))
-
-                    legendre_moments_scaled = np.array(
+                sigma_sq = (
+                    (atmosphere.n_expansion + 1) ** 2 - atmosphere.n_expansion**2
+                ) / (
+                    np.log(
                         (
                             atmosphere.legendre_moments[
-                                : atmosphere.n_expansion, boundary_layer_aerosols:, :
+                                atmosphere.n_expansion, :, :
                             ]
-                            - f[None, :, :]
-                            * np.exp(
-                                -(np.arange(atmosphere.n_expansion) ** 2)[:, None, None]
-                                / (2 * sigma_sq)
-                            )
                         )
-                        / (1 - f[None, :, :])
+                        ** 2
                     )
-                    tau_scaled = np.array(
-                        (1.0 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f)
-                        * atmosphere.tau[boundary_layer_aerosols:, :]
-                    )
-                    ss_alb_scaled = np.array(
-                        (1.0 - f)
-                        * atmosphere.ss_alb[boundary_layer_aerosols:, :]
-                        / (1 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f)
-                    )
-
-                    legendre_moments_atm = np.hstack(
-                        [
+                    - np.log(
+                        (
                             atmosphere.legendre_moments[
-                                : atmosphere.n_expansion, :boundary_layer_aerosols, :
-                            ],
-                            legendre_moments_scaled,
+                                atmosphere.n_expansion + 1,
+                                :,
+                                :,
+                            ]
+                        )
+                        ** 2
+                    )
+                )
+                f = atmosphere.legendre_moments[
+                    atmosphere.n_expansion,
+                    :,
+                ] * np.exp(atmosphere.n_expansion**2 / (2 * sigma_sq))
+
+                legendre_moments_scaled = np.array(
+                    (
+                        atmosphere.legendre_moments[
+                            : atmosphere.n_expansion, :, :
                         ]
+                        - f[None, :, :]
+                        * np.exp(
+                            -(np.arange(atmosphere.n_expansion) ** 2)[:, None, None]
+                            / (2 * sigma_sq)
+                        )
                     )
+                    / (1 - f[None, :, :])
+                )
+                tau_scaled = np.array(
+                    (1.0 - atmosphere.ss_alb[:, :] * f)
+                    * atmosphere.tau[:, :]
+                )
+                ss_alb_scaled = np.array(
+                    (1.0 - f)
+                    * atmosphere.ss_alb[:, :]
+                    / (1 - atmosphere.ss_alb[:, :] * f)
+                )
 
-                    tau_atm = np.vstack(
-                        [atmosphere.tau[:boundary_layer_aerosols, :], tau_scaled]
-                    )
-                    ss_alb_atm = np.vstack(
-                        [atmosphere.ss_alb[:boundary_layer_aerosols, :], ss_alb_scaled]
-                    )
+                legendre_moments_atm = np.hstack(
+                    [
+                        atmosphere.legendre_moments[
+                            : atmosphere.n_expansion, :, :
+                        ],
+                        legendre_moments_scaled,
+                    ]
+                )
 
-                    scale_factor = np.vstack(
-                        [
-                            np.ones((boundary_layer_aerosols, self.nbr_wvl)),
-                            (1.0 - atmosphere.ss_alb[boundary_layer_aerosols:, :] * f),
-                            scale_factor,
-                        ]
-                    )
+                tau_atm = np.vstack(
+                    [atmosphere.tau[:, :], tau_scaled]
+                )
+                ss_alb_atm = np.vstack(
+                    [atmosphere.ss_alb[:, :], ss_alb_scaled]
+                )
 
+                scale_factor = np.vstack(
+                    [
+                        np.ones((atmosphere.nbr_lyr, self.nbr_wvl)),
+                        (1.0 - atmosphere.ss_alb[:, :] * f),
+                        scale_factor,
+                    ]
+                )
+                
         return (
             tau_land,
             ss_alb_land,
@@ -462,7 +439,7 @@ class _MultiStreamSolverDISORT:
             legendre_moments_atm,
             scale_factor,
         )
-
+    
     def fill_outputs(self, outputs_wl, wl_idx):
         """
         Fill outputs at a given wavelength depending on user
@@ -515,15 +492,16 @@ class _MultiStreamSolverDISORT:
                 )
 
         if "BOA" in self.output_levels:
+            
+            self.flux_up_boa[wl_idx] = flux_up(self.tau_surface[wl_idx])
+            
+            self.flux_down_boa[wl_idx] = np.sum(flux_down(self.tau_surface[wl_idx]))
 
             # intensity function only in upward angles
             self.directional_radiance_boa_m0[:, wl_idx] = interp_u(u0)(
                 self.output_polar_angles,  # interpolate at user angles
                 self.tau_surface[wl_idx],
             )
-
-            self.flux_up_boa[wl_idx] = flux_up(self.tau_surface[wl_idx])
-            self.flux_down_boa[wl_idx] = np.sum(flux_down(self.tau_surface[wl_idx]))
 
             self.directional_reflectance_boa_m0[:, wl_idx] = (
                 self.directional_radiance_boa_m0[:, wl_idx]
@@ -575,6 +553,14 @@ class _MultiStreamSolverDISORT:
                 self.directional_reflectance_boa_m0
             )
             results["directional_radiance_boa_m0"] = self.directional_radiance_boa_m0
+            
+            if self.n_fourier > 1:
+                
+                # radiance as a func of phi & mu at the bottom of the atmosphere (BOA)
+                results["directional_reflectance_boa"] = (
+                    self.directional_reflectance_boa
+                )
+                results["directional_radiance_boa"] = self.directional_radiance_boa
 
         if "TOA" in self.output_levels:
             results["albedo_toa"] = self.albedo_toa
@@ -584,23 +570,14 @@ class _MultiStreamSolverDISORT:
             results["directional_reflectance_toa_m0"] = (
                 self.directional_reflectance_toa_m0
             )
+            
+            if self.n_fourier > 1:
 
-        # double-directional radiance with Fourier reconstruction
-        if self.n_fourier > 1:
-            # radiance as a func of phi & mu at the bottom of the atmosphere (BOA)
-            # results["directional_radiance_boa"] = self.directional_radiance_boa
-            # reflectance as a func of phi & mu at the bottom of the atmosphere (BOA)
-            if "BOA" in self.output_levels:
-                results["directional_reflectance_boa"] = (
-                    self.directional_reflectance_boa
-                )
-                results["directional_radiance_boa"] = self.directional_reflectance_boa
-
-            # radiance as a func of phi & mu at the top of the atmosphere (TOA)
-            results["directional_radiance_toa"] = self.directional_radiance_toa
-
-            # reflectance as a func of phi & mu at the top of the atmosphere (TOA)
-            results["directional_reflectance_toa"] = self.directional_reflectance_toa
+                # radiance as a func of phi & mu at the top of the atmosphere (TOA)
+                results["directional_radiance_toa"] = self.directional_radiance_toa
+    
+                # reflectance as a func of phi & mu at the top of the atmosphere (TOA)
+                results["directional_reflectance_toa"] = self.directional_reflectance_toa
 
         return results
 
@@ -648,7 +625,7 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, config):
             scaled_tau_arr_with_0=np.insert(mssd.t_od, 0, 0, axis=0)[
                 :, wl_idx
             ],  # scaled cumsum tau with 0 at TOA
-            use_banded_solver_NLayers=mssd.banded_Nlayers,  # default is 10, we will have to test it
+            use_banded_solver_NLayers=10,  # default is 10
             mu_arr_pos=mssd.cos_angle,
             M_inv=1 / mssd.cos_angle,
             W=mssd.cos_weight,
@@ -737,14 +714,12 @@ def solve_multi_stream_rt_disort_wrapper(
             NFourier=mssd.n_fourier,
             only_flux=mssd.only_fourier_m0,
             f_arr=mssd.unscaled_legendre_moments[mssd.n_expansion, :, wl_idx],
-            use_banded_solver_NLayers=mssd.banded_Nlayers,
+            use_banded_solver_NLayers=10, # default is 10
             NT_cor=NT_cor,
             NLeg=mssd.n_expansion,
             # b_pos = 0, # dirichlet condition
-            # NT_cor=mssd.IMS_TMS_correction,
             # BRDF_Fourier_modes=[],
             # s_poly_coeffs=array([], shape=(1, 0), dtype=float64),
-            # use_banded_solver_NLayers=10,
             # autograd_compatible=False
         )
 
