@@ -6,7 +6,7 @@ https://github.com/openosmia/snicar-fx
 """
 
 import xarray as xr
-
+import numpy as np
 
 class SolarIrradiance:
     """
@@ -29,11 +29,11 @@ class SolarIrradiance:
     _wavelengths : ndarray
         Wavelength grid (nm).
     total_irradiance : ndarray
-        Total spectral solar irradiance.
+        Total spectral solar irradiance (normal incidence).
     direct_beam : ndarray
-        Direct solar spectral irradiance.
+        Direct solar spectral irradiance (normal incidence).
     diffuse : ndarray
-        Diffuse solar spectral irradiance.
+        Diffuse solar spectral irradiance (isotropic).
 
     """
 
@@ -129,7 +129,7 @@ class SolarIrradiance:
             wavelength=self._wavelengths
         ).SSI.values
         
-        self.total_irradiance = self.direct_beam
+        self.total_irradiance = self.direct_beam 
         
         self.diffuse = self.direct_beam * 0
 
@@ -137,7 +137,7 @@ class SolarIrradiance:
 
     def set_surface_irradiance(self):
         """
-        Set monochromatic surface solar spectral irradiance array used as
+        Set surface solar spectral irradiance arrays used as
         boundary for the solver.
 
         This method selects the irradiance corresponding to the user-input
@@ -155,13 +155,14 @@ class SolarIrradiance:
         irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"].clip(min=1e-30).values
 
         if self.sky_conditions == 'clear':
-            # replace 0s by 1e-30 to avoid invalid operations
-            self.direct_beam = irradiance_direct
-            self.diffuse = irradiance_diffuse
+            # convert direct horizontal to direct normal incident irradiance
+            self.direct_beam = irradiance_direct / np.cos(np.deg2rad(self.sza))
+            # convert direct horizontal to isotropic
+            self.diffuse = irradiance_diffuse / np.pi
             
         if self.sky_conditions == 'clear_fully_direct':
-            # replace 0s by 1e-30 to avoid invalid operations
-            self.direct_beam = irradiance_direct + irradiance_diffuse
+            # convert direct horizontal to direct normal incident irradiance
+            self.direct_beam = (irradiance_direct + irradiance_diffuse) / np.cos(np.deg2rad(self.sza))
             self.diffuse = irradiance_diffuse * 0
 
         # solar flux is direct + diffuse

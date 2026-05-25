@@ -55,7 +55,7 @@ def use_data_snicaradv4(land_column, irradiance):
         )["flx_frc_sfc"].values
         irradiance.total_irradiance[irradiance.total_irradiance == 0] = 1e-30
 
-        irradiance.direct_beam = irradiance.total_irradiance
+        irradiance.direct_beam = irradiance.total_irradiance / np.cos(np.deg2rad(irradiance.sza))
         irradiance.diffuse = np.zeros_like(irradiance.total_irradiance)
 
     elif irradiance.sky_conditions == "cloudy":
@@ -63,7 +63,7 @@ def use_data_snicaradv4(land_column, irradiance):
             "./tests/test_data/swnb_480bnd_mls_cld.nc"
         )["flx_frc_sfc"].values
         irradiance.total_irradiance[irradiance.total_irradiance == 0] = 1e-30
-        irradiance.diffuse = irradiance.total_irradiance
+        irradiance.diffuse = irradiance.total_irradiance / np.pi
         irradiance.direct_beam = np.zeros_like(irradiance.total_irradiance)
 
     return land_column, irradiance

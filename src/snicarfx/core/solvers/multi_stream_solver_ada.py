@@ -129,9 +129,9 @@ class _MultiStreamSolverADA:
             Solver parameters set in the input Yaml file.
         """
 
-        self.solar_irradiance = np.array(irradiance.total_irradiance)
-        self.solar_flag = True
         self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
+        self.solar_irradiance = np.array(irradiance.direct_beam)
+        self.solar_flag = True
         self.cosmic_background = 0
         self.n_angles = config.SOLVER.N_STREAMS
         self.n_fourier = config.SOLVER.N_FOURIER_MODES
@@ -915,7 +915,7 @@ class _MultiStreamSolverADA:
                 / (E_diff + E_dir)
             ).flatten()
 
-            results["bba_boa"] = np.trapezoid(
+            results["bba_boa"] = np.trapz(
                 2
                 * np.pi
                 * np.sum(
@@ -925,7 +925,7 @@ class _MultiStreamSolverADA:
                     axis=0,
                 ),
                 x=self.wavelengths,
-            ) / np.trapezoid(E_diff + E_dir, x=self.wavelengths)
+            ) / np.trapz(E_diff + E_dir, x=self.wavelengths)
 
             results["directional_reflectance_boa_m0"] = (
                 self.s_level_rad_up_moments[:, self.surface_idx, :, 0] * np.pi

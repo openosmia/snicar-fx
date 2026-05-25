@@ -14,8 +14,8 @@ SOLAR:
   SZA: 50 
 
 ATMOSPHERE:
-  SKY_CONDITIONS: "clear" # clear, cloudy
-  ATMOSPHERIC_PROFILE_TYPE: "test"
+  SKY_CONDITIONS: "clear_fully_direct" # clear, cloudy
+  ATMOSPHERIC_PROFILE_TYPE: "afglss"
 
 LAND:
   THICKNESS: [1, 1, 1]  # thickness of each vertical layer (unit : m)
