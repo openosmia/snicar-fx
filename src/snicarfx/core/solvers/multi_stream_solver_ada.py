@@ -915,7 +915,7 @@ class _MultiStreamSolverADA:
                 / (E_diff + E_dir)
             ).flatten()
 
-            results["bba_boa"] = np.trapz(
+            results["bba_boa"] = np.trapezoid(
                 2
                 * np.pi
                 * np.sum(
@@ -925,7 +925,7 @@ class _MultiStreamSolverADA:
                     axis=0,
                 ),
                 x=self.wavelengths,
-            ) / np.trapz(E_diff + E_dir, x=self.wavelengths)
+            ) / np.trapezoid(E_diff + E_dir, x=self.wavelengths)
 
             results["directional_reflectance_boa_m0"] = (
                 self.s_level_rad_up_moments[:, self.surface_idx, :, 0] * np.pi
