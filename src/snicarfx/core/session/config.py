@@ -302,8 +302,8 @@ class Spectral(BaseModel):
 
     RESOLUTION: (
         tuple[
-            confloat(ge=300, le=5000),
-            confloat(ge=300, le=5000),
+            confloat(ge=200, le=5000),
+            confloat(ge=200, le=5000),
             confloat(ge=0.001, le=100),
         ]
         | Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"]
