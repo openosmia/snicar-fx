@@ -754,23 +754,42 @@ class Config(BaseModel):
 
         return self
 
-    def raise_warnings(self):
+    @model_validator(mode="after")
+    def check_irradiance_type_ada(self):
         """
-        Print warnings regarding physical assumptions made based on the
-        selected configuration (e.g., irradiance treatment).
+        Verify that fully clear conditions are selected when using ADA.
         """
 
         if (
-            self.ATMOSPHERE.SKY_CONDITIONS == "clear"
-            and self.SOLVER != "two-stream-ad"
+            self.ATMOSPHERE.SKY_CONDITIONS != "clear_fully_direct"
+            and self.SOLVER.TYPE == "multi-stream-ada"
             and self.SOLVER.ATMOSPHERE_COUPLING == False
         ):
-            warnings.warn(
-                "The irradiance is currently treated as 100% direct beam when "
-                "the multi-stream solvers are used.",
-                UserWarning,
-                stacklevel=2,
+            raise ValueError(
+                "The surface irradiance is currently treated as 100% direct "
+                "when the ADA multi-stream solver is used. Please use "
+                "clear_fully_direct as SKY_CONDITIONS."
             )
+            
+        return self
+            
+    # def raise_warnings(self):
+    #     """
+    #     Print warnings regarding physical assumptions made based on the
+    #     selected configuration (e.g., irradiance treatment).
+    #     """
+
+    #     if (
+    #         self.ATMOSPHERE.SKY_CONDITIONS == "clear"
+    #         and self.SOLVER != "two-stream-ad"
+    #         and self.SOLVER.ATMOSPHERE_COUPLING == False
+    #     ):
+    #         warnings.warn(
+    #             "The irradiance is currently treated as 100% direct beam when "
+    #             "the multi-stream solvers are used.",
+    #             UserWarning,
+    #             stacklevel=2,
+    #         )
 
     @classmethod
     def from_yaml(cls, yaml_file: str) -> "Config":
@@ -780,7 +799,7 @@ class Config(BaseModel):
 
         config_instance = cls.model_validate(input_data)
 
-        config_instance.raise_warnings()
+        # config_instance.raise_warnings()
 
         return config_instance
 

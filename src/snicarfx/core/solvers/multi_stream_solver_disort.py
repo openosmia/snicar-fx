@@ -125,9 +125,9 @@ class _MultiStreamSolverDISORT:
             Solver parameters set in the input Yaml file.
         """
 
-        self.direct_irradiance = irradiance.total_irradiance
-        self.diffuse_irradiance = 0 * irradiance.diffuse / (np.pi * 4)
         self.mu0 = np.cos(np.deg2rad(irradiance.sza))
+        self.direct_irradiance = irradiance.direct_beam 
+        self.diffuse_irradiance = irradiance.diffuse 
         self.n_streams = config.SOLVER.N_STREAMS
         self.n_fourier = config.SOLVER.N_FOURIER_MODES
         self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
@@ -554,9 +554,9 @@ class _MultiStreamSolverDISORT:
         if "BOA" in self.output_levels:
             results["albedo_boa"] = self.flux_up_boa / self.flux_down_boa
 
-            results["bba_boa"] = np.trapezoid(
+            results["bba_boa"] = np.trapz(
                 self.flux_up_boa, x=self.wavelengths
-            ) / np.trapezoid(self.flux_down_boa, x=self.wavelengths)
+            ) / np.trapz(self.flux_down_boa, x=self.wavelengths)
 
             results["directional_reflectance_boa_m0"] = (
                 self.directional_reflectance_boa_m0

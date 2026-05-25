@@ -100,8 +100,10 @@ class _TwoStreamSolverAD:
         self.irradiance = irradiance
 
         self.cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza)))
+        
+        self.wavelengths = self.column._wavelengths
 
-        self.nbr_wvl = len(irradiance.total_irradiance.flatten())
+        self.nbr_wvl = column.nbr_wvl
 
         # cos beam angle = incident beam
         self.mu0 = self.cos_sza * np.ones(self.nbr_wvl)
@@ -652,12 +654,12 @@ class _TwoStreamSolverAD:
 
         for n in np.arange(0, self.column.nbr_lyr + 1, 1):
             self.F_up[:, n] = (
-                self.fdirup[:, n] * (self.irradiance.direct_beam)
-                + self.fdifup[:, n] * self.irradiance.diffuse
+                self.fdirup[:, n] * (self.irradiance.direct_beam * self.cos_sza)
+                + self.fdifup[:, n] * self.irradiance.diffuse * np.pi
             )
             self.F_dwn[:, n] = (
-                self.fdirdn[:, n] * (self.irradiance.direct_beam)
-                + self.fdifdn[:, n] * self.irradiance.diffuse
+                self.fdirdn[:, n] * (self.irradiance.direct_beam * self.cos_sza)
+                + self.fdifdn[:, n] * self.irradiance.diffuse * np.pi
             )
 
         self.F_net = self.F_up - self.F_dwn
@@ -694,8 +696,8 @@ class _TwoStreamSolverAD:
         """
         # Incident direct+diffuse radiation equals (absorbed+transmitted+bulk_reflected)
         energy_sum = (
-            (self.irradiance.direct_beam)
-            + self.irradiance.diffuse
+            (self.irradiance.direct_beam * self.cos_sza)
+            + self.irradiance.diffuse * np.pi
             - (np.sum(self.F_abs, axis=1) + self.F_btm_net + self.F_top_pls)
         )
 
@@ -725,9 +727,14 @@ class _TwoStreamSolverAD:
         f_abs_slr = np.sum(self.F_abs, axis=0)
 
         # Spectrally-integrated solar, visible, and NIR albedos:
-        BBA = np.sum(self.irradiance.total_irradiance * self.albedo) / np.sum(
-            self.irradiance.total_irradiance
-        )
+        # BBA = np.sum(self.irradiance.total_irradiance * self.albedo) / np.sum(
+        #     self.irradiance.total_irradiance
+        # )
+        
+        BBA = np.trapezoid(
+            self.F_up[:, 0], x=self.wavelengths
+        ) / np.trapezoid(self.F_dwn[:, 0], x=self.wavelengths)
+        
         results["broadband_albedo_boa"] = BBA
         results["albedo_boa"] = self.albedo
 
