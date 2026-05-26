@@ -7,21 +7,29 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 import pytest
+import copy
 
 
 def test_scale_atmospheric_profile(atmosphere_column):
     """
-    Test atmospheric profile scaling by simply doubling the
-    integrated gas concentration.
+    Test atmospheric profile scaling by doubling the integrated O3 concentration
+    and verifying that the entire profile concentration has doubled.
+    
+    Parameters
+    ----------
+    atmosphere_column : AtmosphereColumn
+        Instance of AtmosphereColumn class from snicar-fx.
     """
+    
+    atm = copy.deepcopy(atmosphere_column)
+    
+    current_integrated_o3 = atm.atmosphere_profile["o3(cm-3)"].copy()
 
-    current_integrated_o3 = atmosphere_column.atmosphere_profile["o3(cm-3)"].copy()
+    atm.integrated_gas_concentrations["O3"] *= 2
 
-    atmosphere_column.integrated_gas_concentrations["O3"] *= 2
+    atm.scale_atmospheric_profile()
 
-    atmosphere_column.scale_atmospheric_profile()
-
-    new_integrated_o3 = atmosphere_column.atmosphere_profile["o3(cm-3)"].copy()
+    new_integrated_o3 = atm.atmosphere_profile["o3(cm-3)"].copy()
 
     expected_integrated_o3 = current_integrated_o3 * 2
 
@@ -31,6 +39,11 @@ def test_scale_atmospheric_profile(atmosphere_column):
 def test_set_rayleigh_legendre_moments(atmosphere_column):
     """
     Assert that phase coefficients of order > 3 are null
+    
+    Parameters
+    ----------
+    atmosphere_column : AtmosphereColumn
+        Instance of AtmosphereColumn class from snicar-fx.
     """
 
     assert np.all(atmosphere_column.rayleigh_legendre_moments[3:, :, :] == 0.0)
@@ -38,8 +51,12 @@ def test_set_rayleigh_legendre_moments(atmosphere_column):
 
 def test_scale_tau_aerosols(atmosphere_column):
     """
-    Test aerosol scaling by simply doubling the Aerosol Optical
-    Depth (AOD).
+    Test aerosol scaling by doubling the Aerosol Optical Depth at 550nm.
+    
+    Parameters
+    ----------
+    atmosphere_column : AtmosphereColumn
+        Instance of AtmosphereColumn class from snicar-fx.
     """
 
     current_tau_aerosols = atmosphere_column.tau_aerosols.copy()
@@ -61,6 +78,10 @@ def test_atmospheric_properties(atmosphere_column):
     the optical depth is within ]0,+inf[, and that the first moment of
     the Legendre expansion of the atmosphere phase function is 1.
 
+    Parameters
+    ----------
+    atmosphere_column : AtmosphereColumn
+        Instance of AtmosphereColumn class from snicar-fx.
     """
 
     assert np.all((atmosphere_column.ss_alb > 0) & (atmosphere_column.ss_alb < 1))

@@ -17,8 +17,8 @@ def test_solarirradiance_shapes(irradiance, expected_shapes):
     ----------
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class
-    expected_shapes : array
-        Expected shapes of the attributes of `column`
+    expected_shapes : dict
+        Expected shapes of the attributes of `irradiance`
     """
     for var in [irradiance.direct_beam, irradiance.diffuse, irradiance.total_irradiance]:
         assert isinstance(var, np.ndarray)
@@ -26,11 +26,7 @@ def test_solarirradiance_shapes(irradiance, expected_shapes):
 
 
 def test_solarirradiance_values(
-    irradiance,
-    expected_mean_direct,
-    expected_mean_total_irradiance,
-    expected_mean_diffuse,
-    absolute_tolerance_internal_variables,
+    irradiance
 ):
     """
     Assert that average values of attributes defined in the test input file
@@ -40,38 +36,9 @@ def test_solarirradiance_values(
     ----------
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class
-    expected_mean_diffuse : float
-        Expected mean value of the direct collimated beam as sourced in
-        the test input file.
-    expected_mean_total_irradiance : float
-        Expected mean value of the total solar flux as sourced
-        in the test input file.
-    expected_mean_direct : float
-        Expected mean value of the diffuse solar beam for light as sourced
-        in the test input file.
-    absolute_tolerance_internal_variables: float
-        Tolerance value for the error.
 
     """
 
     assert np.all(~np.isnan(irradiance.direct_beam))
     assert np.all(~np.isnan(irradiance.total_irradiance))
     assert np.all(~np.isnan(irradiance.diffuse))
-
-    # assert np.isclose(
-    #     np.nanmean(irradiance.fs),
-    #     expected_mean_fs,
-    #     atol=absolute_tolerance_internal_variables,
-    # )
-
-    # assert np.isclose(
-    #     np.nanmean(irradiance.flx_slr),
-    #     expected_mean_flx_slr,
-    #     atol=absolute_tolerance_internal_variables,
-    # )
-
-    # assert np.allclose(
-    #     np.nanmean(irradiance.fd),
-    #     expected_mean_fd,
-    #     atol=absolute_tolerance_internal_variables,
-    # )

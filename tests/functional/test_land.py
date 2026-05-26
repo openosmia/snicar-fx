@@ -16,9 +16,9 @@ def test_landcolumn_shapes(land_column, expected_shapes):
     Parameters
     ----------
     land_column : LandColumn
-        Instance of the ColumnProperties class
-    expected_shapes : array
-        Expected shapes of the attributes of `column`
+        Instance of the LandColumn class
+    expected_shapes : dict
+        Expected shapes of the attributes of `land_column`
     """
     for var in [
         land_column.asm_prm,
@@ -92,14 +92,9 @@ def test_landcolumn_values(
     )
 
     assert np.allclose(
-        land_column.tau,
+        np.nanmean(land_column.tau),
         expected_tau,
         atol=absolute_tolerance_internal_variables,
         rtol=0.0,
     )
 
-
-def test_set_lap_properties(land_column):
-    return None
-    # land_column.set_lap_properties()
-    # assert

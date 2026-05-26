@@ -24,14 +24,6 @@ TEST_INPUT_FILE_MULTISTREAM_COUPLED = (
     "./tests/input_files/inputs_tests_disort_multistream_coupled.yaml"
 )
 
-CORE_INPUT_FILE = "./tests/input_files/inputs_tests_ada_multistream_coupled.yaml"
-
-
-@pytest.fixture(scope="module")
-def core_input_file():
-    """Fetch path to the core input file."""
-    return CORE_INPUT_FILE
-
 
 @pytest.fixture(scope="module")
 def test_input_file_twostream():
@@ -130,25 +122,6 @@ def expected_mean_fl_r_dif_a():
 def expected_tau():
     """Fetch mean optical thickness from test input file."""
     return 325.0
-
-
-@pytest.fixture(scope="module")
-def expected_mean_direct():
-    """Fetch mean direct collimated solar beam from test input file."""
-    return 0.0018987214821366344
-
-
-@pytest.fixture(scope="module")
-def expected_mean_diffuse():
-    """Fetch mean diffuse solar beam from test input file."""
-    return 0.0001846118511966984
-
-
-@pytest.fixture(scope="module")
-def expected_mean_total_irradiance():
-    """Fetch mean solar flux from test input file."""
-    return 0.0020833333333333324
-
 
 @pytest.fixture(scope="module")
 def benchmark_ada_spectral_data():
