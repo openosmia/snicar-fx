@@ -264,27 +264,6 @@ class LandColumn:
                     self.asm_prm[lyr, :] = np.ones(self.nbr_wvl) * 0.815
                     b = self.ref_idx_re**2
 
-                    # fall back to scaled spherical g after 1400nm
-                    if np.max(self._wavelengths) >= 1.4e-6:
-                        # find the closest index
-                        idx_1400nm = np.argmin(abs(self._wavelengths - 1.4e-6))
-
-                        # calculate spherical asymmetry param
-                        eta = (
-                            0.3639
-                            + 1.676 * (self.ref_idx_re - 1)
-                            - 1.6284 * (self.ref_idx_re - 1) ** 2
-                        )
-                        ginf = 1.008 - 0.11 * (self.ref_idx_re - 1)
-                        g0 = 1.006 - 0.3641 * (self.ref_idx_re - 1)
-                        asm_prm_spheres = ginf - (ginf - g0) * np.exp(-z * eta)
-
-                        self.asm_prm[lyr, idx_1400nm:] = asm_prm_spheres[
-                            idx_1400nm:
-                        ] - abs(
-                            self.asm_prm[lyr, idx_1400nm] - asm_prm_spheres[idx_1400nm]
-                        )
-
                 # Eq. 2.45 in Kokhanovsky 2001
                 rho = 0.0123 + 0.1622 * (self.ref_idx_re - 1)
                 # Eq. 6 in Kokhanovsky and Macke 1997
@@ -338,7 +317,7 @@ class LandColumn:
     def update_column_ops_with_laps(self):
         """
         Update the optical properties of the snow/ice column to account for
-        the effct of light-absorbing particles.
+        the effect of light-absorbing particles.
 
         This method computes the combined optical properties of the snow/ice
         matrix and the embedded LAPs, following two-stream approximation mixing

@@ -57,7 +57,7 @@ class AtmosphereColumn:
     aerosol_ext_cff_550 : float
         Extinction coefficient of atmospheric aerosols at 550nm.
     aerosol_legendre_moments : ndarray
-        Momeents of the Legendre expansion of the aerosol phase function.
+        Moments of the Legendre expansion of the aerosol phase function.
     tau_aerosols : ndarray
         Spectral optical thickness of atmospheric aerosols.
     ss_alb : ndarray

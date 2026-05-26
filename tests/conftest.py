@@ -298,7 +298,7 @@ def update_api_params(request):
 def update_api_scaling_params(request):
     """
     Create sets of parameters to be used in tests of sequential
-    scaling with the update API (occuring in ATMOSPHERE only).
+    scaling with the update API (occurring in ATMOSPHERE only).
 
     """
     return request.param

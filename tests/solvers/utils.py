@@ -11,9 +11,8 @@ import xarray as xr
 
 def use_data_snicaradv4(land_column, irradiance):
     """
-    Ensures the refractive index and fresnel coefficients used to generate
-    snicar-fx benchmark data to test snicar-fx against SNICAR-ADv4 correspond
-    to the values used in SNICAR-ADv4.
+    Ensures the configuration for the refractive index, fresnel coefficients
+    and surface irradiance used in snicar-fx match that of SNICAR-ADv4.
 
     Parameters
     ----------

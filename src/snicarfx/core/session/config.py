@@ -40,7 +40,7 @@ class Solver(BaseModel):
     # explicit surface-atmosphere coupling
     ATMOSPHERE_COUPLING: bool = Field(
         description="Explicit surface-atmosphere coupling",
-        examples="If True, atmopshere layers are added on top of land layers and the extra-terrestrial solar irradiance at the top of atmosphere is used as boundary condition. if False, only land layers are modeled and the surface solar irradiance is used as boundary condition. Can only be True using multi-stream solvers.",
+        examples="If True, atmosphere layers are added on top of land layers and the extra-terrestrial solar irradiance at the top of atmosphere is used as boundary condition. if False, only land layers are modeled and the surface solar irradiance is used as boundary condition. Can only be True using multi-stream solvers.",
     )
 
     # levels to output
@@ -725,7 +725,7 @@ class Config(BaseModel):
         Verify that the spectral bounds provided as a tuple are valid 
         depending on the model configuration, ie: 
             - range is within 300-2700nm in all cases except for a non-coupled
-              simulation with two-stream-ad solver, as as the
+              simulation with two-stream-ad solver, as the
               Legendre moments get >1 with HG function above 2700nm
         """
 
@@ -733,7 +733,7 @@ class Config(BaseModel):
             start, end, step = self.SPECTRAL.RESOLUTION
 
             if self.SOLVER.TYPE != "two-stream-ad":
-                if start < 300 and end > 2700:
+                if start < 300 or end > 2700:
                     raise ValueError(
                         "SPECTRAL_RESOLUTION must cover a valid range. Please modify SPECTRAL_RESOLUTION to be within 300-2700nm."
                     )

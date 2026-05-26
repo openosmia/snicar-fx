@@ -29,7 +29,7 @@ class _MultiStreamSolverDISORT:
         Cosine of the solar zenith angle.
     wavelengths : ndarray
         Wavelength array at which RTE is solved.
-    nbr_wvl : ndarray
+    nbr_wvl : int
         Number of wavelengths.
     n_fourier : int
         Number of Fourier modes used in the expansion of the intensity in azimuth.
@@ -83,11 +83,11 @@ class _MultiStreamSolverDISORT:
         Flux downward at BOA.
     directional_reflectance_toa_m0 : array
         Directional reflectance at TOA for 0th fourier moment.
-    directional_radiance_toa_m0 : array
-        Directional radiance at TOA for 0th fourier moment.
+    directional_radiance_boa_m0 : array
+        Directional radiance at BOA for 0th fourier moment.
     directional_reflectance_toa_m0 : array
         Directional reflectance at BOA for 0th fourier moment.
-    directional_radiance_toa_m0 : array
+    directional_radiance_boa_m0 : array
         Directional radiance at BOA for 0th fourier moment.
     directional_radiance_toa : array
         Directional radiance at TOA for all fourier moments.
@@ -268,9 +268,6 @@ class _MultiStreamSolverDISORT:
         atmosphere : AtmosphereColumn
             Instance of the AtmosphereColumn class, storing the physical
             and optical properties of the atmosphere column.
-        irradiance : SolarIrradiance
-            Instance of the SolarIrradiance class, storing the properties of the
-            incoming solar irradiance.
         SOLVER : dictionary
             Solver parameters set in the input Yaml file.
 
@@ -402,7 +399,6 @@ class _MultiStreamSolverDISORT:
 
                 scale_factor = np.vstack(
                     [
-                        np.ones((atmosphere.nbr_lyr, self.nbr_wvl)),
                         (1.0 - atmosphere.ss_alb[:, :] * f),
                         scale_factor,
                     ]
@@ -529,7 +525,7 @@ class _MultiStreamSolverDISORT:
                 self.directional_reflectance_boa[:, wl_idx, :] = (
                     self.directional_radiance_boa[:, wl_idx, :]
                     * np.pi
-                    / np.sum(flux_down(self.flux_down_boa[wl_idx]))
+                    / (self.flux_down_boa[wl_idx])
                 )
 
     def get_outputs(self):

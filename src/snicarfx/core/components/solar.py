@@ -68,7 +68,7 @@ class SolarIrradiance:
             self.irradiance_dataset = self.load_toa_irradiance()
             self.set_toa_irradiance()
 
-        elif not config.SOLVER.ATMOSPHERE_COUPLING:
+        else:
             self.irradiance_dataset = self.load_surface_irradiance()
             self.set_surface_irradiance()
 
@@ -166,6 +166,6 @@ class SolarIrradiance:
             self.diffuse = irradiance_diffuse * 0
 
         # solar flux is direct + diffuse
-        self.total_irradiance = self.direct_beam + self.diffuse
+        self.total_irradiance = self.direct_beam + self.diffuse * np.pi
         
 

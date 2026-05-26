@@ -7,6 +7,7 @@ https://github.com/openosmia/snicar-fx
 
 import numpy as np
 import xarray as xr
+import copy
 
 from snicarfx.core.solvers.two_stream_solver_ad import solve_two_stream_rt_ad
 from tests.solvers.utils import use_data_snicaradv4
@@ -30,27 +31,30 @@ def test_twostreams_outputs(
 
     Parameters
     ----------
-    idx : array
-        Indices of parameter sets.
-    params : array
+    session_twostream : Session
+        Instance of Session class from snicar-fx.
+    params_twostream : array
         Sets of parameters used as input for the model.
     land_column : LandColumn
         Instance of the LandColumn class
     benchmark_snicaradv4_spectral_data : array
         Spectral albedo data generated with SNICAR-ADv4 for the parameter grid
-        `params`.
+        `params_twostream`.
     benchmark_snicaradv4_bba_data : array
         Broadband albedo data generated with SNICAR-ADv4 for the parameter grid
-        `params`.
+        `params_twostream`.
     benchmark_snicaradv4_absorbed_flux_data : array
         Absorbed solar flux data generated with SNICAR-ADv4 for the parameter grid
-        `params`.
+        `params_twostream`.
     absolute_tolerance_benchmark: float
         Tolerance value for the error.
 
     """
 
     layer_type, density, radius, sza, bc, thickness_profile, direct = params_twostream
+    
+    land_column = copy.deepcopy(session_twostream.land_column)
+    irradiance = copy.deepcopy(session_twostream.solar_irradiance)
 
     # Setup inputs
     land_column = session_twostream.land_column

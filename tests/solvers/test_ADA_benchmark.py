@@ -25,13 +25,13 @@ def test_multistream_outputs(
 
     Parameters
     ----------
-    params_ada : array
+    session_multistream_uncoupled : Session
+        Instance of Session class from snicar-fx.
+    params_ada : tuple
         Sets of parameters used as input for the model.
-    column : ColumnProperties
-        Instance of the ColumnProperties class
     benchmark_ada_spectral_data : array
         Spectral albedo data generated using the Fortran-based ADA module of
-        CRTM for the parameter grid `params`.
+        CRTM for the parameter grid `params_ada`.
     absolute_tolerance_benchmark: float
         Tolerance value for the error.
 

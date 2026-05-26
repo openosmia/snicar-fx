@@ -20,11 +20,26 @@ def test_pythonicdisort_outputs(
     """
     Test that outputs from the backend PythonicDISORT routine
     within SNICAR-fx strictly match those from the high-level
-    PythonicDISORT wrapper.
+    PythonicDISORT wrapper (configuration with delta-M truncation
+                            and no intensity correction).
+    
+    Parameters
+    ----------
+    session_multistream_coupled : Session
+        Instance of Session class from snicar-fx.
+    multistream_pythonicdisort_params : array
+        Sets of parameters used as input for the model.
+    absolute_tolerance_pythonicdisort: float
+        Tolerance value for the error.
 
     """
 
     sza, saa, azimuth, aod = multistream_pythonicdisort_params
+    
+    session_multistream_coupled.solar_irradiance.sza = sza
+    session_multistream_coupled.solar_irradiance.saa = saa
+    session_multistream_coupled.atmosphere_column.AOD550 = aod
+
 
     results_backend = solve_multi_stream_rt_disort(
         session_multistream_coupled.land_column,

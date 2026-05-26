@@ -39,12 +39,14 @@ class _MultiStreamSolverADA:
         Number of Fourier modes used in the expansion of the intensity in azimuth.
     mth_azi : int
         Current Fourier mode.
-    nbr_wvl : ndarray
+    nbr_wvl : int
         Number of wavelengths.
     nbr_lyr : int
         Number of layers for the total column.
     output_levels : str
         Levels in the column at which to return the results.
+    azimuths : ndarray
+        Viewing azimuth angle array.
     relative_azimuths : ndarray
         Relative azimuth angle (viewing - solar).
     relative_azimuths_rad : ndarray
@@ -278,9 +280,6 @@ class _MultiStreamSolverADA:
         atmosphere : AtmosphereColumn
             Instance of the AtmosphereColumn class, storing the physical
             and optical properties of the atmosphere column.
-        irradiance : SolarIrradiance
-            Instance of the SolarIrradiance class, storing the properties of the
-            incoming solar irradiance.
         SOLVER : dictionary
             Solver parameters set in the input Yaml file.
 
@@ -327,7 +326,6 @@ class _MultiStreamSolverADA:
                 land.legendre_moments[land.n_expansion]
                 * np.exp(land.n_expansion**2 / (2 * sigma_sq))
             )
-            scale_factor = 1.0 - land.ss_alb * f
             legendre_moments_land = np.array(
                 (
                     land.legendre_moments[: land.n_expansion, :, :]

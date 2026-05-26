@@ -34,7 +34,7 @@ class _TwoStreamSolverAD:
         Small number to prevent numerical singularities.
     exp_min : float
         Minimum exponent value to prevent underflow.
-    nbr_wvl : ndarray
+    nbr_wvl : int
         Number of wavelengths.
     nr : array
         Modified refractive index adjusted for the imaginary component.
@@ -53,7 +53,7 @@ class _TwoStreamSolverAD:
         diffuse radiation coming from above.
     trntdr, trndif, trndir : array
         Spectral transmission (total, diffuse, direct).
-    diffuseirup, fdirdn : ndarray
+    fdirup, fdirdn : ndarray
         Upward/downward direct solar fluxes.
     fdifup, fdifdn : ndarray
         Upward/downward diffuse fluxes.
@@ -705,8 +705,6 @@ class _TwoStreamSolverAD:
 
         if energy_conservation_error > 1e-10:
             raise ValueError(f"energy conservation error: {energy_conservation_error}")
-        else:
-            pass
 
         return None
 
