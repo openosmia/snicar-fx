@@ -667,21 +667,6 @@ class Config(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def check_spectral_res_coupled_simulations(self):
-        """
-        Verify that the spectral resolution fits existing atmospheric files
-        for coupled simulations.
-        """
-
-        if isinstance(self.SPECTRAL.RESOLUTION, tuple):
-            start, end, step = self.SPECTRAL.RESOLUTION
-            if self.SOLVER.ATMOSPHERE_COUPLING and (start < 300 or end > 2500):
-                raise ValueError(
-                    "The spectral range must be within 300-2500nm when using atmosphere layers / coupled simulations."
-                )
-        return self
-
-    @model_validator(mode="after")
     def check_atmosphere_fields_only_for_coupled(self):
         """
         Verify that atmosphere fields used for coupled simulations are None
@@ -737,10 +722,11 @@ class Config(BaseModel):
     @model_validator(mode="after")
     def check_spectral_range_validity(self):
         """
-        Verify that the spectral bounds provided as a tuple are valid,
-        ie:
+        Verify that the spectral bounds provided as a tuple are valid 
+        depending on the model configuration, ie: 
             - range is within 300-2700nm in all cases except for a non-coupled
-              simulation with two-stream-ad solver.
+              simulation with two-stream-ad solver, as as the
+              Legendre moments get >1 with HG function above 2700nm
         """
 
         if isinstance(self.SPECTRAL.RESOLUTION, tuple):
