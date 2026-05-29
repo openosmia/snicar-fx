@@ -63,37 +63,25 @@ class Session:
         # if the wavelength array is passed by user
         if isinstance(self.config.SPECTRAL.RESOLUTION, tuple):
 
-            # create a homogeneous array based on user input
-
-            wavelength_homogeneous = np.arange(
-                self.config.SPECTRAL.RESOLUTION[0],
-                self.config.SPECTRAL.RESOLUTION[1] + self.config.SPECTRAL.RESOLUTION[2],
-                self.config.SPECTRAL.RESOLUTION[2],
-            )
-
-            center_wavelength_homogeneous = (
-                wavelength_homogeneous[:-1] + self.config.SPECTRAL.RESOLUTION[-1] / 2
-            )
-
-            band_ranges_homogeneous = np.column_stack(
-                (
-                    wavelength_homogeneous[:-1],
-                    wavelength_homogeneous[1:],
-                    center_wavelength_homogeneous,
+            if self.config.SPECTRAL.RESOLUTION[2] == "1cm-1":
+                # create an array at 1cm-1 resolution
+                wavelength_homogeneous = (
+                    1e7
+                    / np.arange(
+                        1 / (self.config.SPECTRAL.RESOLUTION[1] * 1e-7),
+                        1 / (self.config.SPECTRAL.RESOLUTION[0] * 1e-7),
+                        1,
+                    )[::-1]
                 )
-            )
 
-            # create an array at 1cm-1 resolution
-            min_wavelength = self.config.SPECTRAL.RESOLUTION[0]
-            max_wavelength = self.config.SPECTRAL.RESOLUTION[1]
-            wavelength_1cm_m1 = (
-                1e7
-                / np.arange(
-                    1 / (max_wavelength * 1e-7),
-                    1 / (min_wavelength * 1e-7),
-                    1,
-                )[::-1]
-            )
+            else:
+                # create an array with nm step
+                wavelength_homogeneous = np.arange(
+                    self.config.SPECTRAL.RESOLUTION[0],
+                    self.config.SPECTRAL.RESOLUTION[1] + self.config.SPECTRAL.RESOLUTION[2],
+                    self.config.SPECTRAL.RESOLUTION[2],
+                )
+
 
             if self.config.SPECTRAL.MODE == "monochromatic":
                 self.config._wavelengths_solar = wavelength_homogeneous
@@ -102,9 +90,32 @@ class Session:
                 self.config._wavelengths = wavelength_homogeneous
 
             elif "band-" in self.config.SPECTRAL.MODE:
+
+                # set at 1cm-1 resolution by default to compute OPs
+                wavelength_1cm_m1 = (
+                    1e7
+                    / np.arange(
+                        1 / (self.config.SPECTRAL.RESOLUTION[1] * 1e-7),
+                        1 / (self.config.SPECTRAL.RESOLUTION[0] * 1e-7),
+                        1,
+                    )[::-1]
+                )
+                
                 self.config._wavelengths_solar = wavelength_1cm_m1
                 self.config._wavelengths_land = wavelength_1cm_m1
                 self.config._wavelengths_atmosphere = wavelength_1cm_m1
+
+                center_wavelength_homogeneous = (
+                    wavelength_homogeneous[:-1] + self.config.SPECTRAL.RESOLUTION[-1] / 2
+                )
+
+                band_ranges_homogeneous = np.column_stack(
+                    (
+                        wavelength_homogeneous[:-1],
+                        wavelength_homogeneous[1:],
+                        center_wavelength_homogeneous,
+                    )
+                )
 
                 self._band_ranges = band_ranges_homogeneous
                 self.config._wavelengths = center_wavelength_homogeneous

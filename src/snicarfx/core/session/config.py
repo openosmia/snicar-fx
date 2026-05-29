@@ -305,7 +305,7 @@ class Spectral(BaseModel):
         tuple[
             confloat(ge=200, le=5000),
             confloat(ge=200, le=5000),
-            confloat(ge=0.001, le=100),
+            Union[confloat(ge=0.001, le=100), Literal["1cm-1"]],
         ]
         | Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"]
     ) = Field(
@@ -316,6 +316,8 @@ class Spectral(BaseModel):
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
+
+    
     @model_validator(mode="after")
     def check_spectral_range_tuple(self):
         """
@@ -332,7 +334,7 @@ class Spectral(BaseModel):
                     "SPECTRAL_RESOLUTION must be a valid range ([start, end, step]), with end larger than start, but received end ({end}) <= start ({start})."
                 )
 
-            if step > (end - start):
+            if isinstance(step, float) and step > (end - start):
                 raise ValueError(
                     f"SPECTRAL_RESOLUTION must be a valid range ([start, end, step]), with step smaller than the total range, but received step ({step}) > range ({end-start})."
                 )
@@ -342,13 +344,20 @@ class Spectral(BaseModel):
     @model_validator(mode="after")
     def check_spectral_mode(self):
         """
-        Verify that spectral resolution is a satellite platform if the spectral
-        mode is integrating over a spectral response function.
+        Verify band mode compatibility:
+            - spectral resolution is a satellite platform if the spectral
+            mode is integrating over a spectral response function.
+            - spectral mode is monochromatic if resolution is tuple with cm-1
         """
 
         if self.MODE == "band-srf-integration" and isinstance(self.RESOLUTION, tuple):
             raise ValueError(
                 "The spectral resolution must be a satellite platform, not a tuple/range when using the 'band-srf-integration' spectral mode."
+            )
+
+        if isinstance(self.RESOLUTION, tuple) and isinstance(self.RESOLUTION[2], str) and self.MODE != "monochromatic":
+            raise ValueError(
+                "The spectral mode must be monochromatic when the resolution is in cm-1."
             )
         return self
 
