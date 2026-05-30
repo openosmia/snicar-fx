@@ -8,7 +8,7 @@ SOLVER:
   N_FOURIER_MODES: 2
 
 SPECTRAL:
-  MODE: "band-snicar-default"
+  MODE: "band-srf-weighted-mean"
   RESOLUTION: "SENTINEL-3-OLCI"
   
 SOLAR:

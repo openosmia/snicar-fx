@@ -9,7 +9,7 @@ SOLVER:
   OUTPUT_LEVELS: "BOA+TOA"
   
 SPECTRAL:
-  MODE: "band-snicar-default" # monochromatic | band-srf-integration | band-snicar-default | band-solar-weighted-mean
+  MODE: "band-snicar-default" # monochromatic | band-srf-integration | band-snicar-default | band-srf-solar-weighted-mean
   RESOLUTION: "SENTINEL-3-OLCI" # [start, end, step] or satellite instrument # "SENTINEL-3-OLCI"
 
 SOLAR:

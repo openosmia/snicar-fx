@@ -78,10 +78,10 @@ class Session:
                 # create an array with nm step
                 wavelength_homogeneous = np.arange(
                     self.config.SPECTRAL.RESOLUTION[0],
-                    self.config.SPECTRAL.RESOLUTION[1] + self.config.SPECTRAL.RESOLUTION[2],
+                    self.config.SPECTRAL.RESOLUTION[1]
+                    + self.config.SPECTRAL.RESOLUTION[2],
                     self.config.SPECTRAL.RESOLUTION[2],
                 )
-
 
             if self.config.SPECTRAL.MODE == "monochromatic":
                 self.config._wavelengths_solar = wavelength_homogeneous
@@ -100,13 +100,14 @@ class Session:
                         1,
                     )[::-1]
                 )
-                
+
                 self.config._wavelengths_solar = wavelength_1cm_m1
                 self.config._wavelengths_land = wavelength_1cm_m1
                 self.config._wavelengths_atmosphere = wavelength_1cm_m1
 
                 center_wavelength_homogeneous = (
-                    wavelength_homogeneous[:-1] + self.config.SPECTRAL.RESOLUTION[-1] / 2
+                    wavelength_homogeneous[:-1]
+                    + self.config.SPECTRAL.RESOLUTION[-1] / 2
                 )
 
                 band_ranges_homogeneous = np.column_stack(
@@ -120,34 +121,8 @@ class Session:
                 self._band_ranges = band_ranges_homogeneous
                 self.config._wavelengths = center_wavelength_homogeneous
 
-                if self.config.SPECTRAL.MODE in [
-                    "band-snicar-default",
-                ]:
+                if self.config.SPECTRAL.MODE == "band-snicar-default":
                     self.config._wavelengths_land = center_wavelength_homogeneous
-
-                elif self.config.SPECTRAL.MODE in [
-                    "band-solar-weighted-mean",
-                    "sub-band-mean",
-                ]:
-                    # just compute a flat SRF of a given length (which
-                    # is arbitrary since it's anyway flat)
-                    srf_length = 10
-                    self._spectral_response_function = np.vstack(
-                        [
-                            np.interp(
-                                self.config._wavelengths_land,
-                                np.linspace(
-                                    self._band_ranges[band_number, 0],
-                                    self._band_ranges[band_number, 1],
-                                    srf_length,
-                                ),
-                                np.ones(srf_length),
-                                left=0.0,
-                                right=0.0,
-                            )
-                            for band_number in range(self._band_ranges.shape[0])
-                        ]
-                    )
 
         elif isinstance(self.config.SPECTRAL.RESOLUTION, str):
 
@@ -166,61 +141,6 @@ class Session:
             ds = xr.open_dataset(srf_file_path)
 
             self.config._wavelengths = ds.srf_centre_wavelength.values
-
-            if self.config.SPECTRAL.MODE == "sub-band-mean":
-
-                self._nb_sub_bands = 4
-                self._sub_band_length = int(len(ds.wavelength) / self._nb_sub_bands)
-                nb_all_bands = int(len(self.config._wavelengths) * self._nb_sub_bands)
-
-                srf_wavelength_subband = (
-                    ds["mean_spectral_response_function_wavelength"]
-                    .values.reshape(
-                        len(self.config._wavelengths),
-                        self._nb_sub_bands,
-                        self._sub_band_length,
-                    )
-                    .reshape(
-                        nb_all_bands,
-                        self._sub_band_length,
-                    )
-                )
-                srf_subband = (
-                    ds["mean_spectral_response_function"]
-                    .values.reshape(
-                        len(self.config._wavelengths),
-                        self._nb_sub_bands,
-                        self._sub_band_length,
-                    )
-                    .reshape(nb_all_bands, self._sub_band_length)
-                )
-                srf_wavelength_subband_nom = srf_wavelength_subband[
-                    :, int(self._sub_band_length / 2)
-                ]
-                ds = xr.Dataset(
-                    {
-                        "mean_spectral_response_function_wavelength": (
-                            ("band_number", "wavelength"),
-                            srf_wavelength_subband,
-                        ),
-                        "mean_spectral_response_function": (
-                            ("band_number", "wavelength"),
-                            srf_subband,
-                        ),
-                        "srf_centre_wavelength": (
-                            ("band_number"),
-                            srf_wavelength_subband_nom,
-                        ),
-                    },
-                    attrs=ds.attrs,
-                    coords={
-                        "wavelength": np.arange(self._sub_band_length),
-                        "band_number": np.arange(nb_all_bands),
-                    },
-                )
-                ds.attrs.update(
-                    {"title": f"{ds.attrs["title"]} for snicar-fx sub-band method"}
-                )
 
             self._wavelengths_srf = ds.mean_spectral_response_function_wavelength.values
 
@@ -273,9 +193,6 @@ class Session:
                     for band_number in range(self._band_ranges.shape[0])
                 ]
             )
-
-            if self.config.SPECTRAL.MODE == "band-snicar-default":
-                self.config._wavelengths_land = ds.srf_centre_wavelength.values
 
     def _prepare_updates(self, kwargs, allowed_fields):
         forbidden = set(kwargs) - allowed_fields
@@ -381,11 +298,10 @@ class Session:
 
             if (
                 not self.config.SOLVER.ATMOSPHERE_COUPLING
-                and self.config.SPECTRAL.MODE
-                in ["band-solar-weighted-mean", "sub-band-mean"]
+                and self.config.SPECTRAL.MODE == "band-srf-solar-weighted-mean"
             ):
                 raise ValueError(
-                    "Updating SZA without atmosphere coupling using band-solar-weighted-mean spectral mode requires a new input file."
+                    "Updating SZA without atmosphere coupling using band-srf-solar-weighted-mean spectral mode requires a new input file."
                 )
 
             self._prepare_updates(updates, allowed_fields)
@@ -613,9 +529,6 @@ class Session:
 
             if self.config.SPECTRAL.MODE == "band-srf-integration":
                 self.apply_spectral_response_function()
-
-            if self.config.SPECTRAL.MODE == "sub-band-mean":
-                self.compute_sub_band_average()
 
             # return outputs as a metadata-rich xarray dataset
             if to_xarray:
@@ -1217,7 +1130,7 @@ class Session:
                     "total_irradiance"
                 ].flatten()
 
-        elif self.config.SPECTRAL.MODE in ["band-solar-weighted-mean", "sub-band-mean"]:
+        elif self.config.SPECTRAL.MODE == "band-srf-solar-weighted-mean":
 
             # only compute if it hasn't been yet
             if not hasattr(self, "_spectral_response_function_sw_total"):

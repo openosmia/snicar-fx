@@ -292,13 +292,12 @@ class Spectral(BaseModel):
     MODE: Literal[
         "monochromatic",
         "band-snicar-default",
-        "band-solar-weighted-mean",
+        "band-srf-solar-weighted-mean",
         "band-srf-weighted-mean",
         "band-srf-integration",
-        "sub-band-mean",
     ] = Field(
         description="Type of spectral mode in calculations",
-        examples="'monochromatic' solves and returns the output at discrete wavelengths, while all other modes return bands. 'band-snicar-default' is the default mode of the SNICAR model - it calculates band averages for atmosphere and solar properties, and selects the center wavelength for land optical properties, before solve. 'band-solar-weighted-mean' applies a solar-weighted integration for each band for all components before solve, (!) it is computationally expensive. 'band-srf-integration' is only available for satellite platforms - it solves at a high 1cm-1 resolution and then integrates into satellite bands, (!) it is computationally expensive.",
+        examples="'monochromatic' solves and returns the output at discrete wavelengths, while all other modes return bands. 'band-snicar-default' is the default mode of the SNICAR model - it calculates band averages for atmosphere and solar properties, and selects the center wavelength for land optical properties, before solve. 'band-srf-solar-weighted-mean' applies a solar-weighted integration for each band for all components before solve, (!) it is computationally expensive. 'band-srf-integration' is only available for satellite platforms - it solves at a high 1cm-1 resolution and then integrates into satellite bands, (!) it is computationally expensive.",
     )
 
     RESOLUTION: (
@@ -316,8 +315,6 @@ class Spectral(BaseModel):
     # only fields validated here are allowed
     model_config = {"extra": "forbid"}
 
-
-    
     @model_validator(mode="after")
     def check_spectral_range_tuple(self):
         """
@@ -350,12 +347,16 @@ class Spectral(BaseModel):
             - spectral mode is monochromatic if resolution is tuple with cm-1
         """
 
-        if self.MODE == "band-srf-integration" and isinstance(self.RESOLUTION, tuple):
+        if "srf" in self.MODE and isinstance(self.RESOLUTION, tuple):
             raise ValueError(
-                "The spectral resolution must be a satellite platform, not a tuple/range when using the 'band-srf-integration' spectral mode."
+                "The spectral resolution must be a satellite platform, not a tuple/range when using band spectral modes with SRF integration."
             )
 
-        if isinstance(self.RESOLUTION, tuple) and isinstance(self.RESOLUTION[2], str) and self.MODE != "monochromatic":
+        if (
+            isinstance(self.RESOLUTION, tuple)
+            and isinstance(self.RESOLUTION[2], str)
+            and self.MODE != "monochromatic"
+        ):
             raise ValueError(
                 "The spectral mode must be monochromatic when the resolution is in cm-1."
             )
@@ -676,6 +677,21 @@ class Config(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def check_solver_band_mode_compatibility(self):
+        """
+        Check compatibility between spectral mode and atmosphere coupling.
+        """
+
+        if (
+            self.SPECTRAL.MODE == "band-snicar-default"
+            and self.SOLVER.ATMOSPHERE_COUPLING
+        ):
+            raise ValueError(
+                f"{self.SPECTRAL.MODE} spectral mode cannot be selected with atmosphere coupling."
+            )
+        return self
+
+    @model_validator(mode="after")
     def check_atmosphere_fields_only_for_coupled(self):
         """
         Verify that atmosphere fields used for coupled simulations are None
@@ -731,8 +747,8 @@ class Config(BaseModel):
     @model_validator(mode="after")
     def check_spectral_range_validity(self):
         """
-        Verify that the spectral bounds provided as a tuple are valid 
-        depending on the model configuration, ie: 
+        Verify that the spectral bounds provided as a tuple are valid
+        depending on the model configuration, ie:
             - range is within 300-2700nm in all cases except for a non-coupled
               simulation with two-stream-ad solver, as the
               Legendre moments get >1 with HG function above 2700nm
@@ -765,9 +781,9 @@ class Config(BaseModel):
                 "when the ADA multi-stream solver is used. Please use "
                 "clear_fully_direct as SKY_CONDITIONS."
             )
-            
+
         return self
-            
+
     # def raise_warnings(self):
     #     """
     #     Print warnings regarding physical assumptions made based on the

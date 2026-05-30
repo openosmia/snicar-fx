@@ -10,7 +10,7 @@ SOLVER:
   AZIMUTH_ANGLES: [40, 120, 20]
 
 SPECTRAL:
-  MODE: "band-solar-weighted-mean"
+  MODE: "band-srf-solar-weighted-mean"
   RESOLUTION: "ENVISAT-MERIS"
   
 SOLAR:
