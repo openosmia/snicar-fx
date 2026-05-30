@@ -563,7 +563,7 @@ class Session:
         ds = xr.Dataset(
             data_vars={
                 "albedo_boa": ("wavelength", self.outputs["albedo_boa"]),
-                "broadband_albedo_boa": self.outputs["broadband_albedo_boa"],
+                "bba_boa": self.outputs["bba_boa"],
                 "absorbed_flux_fraction": (
                     "layer",
                     self.outputs["absorbed_flux_fraction"],
@@ -592,7 +592,7 @@ class Session:
                 "units": "m",
             }
         )
-        ds["broadband_albedo_boa"].attrs.update(
+        ds["bba_boa"].attrs.update(
             {
                 "description": "Broadband albedo (spectrally-integrated albedo) at the surface (Bottom of Atmosphere, BOA)",
                 "units": None,
@@ -908,7 +908,7 @@ class Session:
 
         return band_means
 
-    def compute_solar_weighted_average(
+    def compute_srf_solar_weighted_average(
         self, column, wavelengths, band_ranges, var_names
     ):
         """
@@ -1041,21 +1041,6 @@ class Session:
                 self.solar_irradiance.direct_beam = solar_flat_means["direct_beam"]
                 self.solar_irradiance.diffuse = solar_flat_means["diffuse"]
 
-            # average atmosphere variables
-            if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
-                if "atmosphere" in components:
-                    atmosphere_flat_means = self.compute_flat_band_average(
-                        self.atmosphere_column,
-                        self.config._wavelengths_atmosphere,
-                        self._band_ranges,
-                        var_names=["tau", "ss_alb", "legendre_moments"],
-                    )
-                    self.atmosphere_column.tau = atmosphere_flat_means["tau"]
-                    self.atmosphere_column.ss_alb = atmosphere_flat_means["ss_alb"]
-                    self.atmosphere_column.legendre_moments = atmosphere_flat_means[
-                        "legendre_moments"
-                    ]
-
         elif self.config.SPECTRAL.MODE in ["band-srf-weighted-mean"]:
 
             # average atmosphere variables
@@ -1151,7 +1136,7 @@ class Session:
             # average atmosphere variables
             if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
                 if "atmosphere" in components:
-                    atmosphere_weighted_means = self.compute_solar_weighted_average(
+                    atmosphere_weighted_means = self.compute_srf_solar_weighted_average(
                         self.atmosphere_column,
                         self.config._wavelengths_atmosphere,
                         self._band_ranges,
@@ -1165,7 +1150,7 @@ class Session:
 
             if "land" in components:
                 if self.config.SOLVER.TYPE == "two-stream-ad":
-                    land_weighted_means = self.compute_solar_weighted_average(
+                    land_weighted_means = self.compute_srf_solar_weighted_average(
                         self.land_column,
                         self.config._wavelengths_land,
                         self._band_ranges,
@@ -1187,7 +1172,7 @@ class Session:
 
                 else:
                     # average land variables
-                    land_weighted_means = self.compute_solar_weighted_average(
+                    land_weighted_means = self.compute_srf_solar_weighted_average(
                         self.land_column,
                         self.config._wavelengths_land,
                         self._band_ranges,
@@ -1204,7 +1189,7 @@ class Session:
                     ]
 
             if "solar" in components:
-                solar_weighted_means = self.compute_solar_weighted_average(
+                solar_weighted_means = self.compute_srf_solar_weighted_average(
                     self.solar_irradiance,
                     self.config._wavelengths_solar,
                     self._band_ranges,
@@ -1219,49 +1204,3 @@ class Session:
                 self.solar_irradiance.total_irradiance = solar_weighted_means[
                     "total_irradiance"
                 ].flatten()
-
-    def compute_sub_band_average(self):
-
-        for key, data in self.outputs.items():
-
-            if key.startswith("albedo_"):
-                reshaped = data.reshape(
-                    len(self.config._wavelengths), self._nb_sub_bands
-                )
-                self.outputs[key] = reshaped.mean(axis=1)
-
-            elif key.startswith("directional_") and key.endswith("_m0"):
-                reshaped = data.reshape(
-                    len(self.outputs["polar_angle"]),
-                    len(self.config._wavelengths),
-                    self._nb_sub_bands,
-                )
-
-                # self.outputs[key] = reshaped.mean(axis=2)
-
-                weights = np.trapezoid(
-                    self._spectral_response_function_sw_total.reshape(
-                        len(self.config._wavelengths),
-                        self._nb_sub_bands,
-                        len(self.config._wavelengths_solar),
-                    ),
-                    x=self.config._wavelengths_solar,
-                    axis=2,
-                )
-
-                numerator = np.sum(
-                    reshaped * weights[None, :, :], axis=2
-                )  # Shape (32, 21)
-
-                denominator = np.sum(weights, axis=1)  # Shape (21,)
-
-                self.outputs[key] = numerator / denominator[np.newaxis, :]
-
-            elif key.startswith("directional_"):
-                reshaped = data.reshape(
-                    len(self.outputs["polar_angle"]),
-                    len(self.config._wavelengths),
-                    self._nb_sub_bands,
-                    len(self.outputs["azimuth_angle"]),
-                )
-                self.outputs[key] = reshaped.mean(axis=2)

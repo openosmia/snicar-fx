@@ -52,7 +52,7 @@ def test_twostreams_outputs(
     """
 
     layer_type, density, radius, sza, bc, thickness_profile, direct = params_twostream
-    
+
     land_column = copy.deepcopy(session_twostream.land_column)
     irradiance = copy.deepcopy(session_twostream.solar_irradiance)
 
@@ -149,7 +149,7 @@ def test_twostreams_outputs(
     )
 
     assert np.allclose(
-        outputs["broadband_albedo_boa"],
+        outputs["bba_boa"],
         benchmark_snicaradv4_bba_data.sel(
             layer_type=layer_type + 1,
             density=density,

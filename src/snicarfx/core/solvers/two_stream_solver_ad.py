@@ -11,9 +11,9 @@ import numpy as np
 class _TwoStreamSolverAD:
     """
     This class loads and initialize the variables necessary to solve the radiative
-    transfer equation using the Delta-Eddington Adding-Doubling two-stream solver 
-    from Briegleb and Light 2007, later modified by Whicker et al. 2022. 
-    The solver is identical to that of SNICAR-ADv4 
+    transfer equation using the Delta-Eddington Adding-Doubling two-stream solver
+    from Briegleb and Light 2007, later modified by Whicker et al. 2022.
+    The solver is identical to that of SNICAR-ADv4
     (https://github.com/chloewhicker/SNICAR-ADv4).
 
     References:
@@ -100,7 +100,7 @@ class _TwoStreamSolverAD:
         self.irradiance = irradiance
 
         self.cos_sza = np.cos(np.deg2rad(np.rint(irradiance.sza)))
-        
+
         self.wavelengths = self.column._wavelengths
 
         self.nbr_wvl = column.nbr_wvl
@@ -724,16 +724,11 @@ class _TwoStreamSolverAD:
         # Radiative heating rate:
         f_abs_slr = np.sum(self.F_abs, axis=0)
 
-        # Spectrally-integrated solar, visible, and NIR albedos:
-        # BBA = np.sum(self.irradiance.total_irradiance * self.albedo) / np.sum(
-        #     self.irradiance.total_irradiance
-        # )
-        
-        BBA = np.trapezoid(
-            self.F_up[:, 0], x=self.wavelengths
-        ) / np.trapezoid(self.F_dwn[:, 0], x=self.wavelengths)
-        
-        results["broadband_albedo_boa"] = BBA
+        BBA = np.trapezoid(self.F_up[:, 0], x=self.wavelengths) / np.trapezoid(
+            self.F_dwn[:, 0], x=self.wavelengths
+        )
+
+        results["bba_boa"] = BBA
         results["albedo_boa"] = self.albedo
 
         # Spectrally-integrated absorption by underlying surface:
