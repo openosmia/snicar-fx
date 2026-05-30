@@ -236,10 +236,10 @@ class _MultiStreamSolverADA:
         )
 
         self.s_level_rad_up_moments = np.zeros(
-            self.s_level_rad_up.shape + (self.n_fourier,)
+            (*self.s_level_rad_up.shape, self.n_fourier)
         )
         self.s_level_rad_down_moments = np.zeros(
-            self.s_level_rad_down.shape + (self.n_fourier,)
+            (*self.s_level_rad_down.shape, self.n_fourier)
         )
 
         if self.run_downward_loop:

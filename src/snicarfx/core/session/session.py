@@ -51,7 +51,6 @@ class Session:
     """
 
     def __init__(self, input_file: str):
-
         # parse configuration file
         self.config = Config.from_yaml(input_file)
 
@@ -237,8 +236,7 @@ class Session:
                 p.FILE for p in self.config.LAND.LIGHT_ABSORBING_PARTICLES.root.values()
             ]
             if any(
-                key not in current_laps
-                for key in kwargs["LIGHT_ABSORBING_PARTICLES"]
+                key not in current_laps for key in kwargs["LIGHT_ABSORBING_PARTICLES"]
             ) or any(
                 p["FILE"] not in current_laps_files
                 for p in kwargs["LIGHT_ABSORBING_PARTICLES"].values()
@@ -340,7 +338,8 @@ class Session:
             ):
                 raise ValueError(
                     "Updating SZA without atmosphere coupling using "
-                    "band-srf-solar-weighted-mean spectral mode requires a new input file."
+                    "band-srf-solar-weighted-mean spectral mode requires "
+                    "a new input file."
                 )
 
             self._prepare_updates(updates, allowed_fields)
@@ -649,7 +648,8 @@ class Session:
             {
                 "description": (
                     "Broadband albedo (spectrally-integrated albedo) "
-                    "at the surface (Bottom of Atmosphere, BOA)"),
+                    "at the surface (Bottom of Atmosphere, BOA)"
+                ),
                 "units": None,
             }
         )
@@ -657,7 +657,8 @@ class Session:
             {
                 "description": (
                     "Spectrally resolved surface albedo at the surface "
-                    "(Bottom of Atmosphere, BOA)"),
+                    "(Bottom of Atmosphere, BOA)"
+                ),
                 "units": None,
             }
         )
@@ -670,8 +671,8 @@ class Session:
         ds["absorbed_flux_fraction_bottom"].attrs.update(
             {
                 "description": (
-                    "Spectrally-resolved absorbed solar energy at "
-                    "the bottom layer"),
+                    "Spectrally-resolved absorbed solar energy at the bottom layer"
+                ),
                 "units": "W/m2",
             }
         )
@@ -896,10 +897,7 @@ class Session:
             original_shape = arr.shape[:-1] if arr.ndim > 1 else ()
 
             # Reshape to (n_flat, n_wl) for broadcasting
-            if arr.ndim > 1:
-                arr_flat = arr.reshape(-1, arr.shape[-1])
-            else:
-                arr_flat = arr[None, :]
+            arr_flat = arr.reshape(-1, arr.shape[-1]) if arr.ndim > 1 else arr[None, :]
 
             if name == "total_irradiance":
                 # shape (1, wl) * (21, wl) integ on wl
@@ -949,7 +947,8 @@ class Session:
 
             elif name == "asm_prm":
                 # srf * flux * g * w * tau
-                # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl
+                # shape (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) * (lyr,
+                # 1, wl) integ on wl
                 numerator = (
                     self._spectral_response_function
                     * arr_flat[:, None, :]
@@ -1045,10 +1044,7 @@ class Session:
             original_shape = arr.shape[:-1] if arr.ndim > 1 else ()
 
             # Reshape to (n_flat, n_wl) for broadcasting
-            if arr.ndim > 1:
-                arr_flat = arr.reshape(-1, arr.shape[-1])
-            else:
-                arr_flat = arr[None, :]
+            arr_flat = arr.reshape(-1, arr.shape[-1]) if arr.ndim > 1 else arr[None, :]
 
             if name == "total_irradiance":
                 numerator = self._spectral_response_function_sw_total
@@ -1088,7 +1084,8 @@ class Session:
 
             elif name == "asm_prm":
                 # srf * flux * g * w * tau
-                # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl
+                # shape (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) * (lyr,
+                # 1, wl) integ on wl
                 numerator = (
                     self._spectral_response_function_sw_total
                     * arr_flat[:, None, :]
@@ -1153,7 +1150,7 @@ class Session:
 
         return band_means
 
-    def compute_band_average(self, components=["solar", "atmosphere", "land"]) -> None:
+    def compute_band_average(self, components=None) -> None:
         """
         Compute band averages for a given component, depending on the user-defined
         band mode.

@@ -723,18 +723,18 @@ class _TwoStreamSolverAD:
         # Radiative heating rate:
         f_abs_slr = np.sum(self.F_abs, axis=0)
 
-        BBA = np.trapezoid(self.F_up[:, 0], x=self.wavelengths) / np.trapezoid(
+        bba = np.trapezoid(self.F_up[:, 0], x=self.wavelengths) / np.trapezoid(
             self.F_dwn[:, 0], x=self.wavelengths
         )
 
-        results["bba_boa"] = BBA
+        results["bba_boa"] = bba
         results["albedo_boa"] = self.albedo
 
         # Spectrally-integrated absorption by underlying surface:
         abs_slr_btm = np.sum(self.F_btm_net, axis=0)
 
         results["absorbed_flux_fraction"] = f_abs_slr
-        results["absorbed_flux_fraction_bottom"] = f_abs_slr
+        results["absorbed_flux_fraction_bottom"] = abs_slr_btm
 
         return results
 

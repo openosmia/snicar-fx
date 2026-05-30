@@ -31,7 +31,6 @@ def test_session_attributes(session_multistream_coupled):
 
 
 def test_get_package_root(session_multistream_coupled):
-
     package_root = session_multistream_coupled.get_package_root()
 
     assert "snicar-fx" in package_root.parts
@@ -57,18 +56,18 @@ def test_format_multistream_results_to_xarray(session_multistream_coupled):
         np.arange(*session_multistream_coupled.config.SOLVER.POLAR_ANGLES)
     )
 
-    expected_1D_shape = (n_bands,)
-    expected_2D_shape = (n_polar_angles, n_bands)
-    expected_3D_shape = (n_polar_angles, n_bands, n_azimuth_angles)
+    expected_1d_shape = (n_bands,)
+    expected_2d_shape = (n_polar_angles, n_bands)
+    expected_3d_shape = (n_polar_angles, n_bands, n_azimuth_angles)
 
-    assert results["albedo_toa"].shape == expected_1D_shape
-    assert results["albedo_boa"].shape == expected_1D_shape
+    assert results["albedo_toa"].shape == expected_1d_shape
+    assert results["albedo_boa"].shape == expected_1d_shape
 
-    assert results["directional_radiance_toa"].shape == expected_3D_shape
-    assert results["directional_reflectance_boa"].shape == expected_3D_shape
+    assert results["directional_radiance_toa"].shape == expected_3d_shape
+    assert results["directional_reflectance_boa"].shape == expected_3d_shape
 
-    assert results["directional_reflectance_boa_m0"].shape == expected_2D_shape
-    assert results["directional_reflectance_toa_m0"].shape == expected_2D_shape
+    assert results["directional_reflectance_boa_m0"].shape == expected_2d_shape
+    assert results["directional_reflectance_toa_m0"].shape == expected_2d_shape
 
 
 def test_update_api(

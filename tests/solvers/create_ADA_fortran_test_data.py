@@ -10,7 +10,7 @@ against its Python implementation.
 
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 
@@ -205,7 +205,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                 #     t_od,
                 #     g,
                 #     np.abs(
-                #         py_results["directional_reflectance_boa"][-1, 
+                #         py_results["directional_reflectance_boa"][-1,
                 #                                                   wavelength_index]
                 #         - reflectance_f90[-1]
                 #     ),
@@ -222,7 +222,7 @@ data_xr = xr.Dataset(
                 "long_name": "Spectral albedo",
                 "description": (
                     "Surface albedo computed with the Fortran ADA multistream solver"
-                    ),
+                ),
                 "units": "dimensionless",
             },
         )
@@ -257,7 +257,7 @@ data_xr = xr.Dataset(
             "The results are intended for validation against the Python "
             "implementation within snicar-fx."
         ),
-        "creation_date": datetime.utcnow().isoformat(),
+        "creation_date": datetime.now(timezone.utc).isoformat(),
         "model_name": "snicar-fx",
         "model_version": version("snicarfx"),
         "model_url": "https://github.com/openosmia/snicar-fx",

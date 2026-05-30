@@ -71,7 +71,6 @@ class AtmosphereColumn:
     """
 
     def __init__(self, config):
-
         self.ROOT_PATH = config._ROOT_PATH
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
 
@@ -144,7 +143,7 @@ class AtmosphereColumn:
 
         dz = np.abs(np.diff(profile["z(km)"].values))
 
-        # # TODO: ransform profile into layer variables (mid-point)
+        # interpolate to mid points
         profile = profile.rolling(2).mean().iloc[1:, :].reset_index()
 
         # add layer thicknesses
@@ -175,9 +174,7 @@ class AtmosphereColumn:
             g.split("(")[0].upper(): g for g in self.initial_atmosphere_profile.columns
         }
         self.gas_key_matching = {
-            k: v
-            for k, v in profile_key_matching.items()
-            if k in molecular_masses
+            k: v for k, v in profile_key_matching.items() if k in molecular_masses
         }
 
         # Compute integrated gas concentrations (kg/m²) for all gases
@@ -317,8 +314,8 @@ class AtmosphereColumn:
         file_name = (
             f"{self.ROOT_PATH}/data/gases/"
             f"uvspec_{self.atmosphere_profile_type}_cross_sections.nc"
-            )
-        
+        )
+
         try:
             self.gas_cross_sections = xr.open_dataset(file_name)
         except FileNotFoundError as err:

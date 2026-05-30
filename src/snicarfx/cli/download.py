@@ -26,7 +26,7 @@ def main():
     argparse.ArgumentParser(
         description=(
             "Download and extract snicar-fx data archive in snicar-fx data folder."
-            )
+        )
     )
 
     # setup pooch

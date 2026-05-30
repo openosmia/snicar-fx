@@ -602,7 +602,7 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, config):
             (mssd.direct_irradiance[wl_idx], mssd.diffuse_irradiance[wl_idx])
         )
         if rescale_factor != 0:
-            I0 = (mssd.direct_irradiance[wl_idx] / rescale_factor).copy()
+            i0 = (mssd.direct_irradiance[wl_idx] / rescale_factor).copy()
             b_neg = (mssd.diffuse_irradiance[wl_idx] / rescale_factor).copy()
 
         outputs_wl = _assemble_intensity_and_fluxes(
@@ -627,8 +627,8 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, config):
                 * (2 * np.arange(mssd.n_expansion) + 1)[:, None, None]
             )[:, :, wl_idx].T,
             mu0=mssd.mu0,
-            I0=I0,  # direct beam scaled
-            I0_div_4pi=I0 / (4 * np.pi),
+            I0=i0,  # direct beam scaled
+            I0_div_4pi=i0 / (4 * np.pi),
             rescale_factor=rescale_factor,  # internal pythonic disort var
             b_neg=b_neg,  # fisot
             phi0=mssd.phi0,
@@ -658,7 +658,7 @@ def solve_multi_stream_rt_disort(land, atmosphere, irradiance, config):
 
 
 def solve_multi_stream_rt_disort_wrapper(
-    land, atmosphere, irradiance, config, NT_cor=True
+    land, atmosphere, irradiance, config, nt_cor=True
 ):
     """
 
@@ -701,7 +701,7 @@ def solve_multi_stream_rt_disort_wrapper(
             only_flux=mssd.only_fourier_m0,
             f_arr=mssd.unscaled_legendre_moments[mssd.n_expansion, :, wl_idx],
             use_banded_solver_NLayers=10,  # default is 10
-            NT_cor=NT_cor,
+            NT_cor=nt_cor,
             NLeg=mssd.n_expansion,
             # b_pos = 0, # dirichlet condition
             # BRDF_Fourier_modes=[],
