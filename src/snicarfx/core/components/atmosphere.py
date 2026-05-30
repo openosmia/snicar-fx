@@ -316,9 +316,13 @@ class AtmosphereColumn:
         """
 
         # get absorption in (c)m2 / molecule for each gas
-        self.gas_cross_sections = xr.open_dataset(
-            f"{self.ROOT_PATH}/data/gases/uvspec_{self.atmosphere_profile_type}_cross_sections.nc"
-        )
+        file_name = f"{self.ROOT_PATH}/data/gases/uvspec_{self.atmosphere_profile_type}_cross_sections.nc"
+        try:
+            self.gas_cross_sections = xr.open_dataset(file_name)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"Gas absorption cross section file not found ({file_name}). Please run `snicarfx-download-data` in a terminal (or manually download file from https://zenodo.org/records/20457918)."
+            )
 
         # truncate depending on altitude
         self.gas_cross_sections = self.gas_cross_sections.sel(

@@ -15,7 +15,9 @@ from snicarfx.core import AtmosphereColumn
 from snicarfx.core import LandColumn
 from snicarfx.core import SolarIrradiance
 from snicarfx import Session
+from snicarfx.cli.download import ZENODO_RECORD
 
+# path to different test input files
 TEST_INPUT_FILE_TWOSTREAM = "./tests/input_files/inputs_tests_twostream.yaml"
 TEST_INPUT_FILE_MULTISTREAM_UNCOUPLED = (
     "./tests/input_files/inputs_tests_ada_multistream_uncoupled.yaml"
@@ -23,6 +25,9 @@ TEST_INPUT_FILE_MULTISTREAM_UNCOUPLED = (
 TEST_INPUT_FILE_MULTISTREAM_COUPLED = (
     "./tests/input_files/inputs_tests_disort_multistream_coupled.yaml"
 )
+
+# API URL to test download of zenodo data archive
+API_URL = f"https://zenodo.org/api/records/{ZENODO_RECORD}"
 
 
 @pytest.fixture(scope="module")
@@ -44,6 +49,12 @@ def test_input_file_multistream_coupled():
 
 
 @pytest.fixture(scope="module")
+def api_url():
+    """Fetch path to API URL."""
+    return API_URL
+
+
+@pytest.fixture(scope="module")
 def session_twostream():
     """Provide a shared Session instance for two-stream configuration."""
     return Session(TEST_INPUT_FILE_TWOSTREAM)
@@ -53,6 +64,7 @@ def session_twostream():
 def config(session_twostream):
     """Provide a shared instance of Config for two-stream configuration."""
     return session_twostream.config
+
 
 @pytest.fixture(scope="module")
 def irradiance(config):
@@ -65,6 +77,7 @@ def land_column(config):
     """Provide a shared LandColumn instance using shared two-stream Config."""
     return LandColumn(config)
 
+
 @pytest.fixture(scope="module")
 def session_multistream_uncoupled():
     """Provide a shared Session instance for multi-stream uncoupled configuration."""
@@ -76,10 +89,12 @@ def session_multistream_coupled():
     """Provide a shared Session instance for multi-stream coupled configuration."""
     return Session(TEST_INPUT_FILE_MULTISTREAM_COUPLED)
 
+
 @pytest.fixture(scope="module")
 def atmosphere_column(session_multistream_coupled):
     """Provide a shared AtmosphereColumn instance."""
     return AtmosphereColumn(session_multistream_coupled.config)
+
 
 @pytest.fixture(scope="module")
 def expected_shapes(session_twostream):
@@ -116,6 +131,7 @@ def expected_mean_fl_r_dif_a():
 def expected_tau():
     """Fetch mean optical thickness from two-stream input file config."""
     return 325.0
+
 
 @pytest.fixture(scope="module")
 def benchmark_ada_spectral_data():
