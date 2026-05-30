@@ -34,6 +34,20 @@ class Session:
 
     It also provides a simple API to update certain input fields in
     the different components at run time.
+    
+    Attributes
+    ----------
+    config : Config
+        Direct spectral solar irradiance.
+    land_column : LandColumn
+        Instance of the LandColumn class.
+    atmosphere_column : AtmosphereColumn
+        Instance of the AtmosphereColumn class.
+    solar_irradiance : SolarIrradiance
+        Instance of the SolarIrradiance class.
+    outputs : ndarray
+        Outputs of the RTE solver.
+    
     """
 
     def __init__(self, input_file: str):
@@ -59,6 +73,10 @@ class Session:
         self.outputs = None
 
     def _set_spectral_array(self):
+        """
+        Set spectral arrays before solving the RTE, depending on the spectral
+        mode and resolution.
+        """
 
         # if the wavelength array is passed by user
         if isinstance(self.config.SPECTRAL.RESOLUTION, tuple):
@@ -195,6 +213,17 @@ class Session:
             )
 
     def _prepare_updates(self, kwargs, allowed_fields):
+        """
+        Verify that fields to update are allowed to be updated.
+        
+        Parameters
+        ----------
+        kwargs : dict
+            Fields to update.
+        allowed_fields : dict
+            Fields allowed to be updated.
+        """
+        
         forbidden = set(kwargs) - allowed_fields
         if forbidden:
             raise ValueError(
@@ -238,7 +267,13 @@ class Session:
         coupling and the number of streams as this would require to
         recalculate all optical properties at the moment, especially
         for the atmosphere.
-
+        
+        Parameters
+        ----------
+        updates : dict
+            Fields to update with corresponding new values.
+        validate : bool
+            Validate update with Pydantic or not.
         """
 
         # validate by creating a new instance of Solver
@@ -290,6 +325,13 @@ class Session:
         Update allowed solar fields from user-defined dictionary.
 
         All fields, hence SZA + SAA.
+        
+        Parameters
+        ----------
+        updates : dict
+            Fields to update with corresponding new values.
+        validate : bool
+            Validate update with Pydantic or not.
         """
 
         # validate by creating a new instance of Solver
@@ -334,6 +376,13 @@ class Session:
     def update_atmosphere(self, updates, validate=True):
         """
         Update allowed atmospheric fields from user-defined dictionary.
+        
+        Parameters
+        ----------
+        updates : dict
+            Fields to update with corresponding new values.
+        validate : bool
+            Validate update with Pydantic or not.
         """
 
         # raise error if update atmopshere is called but not
@@ -403,7 +452,14 @@ class Session:
 
     def update_land(self, updates, validate=True):
         """
-        Update allowed solar fields.
+        Update allowed land fields from user-defined dictionary.
+        
+        Parameters
+        ----------
+        updates : dict
+            Fields to update with corresponding new values.
+        validate : bool
+            Validate update with Pydantic or not.
         """
 
         # validate a copy of the config if requested
@@ -483,7 +539,12 @@ class Session:
 
     def run(self, to_xarray=True):
         """
-        Run the radiative transfer solver and return outputs
+        Run the radiative transfer solver and return outputs.
+        
+        Parameters
+        ----------
+        to_xarray : bool
+            Return outputs as xarray or not (else dictionary).
         """
 
         if self.config.SOLVER.TYPE == "two-stream-ad":
@@ -548,8 +609,8 @@ class Session:
 
     def format_twostream_results_to_xarray(self) -> xr.Dataset:
         """
-        Save results to an xarray with rather extensive model and
-        session state metadata.
+        Save results of two-stream simulation to an xarray with model 
+        and session state metadata.
         """
 
         attrs = {
@@ -621,8 +682,8 @@ class Session:
 
     def format_multistream_results_to_xarray(self) -> xr.Dataset:
         """
-        Save results to an xarray with rather extensive model and
-        session state metadata.
+        Save results of multi-stream simulation to an xarray with model 
+        and session state metadata.
         """
 
         attrs = {
@@ -711,6 +772,11 @@ class Session:
         return ds
 
     def apply_spectral_response_function(self) -> None:
+        """
+        Apply spectral response function of user-defined satellite instrument
+        to outputs of radiative transfer solver in order to return satellite
+        bands.
+        """
 
         for key, var in self.outputs.items():
 
@@ -758,9 +824,20 @@ class Session:
 
     def compute_flat_band_average(self, component, wavelengths, band_ranges, var_names):
         """
-        Compute averages of each spectral variable along the wavelength axis.
+        Compute band averages of each spectral variable along the wavelength axis.
         Since the wavelength grid is not necessarily homogeneous, the average
         translates into an integration divided by the spectral range.
+        
+        Parameters
+        ----------
+        component : LandColumn, AtmosphereColumn or SolarIrradiance
+            Class of the component to update.
+        wavelengths : ndarray
+            Wavelength array used in the simulation.
+        band_ranges : ndarray
+            Bounds and center wavelengths of bands.
+        var_names : list
+            Name of variables to update to bands.
         """
 
         band_means = {}
@@ -794,7 +871,22 @@ class Session:
         return band_means
 
     def compute_srf_weighted_average(self, column, wavelengths, band_ranges, var_names):
-
+        """
+        Compute bands for each spectral variable by integrating over the 
+        satellite spectral response function.
+        
+        Parameters
+        ----------
+        column : LandColumn, AtmosphereColumn or SolarIrradiance
+            Class of the component to update.
+        wavelengths : ndarray
+            Wavelength array used in the simulation.
+        band_ranges : ndarray
+            Bounds and center wavelengths of bands.
+        var_names : list
+            Name of variables to update to bands.
+        """
+        
         band_means = {}
 
         # Precompute denominator integral
@@ -930,9 +1022,21 @@ class Session:
         self, column, wavelengths, band_ranges, var_names
     ):
         """
-        Solar weighted average on spectral variables on given
-        variables of a component object.
+        Compute bands for each spectral variable by integrating over the 
+        satellite spectral response function multiplied by the solar irradiance.
+        
+        Parameters
+        ----------
+        column : LandColumn, AtmosphereColumn or SolarIrradiance
+            Class of the component to update.
+        wavelengths : ndarray
+            Wavelength array used in the simulation.
+        band_ranges : ndarray
+            Bounds and center wavelengths of bands.
+        var_names : list
+            Name of variables to update to bands.
         """
+        
         band_means = {}
 
         # Precompute denominator integral
@@ -1058,7 +1162,13 @@ class Session:
 
     def compute_band_average(self, components=["solar", "atmosphere", "land"]) -> None:
         """
-        Compute band averages for given properties of given components.
+        Compute band averages for a given component, depending on the user-defined
+        band mode.
+
+        Parameters
+        ----------
+        components : str or list
+            Component(s) to update.
         """
 
         if self.config.SPECTRAL.MODE == "band-snicar-default":
