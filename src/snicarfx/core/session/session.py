@@ -859,6 +859,24 @@ class Session:
                     x=wavelengths,
                     axis=-1,
                 )
+                
+            elif name == "asm_prm":
+                # srf * flux * g * w * tau
+                # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl
+                numerator = (
+                    self._spectral_response_function
+                    * arr_flat[:, None, :]
+                    * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
+                    * column.ss_alb.reshape(-1, arr.shape[-1])[:, None, :]
+                )
+                numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = np.trapezoid(
+                    self._spectral_response_function
+                    * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
+                    * column.ss_alb.reshape(-1, arr.shape[-1])[:, None, :],
+                    x=wavelengths,
+                    axis=-1,
+                )
 
             # leg moments are taken at central wl to reduce comp. burden
             elif name == "legendre_moments":
@@ -890,9 +908,8 @@ class Session:
                 #     axis=-1,
                 # )
 
-            elif name in ["tau", "ref_idx_re", "ref_idx_im", "sfc", "asm_prm"]:
-
-                # weigh all variables with srf * total flux
+            elif name in ["ref_idx_re", "ref_idx_im", "sfc"]:
+                # weigh with srf * total flux
                 numerator = self._spectral_response_function * arr_flat[:, None, :]
                 numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
                 denominator_integral_local = denominator_integral_srf
@@ -967,6 +984,24 @@ class Session:
                 denominator_integral_local = np.trapezoid(
                     self._spectral_response_function_sw_total
                     * column.tau.reshape(-1, arr.shape[-1])[:, None, :],
+                    x=wavelengths,
+                    axis=-1,
+                )
+            
+            elif name == "asm_prm":
+                # srf * flux * g * w * tau
+                # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl
+                numerator = (
+                    self._spectral_response_function_sw_total
+                    * arr_flat[:, None, :]
+                    * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
+                    * column.ss_alb.reshape(-1, arr.shape[-1])[:, None, :]
+                )
+                numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
+                denominator_integral_local = np.trapezoid(
+                    self._spectral_response_function_sw_total
+                    * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
+                    * column.ss_alb.reshape(-1, arr.shape[-1])[:, None, :],
                     x=wavelengths,
                     axis=-1,
                 )
