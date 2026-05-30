@@ -34,7 +34,7 @@ class Solver(BaseModel):
     # radiative transfer solver to use
     TYPE: Literal["two-stream-ad", "multi-stream-ada", "multi-stream-disort"] = Field(
         description="Radiative transfer solver to use",
-        examples="'two-stream-ad' selects the two-stream Delta-Eddington formulation, 'multi-stream-ada' selects the multi-stream solver with advanced matrix operator with adding methods, and 'multi-stream-disort' selects the DISORT solver via the PythonicDISORT package. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for references.",
+        examples="'two-stream-ad' selects the two-stream Delta-Eddington formulation, 'multi-stream-ada' selects the multi-stream solver with advanced matrix operator and adding method, and 'multi-stream-disort' selects the DISORT solver via the PythonicDISORT package. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for references.",
     )
 
     # explicit surface-atmosphere coupling
@@ -52,7 +52,7 @@ class Solver(BaseModel):
     DELTA_SCALING: Literal["M", "M+"] = Field(
         default="M",
         description="Type of Delta scaling to apply",
-        examples="'M' = delta-M scaling (Wiscombe 1977), 'M+' = delta-M+ scaling (Lin et al. 2017). Must be set to 'M' if TYPE = 'two-stream-ad'. Automatically uses the IMS-TMS correction if 'M' and TYPE = 'two-stream-disort'.",
+        examples="'M' = delta-M scaling (Wiscombe 1977), 'M+' = delta-M+ scaling (Lin et al. 2017). Must be set to 'M' if TYPE = 'two-stream-ad'. Automatically uses the IMS-TMS correction if 'M' and TYPE = 'multi-stream-disort'.",
     )
 
     N_STREAMS: int = Field(
@@ -94,7 +94,7 @@ class Solver(BaseModel):
     ) = Field(
         default=None,
         description="Viewing azimuth angle (degrees)",
-        examples="Only used with multi-stream solvers when N_FOURIER_MODES > 1. Must be prescribed as a range (start, end, step). If no value set in the input file (= None), set to (0.0, 180.0, 20.0).",
+        examples="Only used with multi-stream solvers when N_FOURIER_MODES > 1. Must be prescribed as a range (start, end, step). If no value set in the input file (= None), set to (20.0, 180.0, 20.0).",
     )
 
     # only fields validated here are allowed
@@ -103,7 +103,7 @@ class Solver(BaseModel):
     @model_validator(mode="after")
     def check_atmosphere_coupling(self):
         """
-        Verify that atmosphere coupling is not True when using the two-stream
+        Verify that atmosphere coupling is False when using the two-stream
         solver.
         """
 
@@ -193,7 +193,7 @@ class Solver(BaseModel):
 
         if self.N_FOURIER_MODES > self.N_STREAMS:
             raise ValueError(
-                f"N_FOURIER_MODES cannot exceed N_STREAMS ({self.N_STREAMS})"
+                f"N_FOURIER_MODES cannot exceed N_STREAMS (currently {self.N_STREAMS})"
             )
 
         return self
@@ -249,7 +249,7 @@ class Solver(BaseModel):
             and "multi-stream" in self.TYPE
             and self.N_FOURIER_MODES > 1
         ):
-            self.AZIMUTH_ANGLES = (0.0, 180.0, 20)
+            self.AZIMUTH_ANGLES = (20.0, 180.0, 20)
 
         if self.AZIMUTH_ANGLES is not None and self.TYPE == "two-stream-ad":
             raise ValueError(
@@ -297,7 +297,7 @@ class Spectral(BaseModel):
         "band-srf-integration",
     ] = Field(
         description="Type of spectral mode in calculations",
-        examples="'monochromatic' solves and returns the output at discrete wavelengths, while all other modes return bands. 'band-snicar-default' is the default mode of the SNICAR model - it calculates band averages for atmosphere and solar properties, and selects the center wavelength for land optical properties, before solve. 'band-srf-solar-weighted-mean' applies a solar-weighted integration for each band for all components before solve, (!) it is computationally expensive. 'band-srf-integration' is only available for satellite platforms - it solves at a high 1cm-1 resolution and then integrates into satellite bands, (!) it is computationally expensive.",
+        examples="'monochromatic' solves and returns the output at discrete wavelengths, while all other modes return bands. 'band-snicar-default' is the default mode of the original SNICAR model (band means for the solar irradiance, center wavelength for land properties). 'band-srf-solar-weighted-mean' applies a weighted integration to atmosphere/land/solar properties using the solar irradiance and satellite response function for each band, except for the Legendre moments which are taken at the central wavelength. 'band-srf-weighted-mean' applies a weighted integration to atmosphere/land/solar properties using the satellite response function for each band, except for the Legendre moments which are taken at the central wavelength. 'band-srf-integration' applies the satellite response function after solving at 1cm-1 resolution (! it is computationally very expensive).",
     )
 
     RESOLUTION: (
