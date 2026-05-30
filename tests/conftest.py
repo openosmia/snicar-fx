@@ -27,63 +27,59 @@ TEST_INPUT_FILE_MULTISTREAM_COUPLED = (
 
 @pytest.fixture(scope="module")
 def test_input_file_twostream():
-    """Fetch path to the test input file."""
+    """Fetch path to the test input file for two-stream configuration."""
     return TEST_INPUT_FILE_TWOSTREAM
 
 
 @pytest.fixture(scope="module")
 def test_input_file_multistream_uncoupled():
-    """Fetch path to the test input file."""
+    """Fetch path to the test input file for multi-stream uncoupled configuration."""
     return TEST_INPUT_FILE_MULTISTREAM_UNCOUPLED
 
 
 @pytest.fixture(scope="module")
 def test_input_file_multistream_coupled():
-    """Fetch path to the test input file."""
+    """Fetch path to the test input file for multi-stream coupled configuration."""
     return TEST_INPUT_FILE_MULTISTREAM_COUPLED
 
 
 @pytest.fixture(scope="module")
 def session_twostream():
-    """Provide a shared Session instance."""
+    """Provide a shared Session instance for two-stream configuration."""
     return Session(TEST_INPUT_FILE_TWOSTREAM)
 
 
 @pytest.fixture(scope="module")
+def config(session_twostream):
+    """Provide a shared instance of Config for two-stream configuration."""
+    return session_twostream.config
+
+@pytest.fixture(scope="module")
+def irradiance(config):
+    """Provide a SolarIrradiance instance using shared two-stream Config."""
+    return SolarIrradiance(config)
+
+
+@pytest.fixture(scope="module")
+def land_column(config):
+    """Provide a shared LandColumn instance using shared two-stream Config."""
+    return LandColumn(config)
+
+@pytest.fixture(scope="module")
 def session_multistream_uncoupled():
-    """Provide a shared Session instance."""
+    """Provide a shared Session instance for multi-stream uncoupled configuration."""
     return Session(TEST_INPUT_FILE_MULTISTREAM_UNCOUPLED)
 
 
 @pytest.fixture(scope="module")
 def session_multistream_coupled():
-    """Provide a shared Session instance."""
+    """Provide a shared Session instance for multi-stream coupled configuration."""
     return Session(TEST_INPUT_FILE_MULTISTREAM_COUPLED)
-
-
-@pytest.fixture(scope="module")
-def config(session_twostream):
-    """Provide a shared instance of Config."""
-    return session_twostream.config
-
-
-@pytest.fixture(scope="module")
-def land_column(config):
-    """Provide a shared LandColumn instance using shared Config."""
-    return LandColumn(config)
-
 
 @pytest.fixture(scope="module")
 def atmosphere_column(session_multistream_coupled):
-    """Provide a shared AtmosphereColumn instance using shared Config."""
+    """Provide a shared AtmosphereColumn instance."""
     return AtmosphereColumn(session_multistream_coupled.config)
-
-
-@pytest.fixture(scope="module")
-def irradiance(config):
-    """Provide a SolarIrradiance instance using shared Config."""
-    return SolarIrradiance(config)
-
 
 @pytest.fixture(scope="module")
 def expected_shapes(session_twostream):
@@ -100,27 +96,25 @@ def expected_shapes(session_twostream):
 
 @pytest.fixture(scope="module")
 def expected_mean_ref_idx_re():
-    """Fetch mean real refractive index of ice from test input file."""
+    """Fetch mean real refractive index of ice."""
     return 1.3140363224931713
 
 
 @pytest.fixture(scope="module")
 def expected_mean_ref_idx_im_water():
-    """Fetch mean imaginary refractive index of water from test input file."""
+    """Fetch mean imaginary refractive index of water."""
     return 0.02835950902555164
 
 
 @pytest.fixture(scope="module")
 def expected_mean_fl_r_dif_a():
-    """
-    Fetch mean diffuse fresnel coefficient for light coming from above.
-    """
+    """Fetch mean diffuse fresnel coefficient for light coming from above."""
     return 0.07721768897304701
 
 
 @pytest.fixture(scope="module")
 def expected_tau():
-    """Fetch mean optical thickness from test input file."""
+    """Fetch mean optical thickness from two-stream input file config."""
     return 325.0
 
 @pytest.fixture(scope="module")

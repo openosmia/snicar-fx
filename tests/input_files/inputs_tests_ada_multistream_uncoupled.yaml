@@ -3,30 +3,30 @@
 
 SOLVER:
   TYPE: "multi-stream-ada"
-  ATMOSPHERE_COUPLING: False # explicit surface-atmosphere coupling
+  ATMOSPHERE_COUPLING: False 
   OUTPUT_LEVELS: "BOA"
 
 SPECTRAL:
   MODE: "band-snicar-default"
-  RESOLUTION: [300, 2700, 10] # [start, end, step] or satellite instrument
+  RESOLUTION: [300, 2700, 10] 
 
 SOLAR:
   SZA: 50 
 
 ATMOSPHERE:
-  SKY_CONDITIONS: "clear_fully_direct" # clear, cloudy
+  SKY_CONDITIONS: "clear_fully_direct" 
   ATMOSPHERIC_PROFILE_TYPE: "afglss"
 
 LAND:
-  THICKNESS: [1, 1, 1]  # thickness of each vertical layer (unit : m)
-  LAYER_TYPE: [0, 0, 0]  # 0: ice spheres, 1: solid ice w/frsnl, 2: w/out frsnl
-  DENSITY: [650, 650, 650]  # density of each layer (unit : kg m-3)
-  RF_TYPE: "Pic16" # "Wrn08", "Pic16", "Coop21"
-  SPECIFIC_SURFACE_AREA: [1, 1, 1] # m2 kg-1. for ice, should be below ??
-  LWC: [0, 0, 0] # LWC content in snow/ice 
-  SFC: 0.25 # reflectance of lower boundary  
-  GRAIN_SHAPE: [1, 1, 1]  # grain shape: 0 is sphere, 1 is Robledano et al. 2023
-  ALTITUDE: 0.0 # surface altitude in km
+  THICKNESS: [1, 1, 1]  
+  LAYER_TYPE: [0, 0, 0]  
+  DENSITY: [650, 650, 650]  
+  RF_TYPE: "Pic16" 
+  SPECIFIC_SURFACE_AREA: [1, 1, 1]
+  LWC: [0, 0, 0] 
+  SFC: 0.25 
+  GRAIN_SHAPE: [1, 1, 1] 
+  ALTITUDE: 0.0 
   
   LIGHT_ABSORBING_PARTICLES:
     BC:

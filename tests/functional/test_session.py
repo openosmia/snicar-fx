@@ -20,8 +20,8 @@ def test_session_attributes(session_multistream_coupled):
 
     Parameters
     ----------
-    session : Session
-        Instance of the Session class
+    session_multistream_coupled : Session
+        Instance of the Session class for multi-stream coupled configuration
     """
 
     assert hasattr(session_multistream_coupled, "config")
@@ -39,7 +39,11 @@ def test_format_multistream_results_to_xarray(session_multistream_coupled):
     """
     Test that xarray outputs match expected shapes based on user
     inputs.
-
+    
+    Parameters
+    ----------
+    session_multistream_coupled : Session
+        Instance of the Session class for multi-stream coupled configuration
     """
     results = session_multistream_coupled.run(to_xarray=True)
 
@@ -72,9 +76,17 @@ def test_update_api(
 ):
     """
     Test the update API by comparing results obtained by modifying
-    session wit the update API vs. manually modifying the input file
-    re-initializing a new Session.
-
+    session wit the update API vs. manually modifying the input file and
+    re-initializing a new Session instance.
+    
+    Parameters
+    ----------
+    test_input_file_multistream_coupled : str
+        File name of the input file used to re-initialize Session.
+    update_api_params : dict
+        Component, field and value of the parameter to update. 
+    absolute_tolerance_update_api : float
+        Tolerance on error between updated and re-initialized values.
     """
 
     component = update_api_params["component"]
@@ -180,6 +192,15 @@ def test_update_api_sequential_scaling(
     atmosphere updates to make sure updates are independent of each
     other (i.e. that (1) zero-scalings do not prevent future scalings
     and (2) a loss of precision is not propagated).
+    
+    Parameters
+    ----------
+    test_input_file_multistream_coupled : str
+        File name of the input file used to re-initialize Session.
+    update_api_params : dict
+        Component, field and value of the parameter to update. 
+    absolute_tolerance_update_api : float
+        Tolerance on error between updated and re-initialized values.
 
     """
 
