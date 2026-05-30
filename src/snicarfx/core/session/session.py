@@ -890,7 +890,8 @@ class Session:
                 #     axis=-1,
                 # )
 
-            else:
+            elif name in ["tau", "ref_idx_re", "ref_idx_im", "sfc", "asm_prm"]:
+
                 # weigh all variables with srf * total flux
                 numerator = self._spectral_response_function * arr_flat[:, None, :]
                 numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
@@ -998,7 +999,7 @@ class Session:
                 #     axis=-1,
                 # )
 
-            else:
+            elif name in ["tau", "ref_idx_re", "ref_idx_im", "sfc", "asm_prm"]:
                 # weigh all variables with srf * total flux
                 numerator = (
                     self._spectral_response_function_sw_total * arr_flat[:, None, :]
@@ -1027,7 +1028,8 @@ class Session:
 
         if self.config.SPECTRAL.MODE == "band-snicar-default":
 
-            # average solar variables
+            # average solar variables (no band for land and atmosphere
+            # in this mode)
             if "solar" in components:
                 solar_flat_means = self.compute_flat_band_average(
                     self.solar_irradiance,
