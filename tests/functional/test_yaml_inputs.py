@@ -37,7 +37,10 @@ def test_test_yaml_input_file_multistream_coupled(test_input_file_multistream_co
     # validate configuration
     Config.from_yaml(test_input_file_multistream_coupled)
 
-def test_test_yaml_input_file_multistream_uncoupled(test_input_file_multistream_uncoupled):
+
+def test_test_yaml_input_file_multistream_uncoupled(
+    test_input_file_multistream_uncoupled,
+):
     """
     Test the range and type of the model parameters parsed from the yaml input
     file used to test snicar-fx.
@@ -50,4 +53,3 @@ def test_test_yaml_input_file_multistream_uncoupled(test_input_file_multistream_
 
     # validate configuration
     Config.from_yaml(test_input_file_multistream_uncoupled)
-

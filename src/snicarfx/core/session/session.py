@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from importlib.metadata import version
 
 import numpy as np
+import scipy
 import xarray as xr
 
 from ..components.atmosphere import AtmosphereColumn
@@ -23,7 +24,6 @@ from ..solvers.multi_stream_solver_disort import (
 )
 from ..solvers.two_stream_solver_ad import solve_two_stream_rt_ad
 from .config import Config
-import scipy
 
 
 class Session:
@@ -34,7 +34,7 @@ class Session:
 
     It also provides a simple API to update certain input fields in
     the different components at run time.
-    
+
     Attributes
     ----------
     config : Config
@@ -47,7 +47,7 @@ class Session:
         Instance of the SolarIrradiance class.
     outputs : ndarray
         Outputs of the RTE solver.
-    
+
     """
 
     def __init__(self, input_file: str):
@@ -80,7 +80,6 @@ class Session:
 
         # if the wavelength array is passed by user
         if isinstance(self.config.SPECTRAL.RESOLUTION, tuple):
-
             if self.config.SPECTRAL.RESOLUTION[2] == "1cm-1":
                 # create an array at 1cm-1 resolution
                 wavelength_homogeneous = (
@@ -108,7 +107,6 @@ class Session:
                 self.config._wavelengths = wavelength_homogeneous
 
             elif "band-" in self.config.SPECTRAL.MODE:
-
                 # set at 1cm-1 resolution by default to compute OPs
                 wavelength_1cm_m1 = (
                     1e7
@@ -143,7 +141,6 @@ class Session:
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
         elif isinstance(self.config.SPECTRAL.RESOLUTION, str):
-
             srf_base_path = (
                 f"{self.config._ROOT_PATH}/data/satellite_spectral_responses"
             )
@@ -215,7 +212,7 @@ class Session:
     def _prepare_updates(self, kwargs, allowed_fields):
         """
         Verify that fields to update are allowed to be updated.
-        
+
         Parameters
         ----------
         kwargs : dict
@@ -223,7 +220,7 @@ class Session:
         allowed_fields : dict
             Fields allowed to be updated.
         """
-        
+
         forbidden = set(kwargs) - allowed_fields
         if forbidden:
             raise ValueError(
@@ -241,7 +238,7 @@ class Session:
             ]
             if any(
                 key not in current_laps
-                for key in kwargs["LIGHT_ABSORBING_PARTICLES"].keys()
+                for key in kwargs["LIGHT_ABSORBING_PARTICLES"]
             ) or any(
                 p["FILE"] not in current_laps_files
                 for p in kwargs["LIGHT_ABSORBING_PARTICLES"].values()
@@ -267,7 +264,7 @@ class Session:
         coupling and the number of streams as this would require to
         recalculate all optical properties at the moment, especially
         for the atmosphere.
-        
+
         Parameters
         ----------
         updates : dict
@@ -301,7 +298,6 @@ class Session:
         # explicit conditions for all keys in case they require
         # further processing
         if updates:
-
             if "TYPE" in updates:
                 self.config.SOLVER.TYPE = updates["TYPE"]
 
@@ -325,7 +321,7 @@ class Session:
         Update allowed solar fields from user-defined dictionary.
 
         All fields, hence SZA + SAA.
-        
+
         Parameters
         ----------
         updates : dict
@@ -343,7 +339,8 @@ class Session:
                 and self.config.SPECTRAL.MODE == "band-srf-solar-weighted-mean"
             ):
                 raise ValueError(
-                    "Updating SZA without atmosphere coupling using band-srf-solar-weighted-mean spectral mode requires a new input file."
+                    "Updating SZA without atmosphere coupling using "
+                    "band-srf-solar-weighted-mean spectral mode requires a new input file."
                 )
 
             self._prepare_updates(updates, allowed_fields)
@@ -367,7 +364,6 @@ class Session:
                 self.solar_irradiance.saa = updates["SAA"]
 
             if not self.config.SOLVER.ATMOSPHERE_COUPLING:
-
                 # surface irradiance needs to be re-calculated if SZA updated
                 self.solar_irradiance.set_surface_irradiance()
 
@@ -376,7 +372,7 @@ class Session:
     def update_atmosphere(self, updates, validate=True):
         """
         Update allowed atmospheric fields from user-defined dictionary.
-        
+
         Parameters
         ----------
         updates : dict
@@ -389,7 +385,9 @@ class Session:
         # atmosphere is set
         if not self.config.SOLVER.ATMOSPHERE_COUPLING:
             raise ValueError(
-                "Cannot update atmosphere properties when SOLVER.ATMOSPHERE_COUPLING is false. Please set SOLVER.ATMOSPHERE_COUPLING to true in input file before attempting to update atmosphere."
+                "Cannot update atmosphere properties when SOLVER.ATMOSPHERE_COUPLING"
+                " is false. Please set SOLVER.ATMOSPHERE_COUPLING to true in input "
+                "file before attempting to update atmosphere."
             )
 
         # for now we do not change sky conditions, atmospheric profile type
@@ -397,7 +395,6 @@ class Session:
 
         # validate a copy of the config if requested
         if validate:
-
             allowed_fields = {
                 "INTEGRATED_AOD_550",
                 "INTEGRATED_GAS_CONCENTRATIONS",
@@ -417,7 +414,6 @@ class Session:
 
         # update only if not empty
         if updates:
-
             if "INTEGRATED_AOD_550" in updates:
                 # load aerosols properties if not in session already
                 if self.atmosphere_column.AOD == 0:
@@ -453,7 +449,7 @@ class Session:
     def update_land(self, updates, validate=True):
         """
         Update allowed land fields from user-defined dictionary.
-        
+
         Parameters
         ----------
         updates : dict
@@ -464,7 +460,6 @@ class Session:
 
         # validate a copy of the config if requested
         if validate:
-
             allowed_fields = {
                 "LAYER_TYPE",
                 "GRAIN_SHAPE",
@@ -490,7 +485,6 @@ class Session:
 
         # update only if not empty
         if updates:
-
             # update arguments of the land column class
             if "THICKNESS" in updates:
                 self.land_column.thickness_profile = updates["THICKNESS"]
@@ -540,7 +534,7 @@ class Session:
     def run(self, to_xarray=True):
         """
         Run the radiative transfer solver and return outputs.
-        
+
         Parameters
         ----------
         to_xarray : bool
@@ -556,7 +550,6 @@ class Session:
                 self.outputs = self.format_twostream_results_to_xarray()
 
         elif self.config.SOLVER.TYPE == "multi-stream-ada":
-
             self.outputs = solve_multi_stream_rt_ada(
                 self.land_column,
                 self.atmosphere_column,
@@ -572,7 +565,6 @@ class Session:
                 self.outputs = self.format_multistream_results_to_xarray()
 
         elif self.config.SOLVER.TYPE == "multi-stream-disort":
-
             if self.config.SOLVER.DELTA_SCALING == "M+":
                 self.outputs = solve_multi_stream_rt_disort(
                     self.land_column,
@@ -609,7 +601,7 @@ class Session:
 
     def format_twostream_results_to_xarray(self) -> xr.Dataset:
         """
-        Save results of two-stream simulation to an xarray with model 
+        Save results of two-stream simulation to an xarray with model
         and session state metadata.
         """
 
@@ -655,13 +647,17 @@ class Session:
         )
         ds["bba_boa"].attrs.update(
             {
-                "description": "Broadband albedo (spectrally-integrated albedo) at the surface (Bottom of Atmosphere, BOA)",
+                "description": (
+                    "Broadband albedo (spectrally-integrated albedo) "
+                    "at the surface (Bottom of Atmosphere, BOA)"),
                 "units": None,
             }
         )
         ds["albedo_boa"].attrs.update(
             {
-                "description": "Spectrally resolved surface albedo at the surface (Bottom of Atmosphere, BOA)",
+                "description": (
+                    "Spectrally resolved surface albedo at the surface "
+                    "(Bottom of Atmosphere, BOA)"),
                 "units": None,
             }
         )
@@ -673,7 +669,9 @@ class Session:
         )
         ds["absorbed_flux_fraction_bottom"].attrs.update(
             {
-                "description": "Spectrally-resolved absorbed solar energy at the bottom layer",
+                "description": (
+                    "Spectrally-resolved absorbed solar energy at "
+                    "the bottom layer"),
                 "units": "W/m2",
             }
         )
@@ -682,7 +680,7 @@ class Session:
 
     def format_multistream_results_to_xarray(self) -> xr.Dataset:
         """
-        Save results of multi-stream simulation to an xarray with model 
+        Save results of multi-stream simulation to an xarray with model
         and session state metadata.
         """
 
@@ -779,9 +777,7 @@ class Session:
         """
 
         for key, var in self.outputs.items():
-
             if any(tag in key for tag in ["albedo_"]):
-
                 self.outputs[key] = np.trapezoid(
                     var[None, :] * self._spectral_response_function,
                     x=self.config._wavelengths_solar,
@@ -805,7 +801,6 @@ class Session:
                 )
 
             elif any(tag in key for tag in ["directional_"]):
-
                 self.outputs[key] = (
                     np.trapezoid(
                         # (polar, 1, wl, azimuth)
@@ -827,7 +822,7 @@ class Session:
         Compute band averages of each spectral variable along the wavelength axis.
         Since the wavelength grid is not necessarily homogeneous, the average
         translates into an integration divided by the spectral range.
-        
+
         Parameters
         ----------
         component : LandColumn, AtmosphereColumn or SolarIrradiance
@@ -872,9 +867,9 @@ class Session:
 
     def compute_srf_weighted_average(self, column, wavelengths, band_ranges, var_names):
         """
-        Compute bands for each spectral variable by integrating over the 
+        Compute bands for each spectral variable by integrating over the
         satellite spectral response function.
-        
+
         Parameters
         ----------
         column : LandColumn, AtmosphereColumn or SolarIrradiance
@@ -886,7 +881,7 @@ class Session:
         var_names : list
             Name of variables to update to bands.
         """
-        
+
         band_means = {}
 
         # Precompute denominator integral
@@ -951,7 +946,7 @@ class Session:
                     x=wavelengths,
                     axis=-1,
                 )
-                
+
             elif name == "asm_prm":
                 # srf * flux * g * w * tau
                 # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl
@@ -972,7 +967,6 @@ class Session:
 
             # leg moments are taken at central wl to reduce comp. burden
             elif name == "legendre_moments":
-
                 f = scipy.interpolate.interp1d(
                     self.config._wavelengths_atmosphere,
                     arr_flat,
@@ -1022,9 +1016,9 @@ class Session:
         self, column, wavelengths, band_ranges, var_names
     ):
         """
-        Compute bands for each spectral variable by integrating over the 
+        Compute bands for each spectral variable by integrating over the
         satellite spectral response function multiplied by the solar irradiance.
-        
+
         Parameters
         ----------
         column : LandColumn, AtmosphereColumn or SolarIrradiance
@@ -1036,7 +1030,7 @@ class Session:
         var_names : list
             Name of variables to update to bands.
         """
-        
+
         band_means = {}
 
         # Precompute denominator integral
@@ -1091,7 +1085,7 @@ class Session:
                     x=wavelengths,
                     axis=-1,
                 )
-            
+
             elif name == "asm_prm":
                 # srf * flux * g * w * tau
                 # shape  (21, wl) * (lyr, 1, wl) * (lyr, 1, wl) * (lyr, 1, wl) integ on wl
@@ -1112,7 +1106,6 @@ class Session:
 
             # leg moments are taken at central wl to reduce comp. burden
             elif name == "legendre_moments":
-
                 f = scipy.interpolate.interp1d(
                     self.config._wavelengths_atmosphere,
                     arr_flat,
@@ -1172,7 +1165,6 @@ class Session:
         """
 
         if self.config.SPECTRAL.MODE == "band-snicar-default":
-
             # average solar variables (no band for land and atmosphere
             # in this mode)
             if "solar" in components:
@@ -1189,21 +1181,19 @@ class Session:
                 self.solar_irradiance.diffuse = solar_flat_means["diffuse"]
 
         elif self.config.SPECTRAL.MODE in ["band-srf-weighted-mean"]:
-
             # average atmosphere variables
-            if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
-                if "atmosphere" in components:
-                    atmosphere_weighted_means = self.compute_srf_weighted_average(
-                        self.atmosphere_column,
-                        self.config._wavelengths_atmosphere,
-                        self._band_ranges,
-                        var_names=["tau", "ss_alb", "legendre_moments"],
-                    )
-                    self.atmosphere_column.tau = atmosphere_weighted_means["tau"]
-                    self.atmosphere_column.ss_alb = atmosphere_weighted_means["ss_alb"]
-                    self.atmosphere_column.legendre_moments = atmosphere_weighted_means[
-                        "legendre_moments"
-                    ]
+            if self.config.SOLVER.ATMOSPHERE_COUPLING and "atmosphere" in components:
+                atmosphere_weighted_means = self.compute_srf_weighted_average(
+                    self.atmosphere_column,
+                    self.config._wavelengths_atmosphere,
+                    self._band_ranges,
+                    var_names=["tau", "ss_alb", "legendre_moments"],
+                )
+                self.atmosphere_column.tau = atmosphere_weighted_means["tau"]
+                self.atmosphere_column.ss_alb = atmosphere_weighted_means["ss_alb"]
+                self.atmosphere_column.legendre_moments = atmosphere_weighted_means[
+                    "legendre_moments"
+                ]
 
             if "land" in components:
                 if self.config.SOLVER.TYPE == "two-stream-ad":
@@ -1263,7 +1253,6 @@ class Session:
                 ].flatten()
 
         elif self.config.SPECTRAL.MODE == "band-srf-solar-weighted-mean":
-
             # only compute if it hasn't been yet
             if not hasattr(self, "_spectral_response_function_sw_total"):
                 # cache solar weighted SRF
@@ -1281,19 +1270,18 @@ class Session:
                 )
 
             # average atmosphere variables
-            if self.config.SOLVER.ATMOSPHERE_COUPLING == True:
-                if "atmosphere" in components:
-                    atmosphere_weighted_means = self.compute_srf_solar_weighted_average(
-                        self.atmosphere_column,
-                        self.config._wavelengths_atmosphere,
-                        self._band_ranges,
-                        var_names=["tau", "ss_alb", "legendre_moments"],
-                    )
-                    self.atmosphere_column.tau = atmosphere_weighted_means["tau"]
-                    self.atmosphere_column.ss_alb = atmosphere_weighted_means["ss_alb"]
-                    self.atmosphere_column.legendre_moments = atmosphere_weighted_means[
-                        "legendre_moments"
-                    ]
+            if self.config.SOLVER.ATMOSPHERE_COUPLING and "atmosphere" in components:
+                atmosphere_weighted_means = self.compute_srf_solar_weighted_average(
+                    self.atmosphere_column,
+                    self.config._wavelengths_atmosphere,
+                    self._band_ranges,
+                    var_names=["tau", "ss_alb", "legendre_moments"],
+                )
+                self.atmosphere_column.tau = atmosphere_weighted_means["tau"]
+                self.atmosphere_column.ss_alb = atmosphere_weighted_means["ss_alb"]
+                self.atmosphere_column.legendre_moments = atmosphere_weighted_means[
+                    "legendre_moments"
+                ]
 
             if "land" in components:
                 if self.config.SOLVER.TYPE == "two-stream-ad":

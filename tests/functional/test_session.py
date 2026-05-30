@@ -5,12 +5,14 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import yaml
-from snicarfx import Session
-import tempfile
 import os
+import tempfile
+
 import numpy as np
+import yaml
 from pydantic import BaseModel
+
+from snicarfx import Session
 
 
 def test_session_attributes(session_multistream_coupled):
@@ -39,7 +41,7 @@ def test_format_multistream_results_to_xarray(session_multistream_coupled):
     """
     Test that xarray outputs match expected shapes based on user
     inputs.
-    
+
     Parameters
     ----------
     session_multistream_coupled : Session
@@ -78,13 +80,13 @@ def test_update_api(
     Test the update API by comparing results obtained by modifying
     session wit the update API vs. manually modifying the input file and
     re-initializing a new Session instance.
-    
+
     Parameters
     ----------
     test_input_file_multistream_coupled : str
         File name of the input file used to re-initialize Session.
     update_api_params : dict
-        Component, field and value of the parameter to update. 
+        Component, field and value of the parameter to update.
     absolute_tolerance_update_api : float
         Tolerance on error between updated and re-initialized values.
     """
@@ -111,7 +113,7 @@ def test_update_api(
     # manually modify the input file and create a new session (not
     # recommended in snicarfx but required here to test the update
     # API, which is the recommanded way)
-    with open(test_input_file_multistream_coupled, "r") as f:
+    with open(test_input_file_multistream_coupled) as f:
         config_dict = yaml.safe_load(f)
 
     # apply the same update as with the upate API
@@ -150,7 +152,6 @@ def test_update_api(
     # where light absorbing particle file names are not being passed
     # again
     if field == "LIGHT_ABSORBING_PARTICLES":
-
         value_without_file = {
             k: {subk: subv for subk, subv in v.items() if subk != "FILE"}
             for k, v in value.items()
@@ -192,13 +193,13 @@ def test_update_api_sequential_scaling(
     atmosphere updates to make sure updates are independent of each
     other (i.e. that (1) zero-scalings do not prevent future scalings
     and (2) a loss of precision is not propagated).
-    
+
     Parameters
     ----------
     test_input_file_multistream_coupled : str
         File name of the input file used to re-initialize Session.
     update_api_params : dict
-        Component, field and value of the parameter to update. 
+        Component, field and value of the parameter to update.
     absolute_tolerance_update_api : float
         Tolerance on error between updated and re-initialized values.
 
@@ -214,7 +215,6 @@ def test_update_api_sequential_scaling(
     # loop over the sequence containing different updates to scale,
     # including zeros followed by non-zero updates
     for values in sequence:
-
         updates = {field: values}
         session_uapi.update_atmosphere(updates)
         results_uapi = session_uapi.run(to_xarray=False)
@@ -222,7 +222,7 @@ def test_update_api_sequential_scaling(
         # manually modify the input file and create a new session (not
         # recommended in snicarfx but required here to test the update
         # API, which is the recommanded way)
-        with open(test_input_file_multistream_coupled, "r") as f:
+        with open(test_input_file_multistream_coupled) as f:
             config_dict = yaml.safe_load(f)
 
         # apply the same update as with the upate API

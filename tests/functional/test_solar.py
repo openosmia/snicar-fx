@@ -20,14 +20,16 @@ def test_solarirradiance_shapes(irradiance, expected_shapes):
     expected_shapes : dict
         Expected shapes of the attributes of `irradiance`
     """
-    for var in [irradiance.direct_beam, irradiance.diffuse, irradiance.total_irradiance]:
+    for var in [
+        irradiance.direct_beam,
+        irradiance.diffuse,
+        irradiance.total_irradiance,
+    ]:
         assert isinstance(var, np.ndarray)
         assert var.shape == expected_shapes["1d_wavelengths_solar"]
 
 
-def test_solarirradiance_values(
-    irradiance
-):
+def test_solarirradiance_values(irradiance):
     """
     Assert that average values of attributes defined in the test input file
     match expected values within a tolerance threshold.

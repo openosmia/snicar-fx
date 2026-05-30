@@ -345,7 +345,6 @@ class _TwoStreamSolverAD:
         t1 = self.tdif_a[:, lyr].copy()
 
         for ng in np.arange(0, len(self.GAUSPT), 1):
-
             # solar zenith angles
             mu = self.GAUSPT[ng]
 
@@ -787,7 +786,6 @@ def solve_two_stream_rt_ad(column, irradiance):
 
     # loop through layers
     for lyr in np.arange(0, column.nbr_lyr, 1):
-
         # condition: if current layer is above fresnel layer or the
         # top layer is a Fresnel layer
         # else: within or below fl

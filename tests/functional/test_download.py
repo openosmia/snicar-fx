@@ -7,7 +7,8 @@ https://github.com/openosmia/snicar-fx
 
 import pytest
 import requests
-from snicarfx.cli.download import ZENODO_RECORD, ARCHIVE_NAME, DATA_VERSION_HASH
+
+from snicarfx.cli.download import ARCHIVE_NAME, DATA_VERSION_HASH, ZENODO_RECORD
 
 
 def test_zenodo_metadata_and_hash(api_url):
@@ -19,7 +20,6 @@ def test_zenodo_metadata_and_hash(api_url):
 
     # test that Zenodo repository can be reached
     try:
-
         response = requests.get(api_url, timeout=10)
         response.raise_for_status()
 

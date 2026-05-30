@@ -5,8 +5,9 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-import xarray as xr
 import numpy as np
+import xarray as xr
+
 
 class SolarIrradiance:
     """
@@ -79,8 +80,8 @@ class SolarIrradiance:
         The surface irradiance file stores pre-computed irradiances simulated
         with LibRadTran for a given atmospheric profile and range of SZAs.
         """
-        
-        tag = self.sky_conditions.split('_')[0]
+
+        tag = self.sky_conditions.split("_")[0]
 
         ds = (
             xr.open_dataset(
@@ -128,9 +129,9 @@ class SolarIrradiance:
         self.direct_beam = self.irradiance_dataset.interp(
             wavelength=self._wavelengths
         ).SSI.values
-        
-        self.total_irradiance = self.direct_beam 
-        
+
+        self.total_irradiance = self.direct_beam
+
         self.diffuse = self.direct_beam * 0
 
         return None
@@ -151,21 +152,25 @@ class SolarIrradiance:
             wavelength=self._wavelengths, kwargs={"fill_value": "extrapolate"}
         )
 
-        irradiance_direct = ds_sza.sel(irradiance_type="direct")["irradiance"].clip(min=1e-30).values
-        irradiance_diffuse = ds_sza.sel(irradiance_type="diffuse")["irradiance"].clip(min=1e-30).values
+        irradiance_direct = (
+            ds_sza.sel(irradiance_type="direct")["irradiance"].clip(min=1e-30).values
+        )
+        irradiance_diffuse = (
+            ds_sza.sel(irradiance_type="diffuse")["irradiance"].clip(min=1e-30).values
+        )
 
-        if self.sky_conditions == 'clear':
+        if self.sky_conditions == "clear":
             # convert direct horizontal to direct normal incident irradiance
             self.direct_beam = irradiance_direct / np.cos(np.deg2rad(self.sza))
             # convert direct horizontal to isotropic
             self.diffuse = irradiance_diffuse / np.pi
-            
-        if self.sky_conditions == 'clear_fully_direct':
+
+        if self.sky_conditions == "clear_fully_direct":
             # convert direct horizontal to direct normal incident irradiance
-            self.direct_beam = (irradiance_direct + irradiance_diffuse) / np.cos(np.deg2rad(self.sza))
+            self.direct_beam = (irradiance_direct + irradiance_diffuse) / np.cos(
+                np.deg2rad(self.sza)
+            )
             self.diffuse = irradiance_diffuse * 0
 
         # solar flux is direct + diffuse
         self.total_irradiance = self.direct_beam + self.diffuse * np.pi
-        
-

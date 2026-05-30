@@ -5,24 +5,25 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+import copy
+
 import numpy as np
 import pytest
-import copy
 
 
 def test_scale_atmospheric_profile(atmosphere_column):
     """
     Test atmospheric profile scaling by doubling the integrated O3 concentration
     and verifying that the entire profile concentration has doubled.
-    
+
     Parameters
     ----------
     atmosphere_column : AtmosphereColumn
         Instance of AtmosphereColumn class from snicar-fx.
     """
-    
+
     atm = copy.deepcopy(atmosphere_column)
-    
+
     current_integrated_o3 = atm.atmosphere_profile["o3(cm-3)"].copy()
 
     atm.integrated_gas_concentrations["O3"] *= 2
@@ -39,7 +40,7 @@ def test_scale_atmospheric_profile(atmosphere_column):
 def test_set_rayleigh_legendre_moments(atmosphere_column):
     """
     Assert that phase coefficients of order > 3 are null
-    
+
     Parameters
     ----------
     atmosphere_column : AtmosphereColumn
@@ -52,7 +53,7 @@ def test_set_rayleigh_legendre_moments(atmosphere_column):
 def test_scale_tau_aerosols(atmosphere_column):
     """
     Test aerosol scaling by doubling the Aerosol Optical Depth at 550nm.
-    
+
     Parameters
     ----------
     atmosphere_column : AtmosphereColumn

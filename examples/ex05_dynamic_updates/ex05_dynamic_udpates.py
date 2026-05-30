@@ -5,8 +5,9 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from snicarfx import Session, Config
 import matplotlib.pyplot as plt
+
+from snicarfx import Session
 
 # initialize the simulation
 simulation = Session("../ex02_multistream_surface/inputs_ex02.yaml")
@@ -17,8 +18,9 @@ bc_concentration_first_layer = [1, 50, 100]
 
 plt.figure()
 
-for ssa, bc_concentration in zip(ssa_first_layer, bc_concentration_first_layer):
-
+for ssa, bc_concentration in zip(ssa_first_layer, 
+                                 bc_concentration_first_layer,
+                                 strict=True):
     # update specific surface area and black carbon concentration of
     # the first layer, without validating changes
     simulation.update_land(

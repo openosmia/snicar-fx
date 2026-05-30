@@ -6,23 +6,23 @@ https://github.com/openosmia/snicar-fx
 """
 
 import pathlib
+import textwrap
+from types import UnionType
 from typing import Literal, Union, get_args, get_origin
+
 import numpy as np
 import yaml
 from pydantic import (
     BaseModel,
-    RootModel,
     Field,
     PrivateAttr,
+    RootModel,
     confloat,
     conint,
     conlist,
     model_validator,
 )
-import textwrap
 from pydantic.fields import PydanticUndefined
-from types import UnionType
-import warnings
 
 
 class Solver(BaseModel):
@@ -34,25 +34,47 @@ class Solver(BaseModel):
     # radiative transfer solver to use
     TYPE: Literal["two-stream-ad", "multi-stream-ada", "multi-stream-disort"] = Field(
         description="Radiative transfer solver to use",
-        examples="'two-stream-ad' selects the two-stream Delta-Eddington formulation, 'multi-stream-ada' selects the multi-stream solver with advanced matrix operator and adding method, and 'multi-stream-disort' selects the DISORT solver via the PythonicDISORT package. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for references.",
+        examples=(
+            "'two-stream-ad' selects the two-stream Delta-Eddington formulation, "
+            "'multi-stream-ada' selects the multi-stream solver with advanced matrix "
+            "operator and adding method, 'multi-stream-disort' selects the DISORT "
+            "solver via the PythonicDISORT package. "
+            "See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references "
+            "for references."
+        )
     )
 
     # explicit surface-atmosphere coupling
     ATMOSPHERE_COUPLING: bool = Field(
         description="Explicit surface-atmosphere coupling",
-        examples="If True, atmosphere layers are added on top of land layers and the extra-terrestrial solar irradiance at the top of atmosphere is used as boundary condition. if False, only land layers are modeled and the surface solar irradiance is used as boundary condition. Can only be True using multi-stream solvers.",
+        examples=(
+            "If True, atmosphere layers are added on top of land layers and "
+            "the extra-terrestrial solar irradiance at the top of atmosphere is"
+            " used as boundary condition. if False, only land layers are modeled "
+            "and the surface solar irradiance is used as boundary condition. "
+            "Can only be True using multi-stream solvers."
+            )
     )
 
     # levels to output
     OUTPUT_LEVELS: Literal["BOA", "TOA", "BOA+TOA", "TOA+BOA"] = Field(
         description="Levels at which to return radiance/reflectance",
-        examples="'BOA' = Bottom of Atmosphere, 'TOA' = Top of Atmosphere, 'BOA+TOA' or 'TOA+BOA' = both. 'TOA' can only be included if ATMOSPHERE_COUPLING is True.",
+        examples=(
+            "'BOA' = Bottom of Atmosphere, 'TOA' = Top of Atmosphere, '"
+            "BOA+TOA' or 'TOA+BOA' = both. 'TOA' can only be included if "
+            "ATMOSPHERE_COUPLING is True."
+            )
     )
 
     DELTA_SCALING: Literal["M", "M+"] = Field(
         default="M",
         description="Type of Delta scaling to apply",
-        examples="'M' = delta-M scaling (Wiscombe 1977), 'M+' = delta-M+ scaling (Lin et al. 2017). Must be set to 'M' if TYPE = 'two-stream-ad'. Automatically uses the IMS-TMS correction if 'M' and TYPE = 'multi-stream-disort'.",
+        examples=(
+            "'M' = delta-M scaling (Wiscombe 1977), 'M+' = delta-M+ scaling "
+            "(Lin et al. 2017). Must be set to 'M' if TYPE = 'two-stream-ad'. "
+            "Automatically uses the IMS-TMS correction if 'M' and "
+            "TYPE = 'multi-stream-disort'."
+            )
     )
 
     N_STREAMS: int = Field(
@@ -60,7 +82,10 @@ class Solver(BaseModel):
         ge=8,
         le=100,
         description="Number of streams used by multi-stream solver",
-        examples="Only used with multi-stream solvers. If no value set in the input file (= None) and multi-stream solver used, set to 16.",
+        examples=(
+            "Only used with multi-stream solvers. If no value set in the input "
+            "file (= None) and multi-stream solver used, set to 16."
+            )
     )
 
     N_LEGENDRE_MOMENTS: int | None = Field(
@@ -68,7 +93,10 @@ class Solver(BaseModel):
         ge=1,
         le=100,
         description="Number of Legendre moments to use in phase functions",
-        examples="Only used with multi-stream solvers. Must be <= N_STREAMS. If no value set in the input file (= None), the value is set to N_STREAMS.",
+        examples=(
+            "Only used with multi-stream solvers. Must be <= N_STREAMS. If no "
+            "value set in the input file (= None), the value is set to N_STREAMS."
+            )
     )
 
     N_FOURIER_MODES: int = Field(
@@ -76,7 +104,10 @@ class Solver(BaseModel):
         ge=1,
         le=100,
         description="Number of Fourier modes (for azimuth dependency)",
-        examples="Only used with multi-stream solvers. Must be <= N_STREAMS. Default is no azimuth dependency (= 1), which works with all solvers.",
+        examples=(
+            "Only used with multi-stream solvers. Must be <= N_STREAMS. "
+            "Default is no azimuth dependency (= 1), which works with all solvers."
+            )
     )
 
     POLAR_ANGLES: (
@@ -85,7 +116,12 @@ class Solver(BaseModel):
     ) = Field(
         default=None,
         description="Viewing polar angle (degrees)",
-        examples="Only used with multi-stream-disort solver, as the multi-stream-ada solver uses a fixed array of viewing polar angles. Must be prescribed as a range (start, end, step). If no value set in the input file (= None), set to (5.0, 55.0, 5.0).",
+        examples=(
+            "Only used with multi-stream-disort solver, as the multi-stream-ada "
+            "solver uses a fixed array of viewing polar angles. Must be prescribed "
+            " as a range (start, end, step). If no value set in the input file "
+            "(= None), set to (5.0, 55.0, 5.0)."
+            )
     )
 
     AZIMUTH_ANGLES: (
@@ -94,7 +130,11 @@ class Solver(BaseModel):
     ) = Field(
         default=None,
         description="Viewing azimuth angle (degrees)",
-        examples="Only used with multi-stream solvers when N_FOURIER_MODES > 1. Must be prescribed as a range (start, end, step). If no value set in the input file (= None), set to (20.0, 180.0, 20.0).",
+        examples=(
+            "Only used with multi-stream solvers when N_FOURIER_MODES > 1. "
+            "Must be prescribed as a range (start, end, step). If no value set "
+            "in the input file (= None), set to (20.0, 180.0, 20.0)."
+            )
     )
 
     # only fields validated here are allowed
@@ -109,7 +149,8 @@ class Solver(BaseModel):
 
         if self.TYPE == "two-stream-ad" and self.ATMOSPHERE_COUPLING:
             raise ValueError(
-                "Atmosphere coupling is not supported with the two-stream solver (TYPE = 'two-stream-ad')."
+                "Atmosphere coupling is not supported with the two-stream "
+                "solver (TYPE = 'two-stream-ad')."
             )
         return self
 
@@ -123,12 +164,14 @@ class Solver(BaseModel):
         if "TOA" in self.OUTPUT_LEVELS:
             if self.TYPE == "two-stream-ad":
                 raise ValueError(
-                    "TOA output level is not supported with the two-stream solver (TYPE = 'two-stream-ad')."
+                    "TOA output level is not supported with the "
+                    "two-stream solver (TYPE = 'two-stream-ad')."
                 )
 
             if not self.ATMOSPHERE_COUPLING:
                 raise ValueError(
-                    "TOA output level is not supported without atmosphere coupling (ATMOSPHERE_COUPLING = False)."
+                    "TOA output level is not supported without atmosphere "
+                    "coupling (ATMOSPHERE_COUPLING = False)."
                 )
         return self
 
@@ -141,7 +184,8 @@ class Solver(BaseModel):
 
         if self.TYPE == "two-stream-ad" and "+" in self.DELTA_SCALING:
             raise ValueError(
-                "Delta-M+ scaling is not available with two-stream solver (TYPE = 'two-stream-ad')."
+                "Delta-M+ scaling is not available with two-stream solver "
+                "(TYPE = 'two-stream-ad')."
             )
 
         return self
@@ -168,7 +212,8 @@ class Solver(BaseModel):
 
         if self.N_LEGENDRE_MOMENTS is not None and self.TYPE == "two-stream-ad":
             raise ValueError(
-                "Legendre decomposition not available with two-stream solver (TYPE = 'two-stream-ad') so N_LEGENDRE_MOMENTS cannot be used."
+                "Legendre decomposition not available with two-stream solver "
+                "(TYPE = 'two-stream-ad') so N_LEGENDRE_MOMENTS cannot be used."
             )
 
         if "multi-stream" in self.TYPE and self.N_LEGENDRE_MOMENTS > self.N_STREAMS:
@@ -188,12 +233,14 @@ class Solver(BaseModel):
 
         if self.N_FOURIER_MODES > 1 and self.TYPE == "two-stream-ad":
             raise ValueError(
-                "Fourier modes are not available with two-stream solver (TYPE = 'two-stream-ad')."
+                "Fourier modes are not available with two-stream solver "
+                "(TYPE = 'two-stream-ad')."
             )
 
         if self.N_FOURIER_MODES > self.N_STREAMS:
             raise ValueError(
-                f"N_FOURIER_MODES cannot exceed N_STREAMS (currently {self.N_STREAMS})"
+                "N_FOURIER_MODES cannot exceed N_STREAMS (currently "
+                f"{self.N_STREAMS})"
             )
 
         return self
@@ -211,7 +258,8 @@ class Solver(BaseModel):
 
         if self.POLAR_ANGLES is not None and self.TYPE == "two-stream-ad":
             raise ValueError(
-                "Polar angle resolution not available with two-stream solver (TYPE = 'two-stream-ad')."
+                "Polar angle resolution not available with two-stream solver "
+                "(TYPE = 'two-stream-ad')."
             )
 
         return self
@@ -226,12 +274,16 @@ class Solver(BaseModel):
             start, end, step = self.POLAR_ANGLES
             if end <= start:
                 raise ValueError(
-                    "POLAR_ANGLES must be a valid range ([start, end, step]), with end larger than start, but received end ({end}) <= start ({start})."
+                    "POLAR_ANGLES must be a valid range ([start, end, step]), "
+                    "with end larger than start, but received end ({end}) <= "
+                    "start ({start})."
                 )
 
             if step > (end - start):
                 raise ValueError(
-                    f"POLAR_ANGLES must be a valid range ([start, end, step]), with step smaller than the total range, but received step ({step}) > range ({end-start})."
+                    "POLAR_ANGLES must be a valid range ([start, end, step]), "
+                    "with step smaller than the total range, but received step "
+                    f"({step}) > range ({end - start})."
                 )
 
         return self
@@ -253,11 +305,13 @@ class Solver(BaseModel):
 
         if self.AZIMUTH_ANGLES is not None and self.TYPE == "two-stream-ad":
             raise ValueError(
-                "Azimuth angle resolution not available with two-stream solver (TYPE = 'two-stream-ad')."
+                "Azimuth angle resolution not available with two-stream solver "
+                " (TYPE = 'two-stream-ad')."
             )
         if self.AZIMUTH_ANGLES is not None and self.N_FOURIER_MODES == 1:
             raise ValueError(
-                "Azimuth angle resolution not available with only one Fourier mode (N_FOURIER_MODES = 1)."
+                "Azimuth angle resolution not available with only one Fourier "
+                "mode (N_FOURIER_MODES = 1)."
             )
         return self
 
@@ -272,12 +326,16 @@ class Solver(BaseModel):
             start, end, step = self.AZIMUTH_ANGLES
             if end <= start:
                 raise ValueError(
-                    "AZIMUTH_ANGLES must be a valid range ([start, end, step]), with end larger than start, but received end ({end}) <= start ({start})."
+                    "AZIMUTH_ANGLES must be a valid range ([start, end, step]), "
+                    "with end larger than start, but received end ({end}) <= "
+                    "start ({start})."
                 )
 
             if step > (end - start):
                 raise ValueError(
-                    f"AZIMUTH_ANGLES must be a valid range ([start, end, step]), with step smaller than the total range, but received step ({step}) > range ({end-start})."
+                    "AZIMUTH_ANGLES must be a valid range ([start, end, step]), "
+                    "with step smaller than the total range, but received step "
+                    f"({step}) > range ({end - start})."
                 )
 
         return self
@@ -297,19 +355,42 @@ class Spectral(BaseModel):
         "band-srf-integration",
     ] = Field(
         description="Type of spectral mode in calculations",
-        examples="'monochromatic' solves and returns the output at discrete wavelengths, while all other modes return bands. 'band-snicar-default' is the default mode of the original SNICAR model (band means for the solar irradiance, center wavelength for land properties). 'band-srf-solar-weighted-mean' applies a weighted integration to atmosphere/land/solar properties using the solar irradiance and satellite response function for each band, except for the Legendre moments which are taken at the central wavelength. 'band-srf-weighted-mean' applies a weighted integration to atmosphere/land/solar properties using the satellite response function for each band, except for the Legendre moments which are taken at the central wavelength. 'band-srf-integration' applies the satellite response function after solving at 1cm-1 resolution (! it is computationally very expensive).",
+        examples=(
+            "'monochromatic' solves and returns the output at discrete wavelengths,"
+            " while all other modes return bands. 'band-snicar-default' is the "
+            "default mode of the original SNICAR model (band means for the solar"
+            " irradiance, center wavelength for land properties). "
+            "'band-srf-solar-weighted-mean' applies a weighted integration to "
+            "atmosphere/land/solar properties using the solar irradiance and "
+            "satellite response function for each band, except for the Legendre"
+            " moments which are taken at the central wavelength. "
+            "'band-srf-weighted-mean' applies a weighted integration to "
+            "atmosphere/land/solar properties using the satellite response "
+            "function for each band, except for the Legendre moments which are "
+            "taken at the central wavelength. 'band-srf-integration' applies "
+            "the satellite response function after solving at 1cm-1 resolution "
+            "(! it is computationally very expensive)."
+            )
     )
 
     RESOLUTION: (
         tuple[
             confloat(ge=200, le=5000),
             confloat(ge=200, le=5000),
-            Union[confloat(ge=0.001, le=100), Literal["1cm-1"]],
+            confloat(ge=0.001, le=100) | Literal["1cm-1"],
         ]
         | Literal["SENTINEL-3-OLCI", "PRISMA-HYC", "ENVISAT-MERIS"]
     ) = Field(
-        description="Spectral resolution of the output (continuous or sensor-based range)",
-        examples="If a tuple is passed, the output is returned for each band or each monochromatic wavelength in the range. (!) the spectral range is restricted to 300 - 2700nm when using coupled simulations. For satellite platforms, the output is returned either for each band or for each wavelength within the satellite sensor reponse function.",
+        description=(
+            "Spectral resolution of the output (continuous or sensor-based range)"
+            ),
+        examples=(
+            "If a tuple is passed, the output is returned for each band or each"
+            " monochromatic wavelength in the range. (!) the spectral range is "
+            "restricted to 300 - 2700nm when using coupled simulations. "
+            "For satellite platforms, the output is returned either for each band"
+            " or for each wavelength within the satellite sensor reponse function."
+            )
     )
 
     # only fields validated here are allowed
@@ -328,12 +409,16 @@ class Spectral(BaseModel):
             start, end, step = self.RESOLUTION
             if end <= start:
                 raise ValueError(
-                    "SPECTRAL_RESOLUTION must be a valid range ([start, end, step]), with end larger than start, but received end ({end}) <= start ({start})."
+                    "SPECTRAL_RESOLUTION must be a valid range ([start, end, step]),"
+                    f" with end larger than start, but received end ({end}) <= "
+                    f"start ({start})."
                 )
 
             if isinstance(step, float) and step > (end - start):
                 raise ValueError(
-                    f"SPECTRAL_RESOLUTION must be a valid range ([start, end, step]), with step smaller than the total range, but received step ({step}) > range ({end-start})."
+                    "SPECTRAL_RESOLUTION must be a valid range "
+                    "([start, end, step]), with step smaller than the total range,"
+                    f" but received step ({step}) > range ({end - start})."
                 )
 
         return self
@@ -349,7 +434,8 @@ class Spectral(BaseModel):
 
         if "srf" in self.MODE and isinstance(self.RESOLUTION, tuple):
             raise ValueError(
-                "The spectral resolution must be a satellite platform, not a tuple/range when using band spectral modes with SRF integration."
+                "The spectral resolution must be a satellite platform, not a "
+                "tuple/range when using band spectral modes with SRF integration."
             )
 
         if (
@@ -358,7 +444,8 @@ class Spectral(BaseModel):
             and self.MODE != "monochromatic"
         ):
             raise ValueError(
-                "The spectral mode must be monochromatic when the resolution is in cm-1."
+                "The spectral mode must be monochromatic when the resolution "
+                "is in cm-1."
             )
         return self
 
@@ -376,7 +463,10 @@ class Solar(BaseModel):
         ge=0,
         le=360,
         description="Solar azimuth angle.",
-        examples="Only used for multi-stream solvers if azimuth dependency is calculated (i.e. number of Fourier modes > 1).",
+        examples=(
+            "Only used for multi-stream solvers if azimuth dependency "
+            "is calculated (i.e. number of Fourier modes > 1)."
+            )
     )
 
     # only fields validated here are allowed
@@ -394,7 +484,10 @@ class IntegratedGasConcentrations(BaseModel):
         ge=0.0,
         le=0.01,
         description=("Column-integrated O3 concentration"),
-        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the O3 profile.",
+        examples=(
+            "Only used for coupled simulations. The value is in standard units"
+            " of the CAMS product (in kg.m-2) and is used to scale the O3 profile."
+            )
     )
 
     H2O: float | None = Field(
@@ -402,7 +495,10 @@ class IntegratedGasConcentrations(BaseModel):
         ge=0.0,
         le=50,
         description=("Column-integrated H2O concentration"),
-        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the H2O profile.",
+        examples=(
+            "Only used for coupled simulations. The value is in standard units"
+            " of the CAMS product (in kg.m-2) and is used to scale the H2O profile."
+            )
     )
 
     NO2: float | None = Field(
@@ -410,7 +506,10 @@ class IntegratedGasConcentrations(BaseModel):
         ge=0.0,
         le=2e-6,
         description=("Column-integrated NO2 concentration"),
-        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the NO2 profile.",
+        examples=(
+            "Only used for coupled simulations. The value is in standard units "
+            "of the CAMS product (in kg.m-2) and is used to scale the NO2 profile."
+            )
     )
 
     CO2: float | None = Field(
@@ -418,7 +517,10 @@ class IntegratedGasConcentrations(BaseModel):
         ge=0.0,
         le=10,
         description=("Column-integrated CO2 concentration"),
-        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the CO2 profile.",
+        examples=(
+            "Only used for coupled simulations. The value is in standard units "
+            "of the CAMS product (in kg.m-2) and is used to scale the CO2 profile."
+            )
     )
 
     O2: float | None = Field(
@@ -426,7 +528,10 @@ class IntegratedGasConcentrations(BaseModel):
         ge=0.0,
         le=5000,
         description=("Column-integrated O2 concentration"),
-        examples="Only used for coupled simulations. The value is in standard units of the CAMS product (in kg.m-2) and is used to scale the O2 profile.",
+        examples=(
+            "Only used for coupled simulations. The value is in standard units "
+            "of the CAMS product (in kg.m-2) and is used to scale the O2 profile."
+            )
     )
 
     # only fields validated here are allowed
@@ -442,19 +547,38 @@ class Atmosphere(BaseModel):
     SKY_CONDITIONS: Literal["clear", "clear_fully_direct", "cloudy"] = Field(
         default="clear",
         description="Sky conditions determining type of surface irradiance",
-        examples="Only clear sky conditions are available for now. This field is mostly used for uncoupled simulations to determine the ratio of direct/diffuse radiation arriving at the surface (for coupled simulation, the TOA irradiance is always fully direct). 'clear_fully_direct' assumes 100% direct irradiance, 'clear' represents direct solar beam dominance, 'cloudy' is fully diffuse irradiance.",
+        examples=(
+            "Only clear sky conditions are available for now. This field is "
+            "mostly used for uncoupled simulations to determine the ratio of "
+            "direct/diffuse radiation arriving at the surface (for coupled "
+            "simulation, the TOA irradiance is always fully direct). "
+            "'clear_fully_direct' assumes 100% direct irradiance, 'clear' "
+            "represents direct solar beam dominance, 'cloudy' is fully "
+            "diffuse irradiance."
+            )
     )
 
     ATMOSPHERIC_PROFILE_TYPE: Literal["afglss", "afglss_downscaled", "test"] = Field(
         description="Name of standard atmospheric profile",
-        examples="This field selects a type of atmospheric profile (AFGL Atmospheric Constituent Profiles developed by Anderson et al. 1986), which includes pressure, temperature, air density, as well as O3, H2O, CO2 and NO2 concentrations for each atmospheric level. For now only the Subarctic Summer (afglss) profile is available. The downscaled version corresponds to a similar profile with ~2x less layers. Test is a two-layer atmosphere for testing purposes only.",
+        examples=(
+            "This field selects a type of atmospheric profile (AFGL Atmospheric"
+            " Constituent Profiles developed by Anderson et al. 1986), which"
+            " includes pressure, temperature, air density, as well as O3, H2O,"
+            " CO2 and NO2 concentrations for each atmospheric level. For now "
+            "only the Subarctic Summer (afglss) profile is available. The "
+            "downscaled version corresponds to a similar profile with ~2x "
+            "less layers. Test is a two-layer atmosphere for testing purposes only."
+            )
     )
 
     AEROSOL_PROPERTIES: str | None = Field(
         default=None,
         pattern=r".*\.(nc|csv)$",
         description="File name for the optical properties of a given aerosol mixture",
-        examples="Only used for coupled simulations. The file must include the single scattering properties of aerosols (e.g. standard OPAC files).",
+        examples=(
+            "Only used for coupled simulations. The file must include the single"
+            " scattering properties of aerosols (e.g. standard OPAC files)."
+            )
     )
 
     INTEGRATED_AOD_550: float | None = Field(
@@ -462,7 +586,10 @@ class Atmosphere(BaseModel):
         ge=0.0,
         le=2.0,
         description=("Aerosol optical depth (AOD) at 550nm"),
-        examples="Only used for couple simulations. The AOD value is integrated over the atmosphere column such as the standard CAMS product.",
+        examples=(
+            "Only used for couple simulations. The AOD value is integrated over"
+            " the atmosphere column such as the standard CAMS product."
+            )
     )
 
     INTEGRATED_GAS_CONCENTRATIONS: IntegratedGasConcentrations | None = None
@@ -508,7 +635,10 @@ class Particle(BaseModel):
 
     CONC: conlist(confloat(ge=0.0, le=1e7), min_length=1, max_length=100) = Field(
         description="Concentration of a given particle type (ng/g)",
-        examples="The concentration is expressed per g of ice for each layer and thus the absolute amount depends on the density.",
+        examples=(
+            "The concentration is expressed per g of ice for each layer and "
+            "thus the absolute amount depends on the density."
+            )
     )
 
     # only fields validated here are allowed
@@ -533,41 +663,73 @@ class Land(BaseModel):
 
     LAYER_TYPE: conlist(conint(ge=0, le=2), min_length=1, max_length=100) = Field(
         description="Type of each vertical layer",
-        examples="0 is ice spheres, 1 is solid ice with Fresnel layer above and 2 is solid ice without Fresnel layer. (!) Fresnel layers are not available with multi-stream solvers.",
+        examples=(
+            "0 is ice spheres, 1 is solid ice with Fresnel layer above and 2 "
+            "is solid ice without Fresnel layer. (!) Fresnel layers are not "
+            "available with multi-stream solvers."
+            )
     )
 
     DENSITY: conlist(confloat(ge=10, le=924), min_length=1, max_length=100) = Field(
         description="Density of each vertical layer (kg m-3)",
-        examples="(!) The density corresponds to the bulk medium of solid ice and liquid water, so the upper bound of the density range varies depending on the liquid water content. Without liquid water, the maximum density is 916.999 kg m-3, and this maximum increases when liquid water is added.",
+        examples=(
+            "(!) The density corresponds to the bulk medium of solid ice and "
+            "liquid water, so the upper bound of the density range varies "
+            "depending on the liquid water content. Without liquid water, "
+            "the maximum density is 916.999 kg m-3, and this maximum increases"
+            " when liquid water is added."
+            )
     )
 
     SPECIFIC_SURFACE_AREA: conlist(
         confloat(ge=1e-5, le=25), min_length=1, max_length=100
     ) = Field(
         description="Specific surface area of each vertical layer (m2 kg-1)",
-        examples="For ice surfaces (layer type > 0), the specific surface area will be directly related to the radius of a spherical air bubble. For snow surfaces, the specific surface area will be directly related to the radius of a spherical ice grain if the grain shape if spherical.",
+        examples=(
+            "For ice surfaces (layer type > 0), the specific surface area will"
+            " be directly related to the radius of a spherical air bubble. For"
+            " snow surfaces, the specific surface area will be directly related"
+            " to the radius of a spherical ice grain if the grain shape "
+            "if spherical."
+            )
     )
 
     LWC: conlist(confloat(ge=0.0, le=0.9), min_length=1, max_length=100) = Field(
         description="Liquid water content (LWC) in each vertical layer",
-        examples="The liquid water content is modelled by mixing the absorption coefficients of ice and water for both snow and ice surfaces.",
+        examples=(
+            "The liquid water content is modelled by mixing the absorption"
+            " coefficients of ice and water for both snow and ice surfaces."
+            )
     )
 
     RF_TYPE: Literal["Pic16", "Wrn08", "Coop21"] = Field(
         description="Source of ice refractive index",
-        examples="The ice refractive index used is either from Picard et al. 2016, Warren and Brandt 2008, or Cooper et al. 2021. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for details.",
+        examples=(
+            "The ice refractive index used is either from Picard et al. 2016, "
+            "Warren and Brandt 2008, or Cooper et al. 2021. See "
+            "https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references "
+            "for details."
+            )
     )
 
     SFC: float = Field(
         ge=0.0,
         le=1.0,
         description="Reflectance of lower boundary of ice/snow column",
-        examples="The reflectance is assumed Lambertian and constant with the wavelength.",
+        examples=(
+            "The reflectance is assumed Lambertian and constant with the wavelength."
+            )
     )
 
     GRAIN_SHAPE: conlist(conint(ge=0, le=1), min_length=1, max_length=100) = Field(
         description="Ice grain or air bubble shape",
-        examples="0 is sphere, 1 corresponds to the 'optical shape' from Robledano et al 2023. For ice layers (layer type > 0), only the spherical shape is available. See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references for details.",
+        examples=(
+            "0 is sphere, 1 corresponds to the 'optical shape' from Robledano "
+            "et al 2023. For ice layers (layer type > 0), only the spherical "
+            "shape is available. "
+            "See https://github.com/openosmia/snicar-fx?tab=readme-ov-file#references "
+            "for details."
+            )
     )
 
     ALTITUDE: float = Field(ge=0.0, le=10.0, description="Surface altitude (km)")
@@ -589,11 +751,12 @@ class Land(BaseModel):
         invalid = (layer_types != 0) & (grain_shapes == 1)
 
         if np.any(invalid):
-
             invalid_layers = np.where(invalid)[0] + 1
 
             raise ValueError(
-                f"Only spherical grain shape (=0) are allowed for ice layers (layer type > 1). Layers {invalid_layers} do not meet this criterion."
+                "Only spherical grain shape (=0) are allowed for ice layers "
+                f"(layer type > 1). Layers {invalid_layers} do not meet this "
+                "criterion."
             )
 
         return self
@@ -610,13 +773,15 @@ class Land(BaseModel):
         if any(ice_volume_fraction >= 1):
             invalid_layers = np.where(ice_volume_fraction >= 1)[0]
             raise ValueError(
-                f"Volume ice fraction invalid. Please reduce density in layers {invalid_layers}."
+                "Volume ice fraction invalid. "
+                f"Please reduce density in layers {invalid_layers}."
             )
 
         if any(air_volume_fraction <= 0):
             invalid_layers = np.where(air_volume_fraction <= 0)[0]
             raise ValueError(
-                f"Volume air fraction invalid. Please reduce density in layers {invalid_layers}."
+                "Volume air fraction invalid. Please reduce density "
+                f"in layers {invalid_layers}."
             )
 
         return self
@@ -654,13 +819,16 @@ class Config(BaseModel):
 
         if needs_azimuth and self.SOLAR.SAA is None:
             raise ValueError(
-                f"Solar azimuth angle is required if N_FOURIER_MODES > 1 (current: {self.SOLVER.N_FOURIER_MODES}). "
+                "Solar azimuth angle is required if N_FOURIER_MODES > 1 "
+                f"(current: {self.SOLVER.N_FOURIER_MODES}). "
                 "Please provide SAA in the SOLAR section."
             )
         if self.SOLAR.SAA is not None and needs_azimuth is False:
             raise ValueError(
-                "Solar azimuth angle can only be prescribed with multi-stream solvers if N_FOURIER_MODES > 1."
-                "Please remove the SAA from the input file or adapt solver/number of Fourier modes."
+                "Solar azimuth angle can only be prescribed with multi-stream "
+                "solvers if N_FOURIER_MODES > 1."
+                "Please remove the SAA from the input file or adapt "
+                "solver/number of Fourier modes."
             )
         return self
 
@@ -687,7 +855,8 @@ class Config(BaseModel):
             and self.SOLVER.ATMOSPHERE_COUPLING
         ):
             raise ValueError(
-                f"{self.SPECTRAL.MODE} spectral mode cannot be selected with atmosphere coupling."
+                f"{self.SPECTRAL.MODE} spectral mode cannot be selected "
+                "with atmosphere coupling."
             )
         return self
 
@@ -703,7 +872,8 @@ class Config(BaseModel):
             or self.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS is not None
         ):
             raise ValueError(
-                "Aerosol and gas properties cannot be prescribed in uncoupled simulations."
+                "Aerosol and gas properties cannot be prescribed in uncoupled "
+                "simulations."
             )
         return self
 
@@ -757,11 +927,11 @@ class Config(BaseModel):
         if isinstance(self.SPECTRAL.RESOLUTION, tuple):
             start, end, step = self.SPECTRAL.RESOLUTION
 
-            if self.SOLVER.TYPE != "two-stream-ad":
-                if start < 300 or end > 2700:
-                    raise ValueError(
-                        "SPECTRAL_RESOLUTION must cover a valid range. Please modify SPECTRAL_RESOLUTION to be within 300-2700nm."
-                    )
+            if self.SOLVER.TYPE != "two-stream-ad" and (start < 300 or end > 2700):
+                raise ValueError(
+                    "SPECTRAL_RESOLUTION must cover a valid range. Please"
+                    " modify SPECTRAL_RESOLUTION to be within 300-2700nm."
+                )
 
         return self
 
@@ -774,7 +944,7 @@ class Config(BaseModel):
         if (
             self.ATMOSPHERE.SKY_CONDITIONS != "clear_fully_direct"
             and self.SOLVER.TYPE == "multi-stream-ada"
-            and self.SOLVER.ATMOSPHERE_COUPLING == False
+            and not self.SOLVER.ATMOSPHERE_COUPLING 
         ):
             raise ValueError(
                 "The surface irradiance is currently treated as 100% direct "
@@ -954,7 +1124,7 @@ class Config(BaseModel):
                         is_nested, target = True, c
                         break
 
-            print(f"\n{c_indent}{name}\n{c_indent}{'-'*len(name)}")
+            print(f"\n{c_indent}{name}\n{c_indent}{'-' * len(name)}")
 
             # directly descriptions and values if no pydantic model inside
             # (ie subfield)
@@ -980,7 +1150,8 @@ class Config(BaseModel):
                         )
                     )
                 print(
-                    f"{s_indent}Default: {'None' if field.default in (None, PydanticUndefined) else field.default}"
+                    f"{s_indent}Default: "
+                    f"{'None' if field.default in (None, PydanticUndefined) else field.default}"
                 )
                 if field.examples:
                     ex = (
@@ -1006,7 +1177,7 @@ class Config(BaseModel):
                     for pn, pf in target.model_fields.items():
                         ps = "  " * (indent + 2)
                         pw = 80 - len(ps)
-                        print(f"\n{ps}{pn}\n{ps}{'-'*len(pn)}")
+                        print(f"\n{ps}{pn}\n{ps}{'-' * len(pn)}")
                         if pf.description:
                             print(
                                 textwrap.fill(
@@ -1028,7 +1199,8 @@ class Config(BaseModel):
                                 )
                             )
                         print(
-                            f"{ps}Default: {'None' if pf.default in (None, PydanticUndefined) else pf.default}"
+                            f"{ps}Default:"
+                            " {'None' if pf.default in (None, PydanticUndefined) else pf.default}"
                         )
                         if pf.examples:
                             ex = (

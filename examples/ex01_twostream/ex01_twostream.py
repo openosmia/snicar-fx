@@ -5,8 +5,9 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-from snicarfx import Session, Config
 import matplotlib.pyplot as plt
+
+from snicarfx import Config, Session
 
 # print a full description of the fields of the input file (optional)
 Config.print_help()

@@ -7,15 +7,13 @@ https://github.com/openosmia/snicar-fx
 
 from itertools import product
 
+import numpy as np
 import pytest
 import xarray as xr
-import numpy as np
 
-from snicarfx.core import AtmosphereColumn
-from snicarfx.core import LandColumn
-from snicarfx.core import SolarIrradiance
 from snicarfx import Session
 from snicarfx.cli.download import ZENODO_RECORD
+from snicarfx.core import AtmosphereColumn, LandColumn, SolarIrradiance
 
 # path to different test input files
 TEST_INPUT_FILE_TWOSTREAM = "./tests/input_files/inputs_tests_twostream.yaml"

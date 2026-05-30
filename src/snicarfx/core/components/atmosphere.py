@@ -76,7 +76,6 @@ class AtmosphereColumn:
         self.use_atmosphere = config.SOLVER.ATMOSPHERE_COUPLING
 
         if self.use_atmosphere:
-
             self._wavelengths = config._wavelengths_atmosphere
             self.nbr_wvl = len(self._wavelengths)
             self.surface_elevation = config.LAND.ALTITUDE
@@ -159,10 +158,10 @@ class AtmosphereColumn:
         atmospheric profile.
         """
 
-        AVOGADRO_NUMBER = 6.02214076e23
+        avogadro_number = 6.02214076e23
 
         # molecular masses of gases (kg/mol)
-        MOLECULAR_MASSES = {
+        molecular_masses = {
             "O3": 0.048,
             "O2": 0.032,
             "H2O": 0.018015,
@@ -178,7 +177,7 @@ class AtmosphereColumn:
         self.gas_key_matching = {
             k: v
             for k, v in profile_key_matching.items()
-            if k in MOLECULAR_MASSES.keys()
+            if k in molecular_masses
         }
 
         # Compute integrated gas concentrations (kg/m²) for all gases
@@ -190,7 +189,7 @@ class AtmosphereColumn:
                 * self.initial_atmosphere_profile["dz(km)"].values
                 * 1e3  # convert to m
             )
-            * (MOLECULAR_MASSES[input_key] / AVOGADRO_NUMBER)
+            * (molecular_masses[input_key] / avogadro_number)
             for input_key, profile_key in self.gas_key_matching.items()
         }
 
@@ -202,7 +201,6 @@ class AtmosphereColumn:
         """
 
         for input_key, gas_igc in self.integrated_gas_concentrations.items():
-
             # Filter out gases with None concentration
             if gas_igc is not None:
                 profile_key = self.gas_key_matching[input_key]
@@ -236,9 +234,9 @@ class AtmosphereColumn:
         co2_ppm = co2_ppm[:, None]
 
         # Number density of air at standard conditions (mol/cm3)
-        N_s = 2.546899e19
+        n_s = 2.546899e19
 
-        ray_const = 24 * np.pi**3 / N_s**2
+        ray_const = 24 * np.pi**3 / n_s**2
 
         # Convert CO2 mixing ratio from ppm to parts per volume by percent
         co2_vp = co2_ppm * 1.0e-4
@@ -256,18 +254,18 @@ class AtmosphereColumn:
         ref_ratio = ((n_air**2 - 1) ** 2) / ((n_air**2 + 2) ** 2)
 
         # Depolarization factor of N2 (Eq. 5 in Bodhaine et al. 1999)
-        F_N2 = 1.034 + 3.17e-4 / lambda_um**2
+        f_n2 = 1.034 + 3.17e-4 / lambda_um**2
         # Depolarization factor of O2 (Eq. 6 in Bodhaine et al. 1999)
-        F_O2 = 1.096 + 1.385e-3 / lambda_um**2 + 1.448e-4 / lambda_um**4
+        f_o2 = 1.096 + 1.385e-3 / lambda_um**2 + 1.448e-4 / lambda_um**4
         # Depolarization factor of dry air (Eq. 23 in Bodhaine et al. 1999)
-        F_air = (78.084 * F_N2 + 20.946 * F_O2 + 0.934 + co2_vp * 1.15) / (
+        f_air = (78.084 * f_n2 + 20.946 * f_o2 + 0.934 + co2_vp * 1.15) / (
             78.084 + 20.946 + 0.934 + co2_vp
         )
 
         # Rayleigh scatt. cross-section (cm2, Eq. 22 in Bodhaine et al. 1999)
-        # note that F_air can be calculated as (6+3*rho)/(6-7*rho) if the
+        # note that f_air can be calculated as (6+3*rho)/(6-7*rho) if the
         # depol. ratio (rho) is known/prescribed
-        crs = (ray_const / lambda_cm**4) * ref_ratio * F_air
+        crs = (ray_const / lambda_cm**4) * ref_ratio * f_air
 
         return crs
 
@@ -316,13 +314,19 @@ class AtmosphereColumn:
         """
 
         # get absorption in (c)m2 / molecule for each gas
-        file_name = f"{self.ROOT_PATH}/data/gases/uvspec_{self.atmosphere_profile_type}_cross_sections.nc"
+        file_name = (
+            f"{self.ROOT_PATH}/data/gases/"
+            f"uvspec_{self.atmosphere_profile_type}_cross_sections.nc"
+            )
+        
         try:
             self.gas_cross_sections = xr.open_dataset(file_name)
-        except FileNotFoundError:
+        except FileNotFoundError as err:
             raise FileNotFoundError(
-                f"Gas absorption cross section file not found ({file_name}). Please run `snicarfx-download-data` in a terminal (or manually download file from https://zenodo.org/records/20457918)."
-            )
+                f"Gas absorption cross section file not found ({file_name}). "
+                "Please run `snicarfx-download-data` in a terminal (or manually "
+                "download file from https://zenodo.org/records/20457918)."
+            ) from err
 
         # truncate depending on altitude
         self.gas_cross_sections = self.gas_cross_sections.sel(
@@ -352,7 +356,6 @@ class AtmosphereColumn:
         total_absorption = np.zeros_like(self.gas_cross_sections[sigma_vars[0]].values)
 
         for sigma_var in sigma_vars:
-
             # match profile gas tag
             sigma_var_lower = sigma_var.split("_")[1].lower()
             profile_tag = f"{sigma_var_lower}(cm-3)"

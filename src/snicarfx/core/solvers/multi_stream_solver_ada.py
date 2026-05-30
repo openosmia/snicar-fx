@@ -6,8 +6,8 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
-from scipy.special import factorial, lpmv, eval_legendre
 from numpy.linalg import solve
+from scipy.special import eval_legendre, factorial, lpmv
 
 
 class _MultiStreamSolverADA:
@@ -160,7 +160,6 @@ class _MultiStreamSolverADA:
         # apply delta scaling
 
         if config.SOLVER.DELTA_SCALING == "M" or config.SOLVER.DELTA_SCALING == "M+":
-             
             (
                 tau_land,
                 ss_alb_land,
@@ -168,7 +167,7 @@ class _MultiStreamSolverADA:
                 tau_atm,
                 ss_alb_atm,
                 legendre_moments_atm,
-            ) = self.apply_delta_scaling(atmosphere, land, config.SOLVER)
+            ) = self.apply_delta_scaling(atmosphere, land, config.SOLVER.DELTA_SCALING)
 
         else:
             tau_land = np.array(land.tau)
@@ -244,7 +243,6 @@ class _MultiStreamSolverADA:
         )
 
         if self.run_downward_loop:
-
             self.s_level_refl_down = np.zeros(
                 (self.nbr_wvl, self.n_angles, self.n_angles, self.nbr_lyr + 1)
             )
@@ -266,8 +264,7 @@ class _MultiStreamSolverADA:
         self.cos_angle = 0.5 * (nodes + 1.0)
         self.cos_weight = 0.5 * weights
 
-
-    def apply_delta_scaling(self, atmosphere, land, SOLVER):
+    def apply_delta_scaling(self, atmosphere, land, delta_scaling):
         """
         Apply optional Delta-M or Delta-M+ scaling to expansion coefficients
         to truncate strongly forward-scattering phase functions.
@@ -280,8 +277,8 @@ class _MultiStreamSolverADA:
         atmosphere : AtmosphereColumn
             Instance of the AtmosphereColumn class, storing the physical
             and optical properties of the atmosphere column.
-        SOLVER : dictionary
-            Solver parameters set in the input Yaml file.
+        delta_scaling : str
+            Type of delta-scaling to apply.
 
         """
 
@@ -289,35 +286,39 @@ class _MultiStreamSolverADA:
         tau_atm = None
         ss_alb_atm = None
         legendre_moments_atm = None
-        
-        if SOLVER.DELTA_SCALING == "M+":
+
+        if delta_scaling == "M+":
             # Check from DISORT v.4.0.98
-            if atmosphere.use_atmosphere: 
+            if atmosphere.use_atmosphere:
                 if (
-                        (atmosphere.legendre_moments[atmosphere.n_expansion, :, :] < 1e-4).any()
-                        or (land.legendre_moments[land.n_expansion, :, :] < 1e-4).any()
-                        or (
-                            atmosphere.legendre_moments[atmosphere.n_expansion + 1, :, :]
-                            < 0.7 * atmosphere.legendre_moments[atmosphere.n_expansion, :, :]
-                            ).any()
-                        or (
-                            land.legendre_moments[land.n_expansion + 1, :, :]
-                            < 0.7 * land.legendre_moments[land.n_expansion, :, :]
-                            ).any()
-                        ):
-                    
-                    raise ValueError("Delta-M+ scaling cannot be applied to Legendre moments - select Delta-M instead.")
-            else: 
-                if (
-                        (land.legendre_moments[land.n_expansion, :, :] < 1e-4).any()
-                        or (
-                            land.legendre_moments[land.n_expansion + 1, :, :]
-                            < 0.7 * land.legendre_moments[land.n_expansion, :, :]
-                            ).any()
-                        ):
-                    
-                    raise ValueError("Delta-M+ scaling cannot be applied to Legendre moments - select Delta-M instead.")
-            
+                    (
+                        atmosphere.legendre_moments[atmosphere.n_expansion, :, :] < 1e-4
+                    ).any()
+                    or (land.legendre_moments[land.n_expansion, :, :] < 1e-4).any()
+                    or (
+                        atmosphere.legendre_moments[atmosphere.n_expansion + 1, :, :]
+                        < 0.7
+                        * atmosphere.legendre_moments[atmosphere.n_expansion, :, :]
+                    ).any()
+                    or (
+                        land.legendre_moments[land.n_expansion + 1, :, :]
+                        < 0.7 * land.legendre_moments[land.n_expansion, :, :]
+                    ).any()
+                ):
+                    raise ValueError(
+                        "Delta-M+ scaling cannot be applied to Legendre moments "
+                        "- select Delta-M instead."
+                    )
+            else:
+                if (land.legendre_moments[land.n_expansion, :, :] < 1e-4).any() or (
+                    land.legendre_moments[land.n_expansion + 1, :, :]
+                    < 0.7 * land.legendre_moments[land.n_expansion, :, :]
+                ).any():
+                    raise ValueError(
+                        "Delta-M+ scaling cannot be applied to Legendre moments "
+                        "- select Delta-M instead."
+                    )
+
             sigma_sq = ((land.n_expansion + 1) ** 2 - land.n_expansion**2) / (
                 np.log((land.legendre_moments[land.n_expansion]) ** 2)
                 - np.log((land.legendre_moments[land.n_expansion + 1]) ** 2)
@@ -341,17 +342,11 @@ class _MultiStreamSolverADA:
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
 
             if atmosphere.use_atmosphere:
-
                 sigma_sq = (
                     (atmosphere.n_expansion + 1) ** 2 - atmosphere.n_expansion**2
                 ) / (
                     np.log(
-                        (
-                            atmosphere.legendre_moments[
-                                atmosphere.n_expansion, :, :
-                            ]
-                        )
-                        ** 2
+                        (atmosphere.legendre_moments[atmosphere.n_expansion, :, :]) ** 2
                     )
                     - np.log(
                         (
@@ -371,9 +366,7 @@ class _MultiStreamSolverADA:
 
                 legendre_moments_scaled = np.array(
                     (
-                        atmosphere.legendre_moments[
-                            : atmosphere.n_expansion, :, :
-                        ]
+                        atmosphere.legendre_moments[: atmosphere.n_expansion, :, :]
                         - f[None, :, :]
                         * np.exp(
                             -(np.arange(atmosphere.n_expansion) ** 2)[:, None, None]
@@ -383,8 +376,7 @@ class _MultiStreamSolverADA:
                     / (1 - f[None, :, :])
                 )
                 tau_scaled = np.array(
-                    (1.0 - atmosphere.ss_alb[:, :] * f)
-                    * atmosphere.tau[:, :]
+                    (1.0 - atmosphere.ss_alb[:, :] * f) * atmosphere.tau[:, :]
                 )
                 ss_alb_scaled = np.array(
                     (1.0 - f)
@@ -394,22 +386,15 @@ class _MultiStreamSolverADA:
 
                 legendre_moments_atm = np.hstack(
                     [
-                        atmosphere.legendre_moments[
-                            : atmosphere.n_expansion, :, :
-                        ],
+                        atmosphere.legendre_moments[: atmosphere.n_expansion, :, :],
                         legendre_moments_scaled,
                     ]
                 )
 
-                tau_atm = np.vstack(
-                    [atmosphere.tau[:, :], tau_scaled]
-                )
-                ss_alb_atm = np.vstack(
-                    [atmosphere.ss_alb[:, :], ss_alb_scaled]
-                )
+                tau_atm = np.vstack([atmosphere.tau[:, :], tau_scaled])
+                ss_alb_atm = np.vstack([atmosphere.ss_alb[:, :], ss_alb_scaled])
 
-                
-        elif SOLVER.DELTA_SCALING == "M":
+        elif delta_scaling == "M":
             # Delta truncation: get highest Legendre term following
             # Wicombe 1977 Eq. (15) - 2M = N_MOMENTS
             f = np.array(land.legendre_moments[land.n_expansion])
@@ -421,7 +406,6 @@ class _MultiStreamSolverADA:
             ss_alb_land = np.array((1.0 - f) * land.ss_alb / (1 - land.ss_alb * f))
 
             if atmosphere.use_atmosphere:
-                # could be applied only from aerosol boundary down as no effect in rayleigh layers
                 f = np.array(atmosphere.legendre_moments[atmosphere.n_expansion])
                 legendre_moments_atm = np.array(
                     (
@@ -435,7 +419,6 @@ class _MultiStreamSolverADA:
                     (1.0 - f) * atmosphere.ss_alb / (1 - atmosphere.ss_alb * f)
                 )
 
-                
         return (
             tau_land,
             ss_alb_land,
@@ -516,12 +499,14 @@ class _MultiStreamSolverADA:
 
         if self.mth_azi == 0 and np.max(np.abs(energy_error)) > 1e-8:
             raise ValueError(
-                "Error in stream energy conservation. Try increasing stream number or use aspherical shapes."
+                "Error in stream energy conservation. Try increasing stream number "
+                "or use aspherical shapes."
             )
 
         if np.any(self.ff < -0.1) or np.any(self.bb < -0.1):
             raise ValueError(
-                "Invalid phase matrix elements. Try increasing stream numbers or use aspherical shapes."
+                "Invalid phase matrix elements. Try increasing stream numbers "
+                "or use aspherical shapes."
             )
 
     def reset_state(self, m):
@@ -883,14 +868,13 @@ class _MultiStreamSolverADA:
             results["azimuth_angle"] = self.azimuth_angles
 
         if "BOA" in self.output_levels:
-
             # azimuth-averaged first : only 0-th moment matters
 
             tau_k = self.total_opt[self.surface_idx, :]
 
-            E_dir = self.solar_irradiance * self.cos_sun * np.exp(-tau_k / self.cos_sun)
+            e_dir = self.solar_irradiance * self.cos_sun * np.exp(-tau_k / self.cos_sun)
 
-            E_diff = (
+            e_diff = (
                 2.0
                 * np.pi
                 * np.sum(
@@ -910,7 +894,7 @@ class _MultiStreamSolverADA:
                     * np.array(self.cos_weight)[:, None],
                     axis=0,
                 )
-                / (E_diff + E_dir)
+                / (e_diff + e_dir)
             ).flatten()
 
             results["bba_boa"] = np.trapezoid(
@@ -923,11 +907,11 @@ class _MultiStreamSolverADA:
                     axis=0,
                 ),
                 x=self.wavelengths,
-            ) / np.trapezoid(E_diff + E_dir, x=self.wavelengths)
+            ) / np.trapezoid(e_diff + e_dir, x=self.wavelengths)
 
             results["directional_reflectance_boa_m0"] = (
                 self.s_level_rad_up_moments[:, self.surface_idx, :, 0] * np.pi
-            ) / (E_diff + E_dir)
+            ) / (e_diff + e_dir)
 
             results["directional_radiance_boa_m0"] = self.s_level_rad_up_moments[
                 :, self.surface_idx, :, 0
@@ -935,7 +919,6 @@ class _MultiStreamSolverADA:
 
             # double-directional radiance with Fourier reconstruction
             if self.n_fourier > 1:
-
                 s_level_rad_up_boa = np.sum(
                     (
                         self.s_level_rad_up_moments[:, self.surface_idx, :, :, None]
@@ -950,23 +933,22 @@ class _MultiStreamSolverADA:
                 s_level_refl_up_boa = (
                     s_level_rad_up_boa
                     * np.pi
-                    / (E_diff[None, :, None] + E_dir[None, :, None])
+                    / (e_diff[None, :, None] + e_dir[None, :, None])
                 )
 
-                # radiance as a func of phi & mu at the bottom of the atmosphere (BOA)
+                # radiance as a func of phi & mu at BOA
                 results["directional_radiance_boa"] = s_level_rad_up_boa
-                # reflectance as a func of phi & mu at the bottom of the atmosphere (BOA)
+                # reflectance as a func of phi & mu at BOA
                 results["directional_reflectance_boa"] = s_level_refl_up_boa
 
         if "TOA" in self.output_levels:
-
             # azimuth-independent first : only 0-th moment matters
 
             tau_k = self.total_opt[0, :]
 
-            E_dir = self.solar_irradiance * self.cos_sun * np.exp(-tau_k / self.cos_sun)
+            e_dir = self.solar_irradiance * self.cos_sun * np.exp(-tau_k / self.cos_sun)
 
-            E_diff = (
+            e_diff = (
                 2.0
                 * np.pi
                 * np.sum(
@@ -986,7 +968,7 @@ class _MultiStreamSolverADA:
                     * np.array(self.cos_weight)[:, None],
                     axis=0,
                 )
-                / (E_diff + E_dir)
+                / (e_diff + e_dir)
             ).flatten()
 
             results["directional_radiance_toa_m0"] = self.s_level_rad_up_moments[
@@ -995,11 +977,10 @@ class _MultiStreamSolverADA:
 
             results["directional_reflectance_toa_m0"] = (
                 self.s_level_rad_up_moments[:, 0, :, 0] * np.pi
-            ) / (E_diff + E_dir)
+            ) / (e_diff + e_dir)
 
             # double-directional radiance with Fourier reconstruction
             if self.n_fourier > 1:
-
                 s_level_rad_up_toa = np.sum(
                     (
                         self.s_level_rad_up_moments[:, 0, :, :, None]
@@ -1014,13 +995,13 @@ class _MultiStreamSolverADA:
                 s_level_refl_up_toa = (
                     s_level_rad_up_toa
                     * np.pi
-                    / (E_diff[None, :, None] + E_dir[None, :, None])
+                    / (e_diff[None, :, None] + e_dir[None, :, None])
                 )
 
-                # radiance as a func of phi & mu at the top of the atmosphere (TOA)
+                # radiance as a func of phi & mu at TOA
                 results["directional_radiance_toa"] = s_level_rad_up_toa
 
-                # reflectance as a func of phi & mu at the top of the atmosphere (TOA)
+                # reflectance as a func of phi & mu at TOA
                 results["directional_reflectance_toa"] = s_level_refl_up_toa
 
         return results
@@ -1058,7 +1039,6 @@ def solve_multi_stream_rt_ada(land, atmosphere, irradiance, config):
     aads = _MultiStreamSolverADA(land, atmosphere, irradiance, config)
 
     for m in range(aads.n_fourier):
-
         # reset variables
         aads.reset_state(m=m)
 
@@ -1076,7 +1056,6 @@ def solve_multi_stream_rt_ada(land, atmosphere, irradiance, config):
         # adds a solar reflection term to the upward radiance at the
         # last layer for all viewing angles
         if aads.solar_flag:
-
             aads.s_level_rad_up[:, -1, :] += (
                 aads.direct_reflectivity
                 * aads.cos_sun
@@ -1086,7 +1065,6 @@ def solve_multi_stream_rt_ada(land, atmosphere, irradiance, config):
             )
 
         for k in range(aads.nbr_lyr - 1, -1, -1):
-
             # call AMOM algorithm to compute layer
             # transmission, reflection, and source functions.
             aads.amom(k)
@@ -1150,7 +1128,6 @@ def solve_multi_stream_rt_ada(land, atmosphere, irradiance, config):
                 )
 
         if aads.run_downward_loop:
-
             # preserve TOA upward radiance
             aads.s_level_rad_upt[:, 0, :] = aads.s_level_rad_up[:, 0, :].copy()
 
@@ -1212,7 +1189,6 @@ def solve_multi_stream_rt_ada(land, atmosphere, irradiance, config):
 
                 # finalize upward and downward radiances
                 if np.max(np.abs(aads.s_level_refl_down[:, :, :, k + 1])) > 0:
-
                     infinite_scattering = -np.matmul(
                         aads.s_level_refl_down[:, :, :, k + 1],
                         aads.s_level_refl_up[:, :, :, k + 1],
@@ -1269,7 +1245,6 @@ def solve_multi_stream_rt_ada(land, atmosphere, irradiance, config):
                     )[:, 0, :]
 
                 else:
-
                     aads.s_level_rad_downt[:, k + 1, :] = aads.s_level_rad_down[
                         :, k + 1, :
                     ]

@@ -7,8 +7,9 @@ https://github.com/openosmia/snicar-fx
 
 import argparse
 import sys
+
 import pooch
-from pathlib import Path
+
 from snicarfx import Session
 
 ZENODO_RECORD = "20457918"
@@ -22,8 +23,10 @@ def main():
     """Download and extract the data archive to the project root."""
 
     # setup argument parser
-    parser = argparse.ArgumentParser(
-        description="Download and extract snicar-fx data archive in snicar-fx data folder."
+    argparse.ArgumentParser(
+        description=(
+            "Download and extract snicar-fx data archive in snicar-fx data folder."
+            )
     )
 
     # setup pooch
@@ -49,7 +52,7 @@ def main():
         print("Download finished.")
 
     except ValueError as e:
-        print(f"\nError: Data version mismatch or download failed.", file=sys.stderr)
+        print("\nError: Data version mismatch or download failed.", file=sys.stderr)
         print(f"Details: {e}", file=sys.stderr)
         sys.exit(1)
 

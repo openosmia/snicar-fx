@@ -11,7 +11,7 @@ import xarray as xr
 
 class LandColumn:
     """
-    Compute and store the physical and optical properties of a land column 
+    Compute and store the physical and optical properties of a land column
     (snow/ice layers) based on the YAML input file.
 
     Attributes
@@ -73,9 +73,9 @@ class LandColumn:
     lap_ext_cff : ndarray
         Wavelength-dependent mass extinction coefficient of each LAP.
     legendre_moments: ndarray
-        Moments of the Legendre expansion of the Henyey-Greenstein phase 
+        Moments of the Legendre expansion of the Henyey-Greenstein phase
         function.
-        
+
     """
 
     def __init__(self, config):
@@ -85,7 +85,7 @@ class LandColumn:
         This constructor extracts parameters from the given
         `config` object and then triggers calculations of optical properties
         of each layer.
-        
+
         Parameters
         ----------
         config : Config
@@ -96,7 +96,7 @@ class LandColumn:
         self.ROOT_PATH = config._ROOT_PATH
         self._wavelengths = config._wavelengths_land * 1e-9
         self.nbr_wvl = len(self._wavelengths)
-        
+
         self.layer_type = config.LAND.LAYER_TYPE
         self.nbr_lyr = len(self.layer_type)
         self.thickness_profile = config.LAND.THICKNESS
@@ -106,7 +106,7 @@ class LandColumn:
         self.lwc = config.LAND.LWC
         self.ssa = config.LAND.SPECIFIC_SURFACE_AREA
         self.sfc = np.ones(self.nbr_wvl) * config.LAND.SFC
-        
+
         self.n_expansion = None
 
         self.set_refractive_index()
@@ -119,7 +119,7 @@ class LandColumn:
             self.set_lap_properties()
             self.update_column_ops_with_laps()
 
-        if 'multi-stream' in config.SOLVER.TYPE: 
+        if "multi-stream" in config.SOLVER.TYPE:
             self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
             self.set_legendre_moments()
 
@@ -176,7 +176,6 @@ class LandColumn:
         self.asm_prm = np.ones((self.nbr_lyr, self.nbr_wvl))
 
         for lyr in range(self.nbr_lyr):
-
             if self.layer_type[lyr] > 0:  # air inclusions in ice
                 vlm_frac_ice = (self.density[lyr] - self.lwc[lyr] * 1000) / 917
                 vlm_frac_air = 1 - self.lwc[lyr] - vlm_frac_ice
@@ -231,7 +230,7 @@ class LandColumn:
                 # cf Eq. 7, 8 in Kokhanovsky 2024
                 # z = 4 * pi * k / wl * deff = 4 * pi * k / wl * 3 / 2 * V / K
                 # with V / K = 4 / (SSA * D)
-                
+
                 z = (
                     4
                     * np.pi
@@ -244,7 +243,6 @@ class LandColumn:
                 )
 
                 if self.grain_shape[lyr] == 0:
-
                     # Eq. 2.45 in Kokhanovsky 2001, Eq. 10 in Kokhanovsky 2024
                     eta = (
                         0.3639
@@ -273,7 +271,7 @@ class LandColumn:
 
     def load_lap_properties(self):
         """
-        Load optical properties of light-absorbing particles (LAPs) and 
+        Load optical properties of light-absorbing particles (LAPs) and
         interpolate to the required wavelength.
         """
 
@@ -350,9 +348,9 @@ class LandColumn:
 
     def set_legendre_moments(self):
         """
-        Set Legendre moments used in the expansion of the phase function. 
-        
-        This method computes the Legendre expansion coefficients of the 
+        Set Legendre moments used in the expansion of the phase function.
+
+        This method computes the Legendre expansion coefficients of the
         Henyey-Greenstein phase function.
         """
 

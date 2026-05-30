@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 def test_config_attributes(config):
     """
-    Verify that the required attributes of Config exist and have the correct 
+    Verify that the required attributes of Config exist and have the correct
     types.
 
     Parameters
@@ -18,22 +18,21 @@ def test_config_attributes(config):
     config : Config
         Instance of the Config class
     """
-    
+
     assert isinstance(config, BaseModel)
-    
+
     assert hasattr(config, "SOLVER")
-    
+
     assert hasattr(config, "SOLAR")
-    
+
     assert hasattr(config, "ATMOSPHERE")
-    
+
     assert hasattr(config, "LAND")
 
     assert hasattr(config, "from_yaml")
     assert callable(config.from_yaml)
-    
+
     assert hasattr(config, "check_lengths")
     assert callable(config.check_lengths)
-    
-    assert config.model_config["extra"] == "forbid"
 
+    assert config.model_config["extra"] == "forbid"

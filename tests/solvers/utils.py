@@ -18,7 +18,7 @@ def use_data_snicaradv4(land_column, irradiance):
     ----------
     land_column : LandColumn
         Instance of the LandColumn class
-    
+
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class
 
@@ -26,7 +26,7 @@ def use_data_snicaradv4(land_column, irradiance):
     ----------
     land_column : LandColumn
         Instance of the LandColumn class
-    
+
     irradiance : SolarIrradiance
         Instance of the SolarIrradiance class
 
@@ -44,7 +44,7 @@ def use_data_snicaradv4(land_column, irradiance):
     land_column.fl_r_dif_a = xr.open_dataset(
         "./tests/test_data/fl_reflection_diffuse.nc"
     ).R_dif_fa_ice_Pic16.values
-    
+
     if irradiance.sky_conditions == "clear":
         irradiance.total_irradiance = xr.open_dataset(
             "./tests/test_data/swnb_480bnd_"
@@ -54,7 +54,9 @@ def use_data_snicaradv4(land_column, irradiance):
         )["flx_frc_sfc"].values
         irradiance.total_irradiance[irradiance.total_irradiance == 0] = 1e-30
 
-        irradiance.direct_beam = irradiance.total_irradiance / np.cos(np.deg2rad(irradiance.sza))
+        irradiance.direct_beam = irradiance.total_irradiance / np.cos(
+            np.deg2rad(irradiance.sza)
+        )
         irradiance.diffuse = np.zeros_like(irradiance.total_irradiance)
 
     elif irradiance.sky_conditions == "cloudy":

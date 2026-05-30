@@ -5,9 +5,10 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+import copy
+
 import numpy as np
 import xarray as xr
-import copy
 
 from snicarfx.core.solvers.two_stream_solver_ad import solve_two_stream_rt_ad
 from tests.solvers.utils import use_data_snicaradv4

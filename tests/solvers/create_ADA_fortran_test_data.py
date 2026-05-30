@@ -67,11 +67,9 @@ f90_results = np.zeros(
 # %% run the Fortran solver
 
 for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
-
     # save g and cos values in files first because too bulky to pass
     # at run time
     for g in g_list:
-
         simulation.land_column.asm_prm[:, :] = g
         simulation.land_column.legendre_moments = (
             simulation.land_column.asm_prm[None, :, :]
@@ -128,7 +126,6 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
     for t_od_enumerator, t_od in enumerate(t_od_list):
         for w_enumerator, w in enumerate(w_list):
             for g_enumerator, g in enumerate(g_list):
-
                 # re-initialize snicar-fx session
                 simulation = Session("../inputs_tests.yaml")
 
@@ -208,7 +205,8 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                 #     t_od,
                 #     g,
                 #     np.abs(
-                #         py_results["directional_reflectance_boa"][-1, wavelength_index]
+                #         py_results["directional_reflectance_boa"][-1, 
+                #                                                   wavelength_index]
                 #         - reflectance_f90[-1]
                 #     ),
                 # )
@@ -222,7 +220,9 @@ data_xr = xr.Dataset(
             f90_results,
             {
                 "long_name": "Spectral albedo",
-                "description": "Surface albedo computed with the Fortran ADA multistream solver",
+                "description": (
+                    "Surface albedo computed with the Fortran ADA multistream solver"
+                    ),
                 "units": "dimensionless",
             },
         )
@@ -254,7 +254,8 @@ data_xr = xr.Dataset(
         "summary": (
             "This NetCDF file contains spectral albedo results computed with "
             "the Fortran version of the ADA radiative transfer solver. "
-            "The results are intended for validation against the Python implementation within snicar-fx."
+            "The results are intended for validation against the Python "
+            "implementation within snicar-fx."
         ),
         "creation_date": datetime.utcnow().isoformat(),
         "model_name": "snicar-fx",
