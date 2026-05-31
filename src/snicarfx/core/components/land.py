@@ -274,7 +274,8 @@ class LandColumn:
         Load optical properties of light-absorbing particles (LAPs) and
         interpolate to the required wavelength.
         """
-
+        
+        # extrapolation here only for files in 205-4995nm to reach 200-5000nm
         data = {
             lap: xr.open_dataset(
                 f"{self.ROOT_PATH}/data/light_absorbing_particles/" + cfg.FILE
