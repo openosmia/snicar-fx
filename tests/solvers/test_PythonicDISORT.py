@@ -37,23 +37,23 @@ def test_pythonicdisort_outputs(
 
     sza, saa, azimuth, aod = multistream_pythonicdisort_params
 
-    session_multistream_coupled.solar_irradiance.sza = sza
-    session_multistream_coupled.solar_irradiance.saa = saa
-    session_multistream_coupled.atmosphere_column.AOD550 = aod
+    session_multistream_coupled.solar.sza = sza
+    session_multistream_coupled.solar.saa = saa
+    session_multistream_coupled.atmosphere.AOD550 = aod
 
     results_backend = solve_multi_stream_rt_disort(
-        session_multistream_coupled.land_column,
-        session_multistream_coupled.atmosphere_column,
-        session_multistream_coupled.solar_irradiance,
+        session_multistream_coupled.land,
+        session_multistream_coupled.atmosphere,
+        session_multistream_coupled.solar,
         session_multistream_coupled.config,
     )
 
     results_wrapper = solve_multi_stream_rt_disort_wrapper(
-        session_multistream_coupled.land_column,
-        session_multistream_coupled.atmosphere_column,
-        session_multistream_coupled.solar_irradiance,
+        session_multistream_coupled.land,
+        session_multistream_coupled.atmosphere,
+        session_multistream_coupled.solar,
         session_multistream_coupled.config,
-        NT_cor=False,
+        nt_cor=False,
     )
 
     assert np.allclose(

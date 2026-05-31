@@ -70,16 +70,16 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
     # save g and cos values in files first because too bulky to pass
     # at run time
     for g in g_list:
-        simulation.land_column.asm_prm[:, :] = g
-        simulation.land_column.legendre_moments = (
-            simulation.land_column.asm_prm[None, :, :]
-            ** np.arange(simulation.land_column.n_expansion + 2)[:, None, None]
+        simulation.land.asm_prm[:, :] = g
+        simulation.land.legendre_moments = (
+            simulation.land.asm_prm[None, :, :]
+            ** np.arange(simulation.land.n_expansion + 2)[:, None, None]
         )
 
         solver = _MultiStreamSolver(
-            simulation.land_column,
-            simulation.atmosphere_column,
-            simulation.solar_irradiance,
+            simulation.land,
+            simulation.atmosphere,
+            simulation.solar,
             simulation.config.SOLVER,
         )
         solver.reset_state(m=simulation.config.SOLVER.N_FOURIER_MODES - 1)
@@ -120,7 +120,7 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
 
     # extract values required by the Fortran solver
     cos_sun = solver.cos_sun
-    solar_irradiance = solver.solar_irradiance[wavelength_index]
+    solar_irradiance = solver.solar[wavelength_index]
 
     # pass other simpler arguments now, at run time
     for t_od_enumerator, t_od in enumerate(t_od_list):
@@ -130,21 +130,21 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                 simulation = Session("../inputs_tests.yaml")
 
                 # update python variables
-                simulation.land_column.ss_alb[:, :] = w
-                simulation.land_column.tau[:, :] = t_od
-                simulation.land_column.asm_prm[:, :] = g
-                simulation.land_column.legendre_moments = (
-                    simulation.land_column.asm_prm[None, :, :]
-                    ** np.arange(simulation.land_column.n_expansion + 2)[:, None, None]
+                simulation.land.ss_alb[:, :] = w
+                simulation.land.tau[:, :] = t_od
+                simulation.land.asm_prm[:, :] = g
+                simulation.land.legendre_moments = (
+                    simulation.land.asm_prm[None, :, :]
+                    ** np.arange(simulation.land.n_expansion + 2)[:, None, None]
                 )
 
                 # initiate the python ADA solver to extract delta
                 # scaled variables and feed them to the fortran ADA
                 # solver, which doesn't have delta scaling
                 solver = _MultiStreamSolver(
-                    simulation.land_column,
-                    simulation.atmosphere_column,
-                    simulation.solar_irradiance,
+                    simulation.land,
+                    simulation.atmosphere,
+                    simulation.solar,
                     simulation.config.SOLVER,
                 )
                 solver.reset_state(m=simulation.config.SOLVER.N_FOURIER_MODES - 1)
@@ -181,19 +181,19 @@ for wvl_enumarator, wavelength_index in enumerate(wavelength_index_list):
                     w_enumerator, t_od_enumerator, g_enumerator, wvl_enumarator
                 ] = albedo_f90
 
-                simulation.land_column.ss_alb[:, :] = w
-                simulation.land_column.tau[:, :] = t_od
-                simulation.land_column.asm_prm[:, :] = g
-                simulation.land_column.legendre_moments = (
-                    simulation.land_column.asm_prm[None, :, :]
-                    ** np.arange(simulation.land_column.n_expansion + 2)[:, None, None]
+                simulation.land.ss_alb[:, :] = w
+                simulation.land.tau[:, :] = t_od
+                simulation.land.asm_prm[:, :] = g
+                simulation.land.legendre_moments = (
+                    simulation.land.asm_prm[None, :, :]
+                    ** np.arange(simulation.land.n_expansion + 2)[:, None, None]
                 )
 
                 # uncomment to check py/f90 match directly here
                 # py_results = solve_multi_stream_rt(
-                #     simulation.land_column,
-                #     simulation.atmosphere_column,
-                #     simulation.solar_irradiance,
+                #     simulation.land,
+                #     simulation.atmosphere,
+                #     simulation.solar,
                 #     simulation.config.SOLVER,
                 # )
                 # print(np.abs(py_results["albedo_boa"][wavelength_index] - albedo_f90))

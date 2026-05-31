@@ -109,7 +109,7 @@ class _MultiStreamSolverADA:
         self,
         land,
         atmosphere,
-        irradiance,
+        solar,
         config,
     ):
         """
@@ -131,8 +131,8 @@ class _MultiStreamSolverADA:
             Solver parameters set in the input Yaml file.
         """
 
-        self.cos_sun = np.cos(np.deg2rad(np.rint(irradiance.sza)))
-        self.solar_irradiance = np.array(irradiance.direct_beam)
+        self.cos_sun = np.cos(np.deg2rad(np.rint(solar.sza)))
+        self.solar_irradiance = np.array(solar.direct_beam)
         self.solar_flag = True
         self.cosmic_background = 0
         self.n_angles = config.SOLVER.N_STREAMS
@@ -145,7 +145,7 @@ class _MultiStreamSolverADA:
 
         if self.n_fourier > 1:
             self.azimuth_angles = np.arange(*config.SOLVER.AZIMUTH_ANGLES)
-            self.relative_azimuths = np.abs(self.azimuth_angles - irradiance.saa)
+            self.relative_azimuths = np.abs(self.azimuth_angles - solar.saa)
             self.relative_azimuths_rad = np.deg2rad(self.relative_azimuths)
 
         if "BOA" in config.SOLVER.OUTPUT_LEVELS and atmosphere.use_atmosphere:

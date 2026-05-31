@@ -36,7 +36,7 @@ def test_twostreams_outputs(
         Instance of Session class from snicar-fx.
     params_twostream : array
         Sets of parameters used as input for the model.
-    land_column : LandColumn
+    land : LandColumn
         Instance of the LandColumn class
     benchmark_snicaradv4_spectral_data : array
         Spectral albedo data generated with SNICAR-ADv4 for the parameter grid
@@ -54,50 +54,48 @@ def test_twostreams_outputs(
 
     layer_type, density, radius, sza, bc, thickness_profile, direct = params_twostream
 
-    land_column = copy.deepcopy(session_twostream.land_column)
-    irradiance = copy.deepcopy(session_twostream.solar_irradiance)
+    land = copy.deepcopy(session_twostream.land)
+    solar = copy.deepcopy(session_twostream.solar)
 
     # Setup inputs
-    land_column = session_twostream.land_column
-    irradiance = session_twostream.solar_irradiance
+    land = session_twostream.land
+    solar = session_twostream.solar
 
-    # # calculate irradiance
-    irradiance.sza = sza
+    # # calculate solar
+    solar.sza = sza
 
     if direct == 1:
-        irradiance.sky_conditions = "clear"
+        solar.sky_conditions = "clear"
     elif direct == 0:
-        irradiance.sky_conditions = "cloudy"
+        solar.sky_conditions = "cloudy"
 
-    # match irradiance type, fnl coeffs and ref idx from Matlab config
-    land_column, irradiance = use_data_snicaradv4(land_column, irradiance)
+    # match solar type, fnl coeffs and ref idx from Matlab config
+    land, solar = use_data_snicaradv4(land, solar)
 
     # calculate column ssa, g, mac
-    land_column.thickness_profile = thickness_profile
-    land_column.layer_type = [layer_type] * len(land_column.thickness_profile)
-    land_column.density = [density] * len(land_column.thickness_profile)
-    land_column.layer_mass = [
-        land_column.density[i] * land_column.thickness_profile[i]
-        for i in range(len(land_column.thickness_profile))
+    land.thickness_profile = thickness_profile
+    land.layer_type = [layer_type] * len(land.thickness_profile)
+    land.density = [density] * len(land.thickness_profile)
+    land.layer_mass = [
+        land.density[i] * land.thickness_profile[i]
+        for i in range(len(land.thickness_profile))
     ]
 
-    snow_idx = np.where(np.array(land_column.layer_type) == 0)[0]
-    ice_idx = np.where(np.array(land_column.layer_type) != 0)[0]
+    snow_idx = np.where(np.array(land.layer_type) == 0)[0]
+    ice_idx = np.where(np.array(land.layer_type) != 0)[0]
 
     for i in snow_idx:
         file_ssps = str(
             "./tests/test_data/ice_spherical_grains_BH83/"
-            + f"ice_{land_column.rf_type}/ice_{land_column.rf_type}_"
+            + f"ice_{land.rf_type}/ice_{land.rf_type}_"
             + "{}.nc".format(str(radius).rjust(4, "0"))
         )
 
         with xr.open_dataset(file_ssps) as ssps:
-            land_column.ext_cff[i, :] = ssps["ext_cff_mss"].values
-            land_column.ss_alb[i, :] = ssps["ss_alb"].values
-            land_column.asm_prm[i, :] = ssps["asm_prm"].values
-            land_column.tau[i, :] = (
-                land_column.layer_mass[i] * land_column.ext_cff[i, :]
-            )
+            land.ext_cff[i, :] = ssps["ext_cff_mss"].values
+            land.ss_alb[i, :] = ssps["ss_alb"].values
+            land.asm_prm[i, :] = ssps["asm_prm"].values
+            land.tau[i, :] = land.layer_mass[i] * land.ext_cff[i, :]
 
     for i in ice_idx:
         file_ssps = str(
@@ -106,24 +104,20 @@ def test_twostreams_outputs(
         )
         with xr.open_dataset(file_ssps) as ssps:
             sca_cff_vlm_air_bbl = ssps["sca_cff_vlm"].values
-            vlm_frac_air = 1 - land_column.density[i] / 917
-            scattering_cff = sca_cff_vlm_air_bbl * vlm_frac_air / land_column.density[i]
-            abs_cff = (
-                (4 * np.pi * land_column.ref_idx_im) / (land_column._wavelengths) / 917
-            )
-            land_column.ss_alb[i, :] = scattering_cff / (scattering_cff + abs_cff)
-            land_column.asm_prm[i, :] = ssps["asm_prm"].values
-            land_column.ext_cff[i, :] = scattering_cff + abs_cff
-            land_column.tau[i, :] = land_column.layer_mass[i] * (
-                scattering_cff + abs_cff
-            )
+            vlm_frac_air = 1 - land.density[i] / 917
+            scattering_cff = sca_cff_vlm_air_bbl * vlm_frac_air / land.density[i]
+            abs_cff = (4 * np.pi * land.ref_idx_im) / (land._wavelengths) / 917
+            land.ss_alb[i, :] = scattering_cff / (scattering_cff + abs_cff)
+            land.asm_prm[i, :] = ssps["asm_prm"].values
+            land.ext_cff[i, :] = scattering_cff + abs_cff
+            land.tau[i, :] = land.layer_mass[i] * (scattering_cff + abs_cff)
 
-    land_column.lap_concentrations[:, 0] = bc * 1e-9
+    land.lap_concentrations[:, 0] = bc * 1e-9
 
-    land_column.update_column_ops_with_laps()
+    land.update_column_ops_with_laps()
 
     # solve RTE
-    outputs = solve_two_stream_rt_ad(land_column, irradiance)
+    outputs = solve_two_stream_rt_ad(land, solar)
 
     # spectral albedo only until 2705nm for now, as the asymmetry parameter is
     # clipped to 0.99 in SNICAR-ADv4 but not in snicar-fx, producing larger

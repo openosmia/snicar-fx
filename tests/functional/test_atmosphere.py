@@ -11,18 +11,18 @@ import numpy as np
 import pytest
 
 
-def test_scale_atmospheric_profile(atmosphere_column):
+def test_scale_atmospheric_profile(atmosphere):
     """
     Test atmospheric profile scaling by doubling the integrated O3 concentration
     and verifying that the entire profile concentration has doubled.
 
     Parameters
     ----------
-    atmosphere_column : AtmosphereColumn
+    atmosphere : AtmosphereColumn
         Instance of AtmosphereColumn class from snicar-fx.
     """
 
-    atm = copy.deepcopy(atmosphere_column)
+    atm = copy.deepcopy(atmosphere)
 
     current_integrated_o3 = atm.atmosphere_profile["o3(cm-3)"].copy()
 
@@ -37,43 +37,43 @@ def test_scale_atmospheric_profile(atmosphere_column):
     assert np.allclose(new_integrated_o3, expected_integrated_o3, rtol=1e-12, atol=0.0)
 
 
-def test_set_rayleigh_legendre_moments(atmosphere_column):
+def test_set_rayleigh_legendre_moments(atmosphere):
     """
     Assert that phase coefficients of order > 3 are null
 
     Parameters
     ----------
-    atmosphere_column : AtmosphereColumn
+    atmosphere : AtmosphereColumn
         Instance of AtmosphereColumn class from snicar-fx.
     """
 
-    assert np.all(atmosphere_column.rayleigh_legendre_moments[3:, :, :] == 0.0)
+    assert np.all(atmosphere.rayleigh_legendre_moments[3:, :, :] == 0.0)
 
 
-def test_scale_tau_aerosols(atmosphere_column):
+def test_scale_tau_aerosols(atmosphere):
     """
     Test aerosol scaling by doubling the Aerosol Optical Depth at 550nm.
 
     Parameters
     ----------
-    atmosphere_column : AtmosphereColumn
+    atmosphere : AtmosphereColumn
         Instance of AtmosphereColumn class from snicar-fx.
     """
 
-    current_tau_aerosols = atmosphere_column.tau_aerosols.copy()
+    current_tau_aerosols = atmosphere.tau_aerosols.copy()
 
-    atmosphere_column.AOD *= 2
+    atmosphere.AOD *= 2
 
-    atmosphere_column.scale_tau_aerosols()
+    atmosphere.scale_tau_aerosols()
 
-    new_tau_aerosols = atmosphere_column.tau_aerosols.copy()
+    new_tau_aerosols = atmosphere.tau_aerosols.copy()
 
     expected_tau_aerosols = current_tau_aerosols * 2
 
     assert new_tau_aerosols == pytest.approx(expected_tau_aerosols, rel=1e-12)
 
 
-def test_atmospheric_properties(atmosphere_column):
+def test_atmospheric_properties(atmosphere):
     """
     Test that the single scattering albedo is within ]0,1[, that
     the optical depth is within ]0,+inf[, and that the first moment of
@@ -81,9 +81,9 @@ def test_atmospheric_properties(atmosphere_column):
 
     Parameters
     ----------
-    atmosphere_column : AtmosphereColumn
+    atmosphere : AtmosphereColumn
         Instance of AtmosphereColumn class from snicar-fx.
     """
 
-    assert np.all((atmosphere_column.ss_alb > 0) & (atmosphere_column.ss_alb < 1))
-    assert np.all(atmosphere_column.legendre_moments[0, :, :] == 1.0)
+    assert np.all((atmosphere.ss_alb > 0) & (atmosphere.ss_alb < 1))
+    assert np.all(atmosphere.legendre_moments[0, :, :] == 1.0)

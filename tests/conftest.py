@@ -65,13 +65,13 @@ def config(session_twostream):
 
 
 @pytest.fixture(scope="module")
-def irradiance(config):
+def solar(config):
     """Provide a SolarIrradiance instance using shared two-stream Config."""
     return SolarIrradiance(config)
 
 
 @pytest.fixture(scope="module")
-def land_column(config):
+def land(config):
     """Provide a shared LandColumn instance using shared two-stream Config."""
     return LandColumn(config)
 
@@ -89,7 +89,7 @@ def session_multistream_coupled():
 
 
 @pytest.fixture(scope="module")
-def atmosphere_column(session_multistream_coupled):
+def atmosphere(session_multistream_coupled):
     """Provide a shared AtmosphereColumn instance."""
     return AtmosphereColumn(session_multistream_coupled.config)
 
@@ -98,11 +98,11 @@ def atmosphere_column(session_multistream_coupled):
 def expected_shapes(session_twostream):
     """Fetch expected shapes in the layer and wavelength dimensions."""
     return {
-        "1d_layers": (session_twostream.land_column.nbr_lyr,),
+        "1d_layers": (session_twostream.land.nbr_lyr,),
         "1d_wavelengths_solar": (len(session_twostream.config._wavelengths_solar),),
         "2d_layers_wavelengths": (
-            session_twostream.land_column.nbr_lyr,
-            session_twostream.land_column.nbr_wvl,
+            session_twostream.land.nbr_lyr,
+            session_twostream.land.nbr_wvl,
         ),
     }
 

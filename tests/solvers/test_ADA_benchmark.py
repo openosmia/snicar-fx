@@ -40,23 +40,22 @@ def test_multistream_outputs(
     w, t_od, g, wvl_idx = params_ada
 
     # Setup inputs
-    land_column = session_multistream_uncoupled.land_column
-    irradiance = session_multistream_uncoupled.solar_irradiance
-    atmosphere = session_multistream_uncoupled.atmosphere_column
+    land = session_multistream_uncoupled.land
+    solar = session_multistream_uncoupled.solar
+    atmosphere = session_multistream_uncoupled.atmosphere
 
-    land_column.ss_alb[:, :] = w
-    land_column.tau[:, :] = t_od
-    land_column.asm_prm[:, :] = g
+    land.ss_alb[:, :] = w
+    land.tau[:, :] = t_od
+    land.asm_prm[:, :] = g
 
     # legendre moments
-    land_column.legendre_moments = (
-        land_column.asm_prm[None, :, :]
-        ** np.arange(land_column.n_expansion + 2)[:, None, None]
+    land.legendre_moments = (
+        land.asm_prm[None, :, :] ** np.arange(land.n_expansion + 2)[:, None, None]
     )
 
     # solve RTE
     results = solve_multi_stream_rt_ada(
-        land_column, atmosphere, irradiance, session_multistream_uncoupled.config
+        land, atmosphere, solar, session_multistream_uncoupled.config
     )
 
     # a given set of parameters (including a given wavelength)

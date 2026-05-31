@@ -8,7 +8,7 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 
 
-def test_solarirradiance_shapes(irradiance, expected_shapes):
+def test_solarirradiance_shapes(solar, expected_shapes):
     """
     Verify shapes of attributes of a SolarIrradiance instance match expected
     values in the layer and wavelength dimensions.
@@ -21,15 +21,15 @@ def test_solarirradiance_shapes(irradiance, expected_shapes):
         Expected shapes of the attributes of `irradiance`
     """
     for var in [
-        irradiance.direct_beam,
-        irradiance.diffuse,
-        irradiance.total_irradiance,
+        solar.direct_beam,
+        solar.diffuse,
+        solar.total_irradiance,
     ]:
         assert isinstance(var, np.ndarray)
         assert var.shape == expected_shapes["1d_wavelengths_solar"]
 
 
-def test_solarirradiance_values(irradiance):
+def test_solar_values(solar):
     """
     Assert that average values of attributes defined in the test input file
     match expected values within a tolerance threshold.
@@ -41,6 +41,6 @@ def test_solarirradiance_values(irradiance):
 
     """
 
-    assert np.all(~np.isnan(irradiance.direct_beam))
-    assert np.all(~np.isnan(irradiance.total_irradiance))
-    assert np.all(~np.isnan(irradiance.diffuse))
+    assert np.all(~np.isnan(solar.direct_beam))
+    assert np.all(~np.isnan(solar.total_irradiance))
+    assert np.all(~np.isnan(solar.diffuse))

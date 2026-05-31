@@ -8,33 +8,33 @@ https://github.com/openosmia/snicar-fx
 import numpy as np
 
 
-def test_landcolumn_shapes(land_column, expected_shapes):
+def test_landcolumn_shapes(land, expected_shapes):
     """
     Verify shapes of attributes of a LandColumn instance match expected
     values in the layer and wavelength dimensions.
 
     Parameters
     ----------
-    land_column : LandColumn
+    land : LandColumn
         Instance of the LandColumn class
     expected_shapes : dict
-        Expected shapes of the attributes of `land_column`
+        Expected shapes of the attributes of `land`
     """
     for var in [
-        land_column.asm_prm,
-        land_column.ext_cff,
-        land_column.tau,
-        land_column.ss_alb,
+        land.asm_prm,
+        land.ext_cff,
+        land.tau,
+        land.ss_alb,
     ]:
         assert isinstance(var, np.ndarray)
         assert var.shape == expected_shapes["2d_layers_wavelengths"]
 
-    assert isinstance(land_column.layer_mass, np.ndarray)
-    assert land_column.layer_mass.shape == expected_shapes["1d_layers"]
+    assert isinstance(land.layer_mass, np.ndarray)
+    assert land.layer_mass.shape == expected_shapes["1d_layers"]
 
 
 def test_landcolumn_values(
-    land_column,
+    land,
     expected_mean_ref_idx_re,
     expected_mean_ref_idx_im_water,
     expected_mean_fl_r_dif_a,
@@ -47,7 +47,7 @@ def test_landcolumn_values(
 
     Parameters
     ----------
-    land_column : LandColumn
+    land : LandColumn
         Instance of the LandColumn class
     expected_mean_ref_idx_re : float
         Expected mean value of the real refractive index of ice as sourced in
@@ -66,33 +66,33 @@ def test_landcolumn_values(
 
     """
 
-    assert np.all(~np.isnan(land_column.ref_idx_re))
-    assert np.all(~np.isnan(land_column.ref_idx_im_water))
-    assert np.all(~np.isnan(land_column.fl_r_dif_a))
+    assert np.all(~np.isnan(land.ref_idx_re))
+    assert np.all(~np.isnan(land.ref_idx_im_water))
+    assert np.all(~np.isnan(land.fl_r_dif_a))
 
     assert np.isclose(
-        np.nanmean(land_column.ref_idx_re),
+        np.nanmean(land.ref_idx_re),
         expected_mean_ref_idx_re,
         atol=absolute_tolerance_internal_variables,
         rtol=0.0,
     )
 
     assert np.isclose(
-        np.nanmean(land_column.ref_idx_im_water),
+        np.nanmean(land.ref_idx_im_water),
         expected_mean_ref_idx_im_water,
         atol=absolute_tolerance_internal_variables,
         rtol=0.0,
     )
 
     assert np.isclose(
-        np.nanmean(land_column.fl_r_dif_a),
+        np.nanmean(land.fl_r_dif_a),
         expected_mean_fl_r_dif_a,
         atol=absolute_tolerance_internal_variables,
         rtol=0.0,
     )
 
     assert np.allclose(
-        np.nanmean(land_column.tau),
+        np.nanmean(land.tau),
         expected_tau,
         atol=absolute_tolerance_internal_variables,
         rtol=0.0,
