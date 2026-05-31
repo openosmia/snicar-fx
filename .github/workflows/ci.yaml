@@ -25,6 +25,12 @@ jobs:
           poetry config virtualenvs.create false
           poetry install
 
+      - name: Download test data from Zenodo
+        run: |
+          echo "Downloading required test data..."
+          snicarfx-download-data
+          echo "Data download complete."
+          
       - name: Check code style with ruff
         run: |
           pip install ruff

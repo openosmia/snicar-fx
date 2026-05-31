@@ -10,6 +10,8 @@ from itertools import product
 import numpy as np
 import pytest
 import xarray as xr
+import glob
+from pathlib import Path
 
 from snicarfx import Session
 from snicarfx.cli.download import ZENODO_RECORD
@@ -26,6 +28,11 @@ TEST_INPUT_FILE_MULTISTREAM_COUPLED = (
 
 # API URL to test download of zenodo data archive
 API_URL = f"https://zenodo.org/api/records/{ZENODO_RECORD}"
+
+# list all available example scripts to be tested
+PACKAGE_ROOT = Session.get_package_root()
+EXAMPLES_DIR = PACKAGE_ROOT / "examples"
+EXAMPLE_SCRIPTS = sorted(glob.glob(f"{EXAMPLES_DIR}/*/*.py"))
 
 
 @pytest.fixture(scope="module")
@@ -281,6 +288,17 @@ def update_api_scaling_params(request):
     Create sets of parameters to be used in tests of sequential
     scaling with the update API (occurring in ATMOSPHERE only).
 
+    """
+    return request.param
+
+
+@pytest.fixture(
+    params=EXAMPLE_SCRIPTS,
+    ids=lambda p: Path(p).parent.name,
+)
+def example_script_path(request):
+    """
+    Prepare the list of example scripts to be run by test_examples.
     """
     return request.param
 
