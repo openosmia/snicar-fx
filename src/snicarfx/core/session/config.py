@@ -485,7 +485,7 @@ class IntegratedGasConcentrations(BaseModel):
         description=("Column-integrated O3 concentration"),
         examples=(
             "Only used for coupled simulations. The value is in standard units"
-            " of the CAMS product (in kg.m-2) and is used to scale the O3 profile."
+            " of the CAMS product (in kg m-2) and is used to scale the O3 profile."
         ),
     )
 
@@ -496,7 +496,7 @@ class IntegratedGasConcentrations(BaseModel):
         description=("Column-integrated H2O concentration"),
         examples=(
             "Only used for coupled simulations. The value is in standard units"
-            " of the CAMS product (in kg.m-2) and is used to scale the H2O profile."
+            " of the CAMS product (in kg m-2) and is used to scale the H2O profile."
         ),
     )
 
@@ -507,7 +507,7 @@ class IntegratedGasConcentrations(BaseModel):
         description=("Column-integrated NO2 concentration"),
         examples=(
             "Only used for coupled simulations. The value is in standard units "
-            "of the CAMS product (in kg.m-2) and is used to scale the NO2 profile."
+            "of the CAMS product (in kg m-2) and is used to scale the NO2 profile."
         ),
     )
 
@@ -518,7 +518,7 @@ class IntegratedGasConcentrations(BaseModel):
         description=("Column-integrated CO2 concentration"),
         examples=(
             "Only used for coupled simulations. The value is in standard units "
-            "of the CAMS product (in kg.m-2) and is used to scale the CO2 profile."
+            "of the CAMS product (in kg m-2) and is used to scale the CO2 profile."
         ),
     )
 
@@ -529,7 +529,7 @@ class IntegratedGasConcentrations(BaseModel):
         description=("Column-integrated O2 concentration"),
         examples=(
             "Only used for coupled simulations. The value is in standard units "
-            "of the CAMS product (in kg.m-2) and is used to scale the O2 profile."
+            "of the CAMS product (in kg m-2) and is used to scale the O2 profile."
         ),
     )
 
@@ -587,7 +587,7 @@ class Atmosphere(BaseModel):
         description=("Aerosol optical depth (AOD) at 550nm"),
         examples=(
             "Only used for couple simulations. The AOD value is integrated over"
-            " the atmosphere column such as the standard CAMS product."
+            " the atmosphere column as in the standard CAMS product."
         ),
     )
 
@@ -629,7 +629,10 @@ class Particle(BaseModel):
     FILE: str = Field(
         pattern=r".*\.(nc|csv)$",
         description="File name for the optical properties of a given particle type",
-        examples="Example: 'ice_algae.nc'",
+        examples=(
+            "The file must include the single scattering properties of a given "
+            "particle."
+            )
     )
 
     CONC: conlist(confloat(ge=0.0, le=1e9), min_length=1, max_length=100) = Field(
