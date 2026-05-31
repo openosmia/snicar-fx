@@ -140,9 +140,7 @@ class Session:
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
         elif isinstance(self.config.SPECTRAL.RESOLUTION, str):
-            srf_base_path = (
-                f"{self.config._ROOT_PATH}/data/satellite_spectral_responses"
-            )
+            srf_base_path = f"{self.config._ROOT_PATH}/data/satellite_SRFs"
             if self.config.SPECTRAL.RESOLUTION == "SENTINEL-3-OLCI":
                 srf_file_path = f"{srf_base_path}/S3A_OL_SRF_20160713_mean_rsr.nc4"
 

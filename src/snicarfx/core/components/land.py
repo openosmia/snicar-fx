@@ -132,7 +132,7 @@ class LandColumn:
         """
 
         refidx_file = xr.open_dataset(
-            f"{self.ROOT_PATH}/data/refractive_indices.nc"
+            f"{self.ROOT_PATH}/data/refractive_indices/refractive_indices.nc"
         ).interp(wvl=self._wavelengths)
         self.ref_idx_re = refidx_file[str("re_" + self.rf_type)].values
         self.ref_idx_im = refidx_file[str("im_" + self.rf_type)].values
@@ -148,7 +148,7 @@ class LandColumn:
         """
 
         fresnel_diffuse_file = xr.open_dataset(
-            f"{self.ROOT_PATH}/data/fresnel_diffuse_coefficients.nc"
+            f"{self.ROOT_PATH}/data/fresnel_coefficients/fresnel_diffuse_coefficients.nc"
         ).interp(wvl=self._wavelengths)
         self.fl_r_dif_a = fresnel_diffuse_file[
             str("R_dif_fa_ice_" + self.rf_type)
@@ -274,7 +274,7 @@ class LandColumn:
         Load optical properties of light-absorbing particles (LAPs) and
         interpolate to the required wavelength.
         """
-        
+
         # extrapolation here only for files in 205-4995nm to reach 200-5000nm
         data = {
             lap: xr.open_dataset(
