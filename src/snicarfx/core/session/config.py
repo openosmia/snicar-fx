@@ -984,7 +984,7 @@ class Config(BaseModel):
         return config_instance
 
     @staticmethod
-    def print_help(model: type[BaseModel] | None, indent: int = 0):
+    def print_help(model: type[BaseModel] | None = None, indent: int = 0):
         """
         Print information about the fields that can be prescribed in the input
         file (description, type, allowed values, default values and usage).

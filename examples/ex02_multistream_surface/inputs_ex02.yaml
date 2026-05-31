@@ -9,11 +9,10 @@ SOLVER:
   
 SPECTRAL:
   MODE: "monochromatic"
-  RESOLUTION: [200, 2500, 10]
+  RESOLUTION: [300, 2700, 10]
 
 SOLAR:
   SZA: 50 
-  SAA: 180
 
 ATMOSPHERE:
   SKY_CONDITIONS: "clear"

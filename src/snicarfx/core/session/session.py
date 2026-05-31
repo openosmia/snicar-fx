@@ -923,7 +923,7 @@ class Session:
             elif name == "tau":
                 numerator = self._spectral_response_function * arr_flat[:, None, :]
                 numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
-                denominator_integral_local = denominator_integral_srf
+                denominator_integral_local = denominator_integral_srf[None, :]
 
             elif name == "ss_alb":
                 # srf * flux * w * tau
@@ -993,9 +993,9 @@ class Session:
                 # weigh with srf * total flux
                 numerator = self._spectral_response_function * arr_flat[:, None, :]
                 numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
-                denominator_integral_local = denominator_integral_srf
+                denominator_integral_local = denominator_integral_srf[None, :]
 
-            averaged_rows = numerator_integral / denominator_integral_local[None, :]
+            averaged_rows = numerator_integral / denominator_integral_local
 
             # Reshape back
             if arr.ndim > 1:
@@ -1034,6 +1034,7 @@ class Session:
         )
 
         for name in var_names:
+
             arr = getattr(column, name)
 
             n_bands = len(band_ranges)
@@ -1044,20 +1045,25 @@ class Session:
 
             if name == "total_irradiance":
                 numerator = self._spectral_response_function_sw_total
+                numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
                 denominator_integral_local = np.trapezoid(
                     denominator, x=wavelengths, axis=-1
                 )
+
             elif name == "direct_beam":
                 numerator = self._spectral_response_function_sw_dir
+                numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
                 denominator_integral_local = np.trapezoid(
                     denominator, x=wavelengths, axis=-1
                 )
+
             elif name == "diffuse":
                 numerator = self._spectral_response_function_sw_diff
+                numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
                 denominator = self._spectral_response_function
                 # Recompute denominator integral for these
                 denominator_integral_local = np.trapezoid(
@@ -1071,6 +1077,7 @@ class Session:
                     * arr_flat[:, None, :]
                     * column.tau.reshape(-1, arr.shape[-1])[:, None, :]
                 )
+                numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
                 denominator_integral_local = np.trapezoid(
                     self._spectral_response_function_sw_total
                     * column.tau.reshape(-1, arr.shape[-1])[:, None, :],
@@ -1095,7 +1102,7 @@ class Session:
                     * column.ss_alb.reshape(-1, arr.shape[-1])[:, None, :],
                     x=wavelengths,
                     axis=-1,
-                )
+                )[None, :]
 
             # leg moments are taken at central wl to reduce comp. burden
             elif name == "legendre_moments":
@@ -1129,12 +1136,12 @@ class Session:
                 numerator = (
                     self._spectral_response_function_sw_total * arr_flat[:, None, :]
                 )
+                numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
                 denominator = self._spectral_response_function_sw_total
-                denominator_integral_local = denominator_integral_total
+                denominator_integral_local = denominator_integral_total[None, :]
 
             # Integrate along wavelength axis
-            numerator_integral = np.trapezoid(numerator, x=wavelengths, axis=-1)
-            averaged_rows = numerator_integral / denominator_integral_local[None, :]
+            averaged_rows = numerator_integral / denominator_integral_local
 
             # Reshape back
             if arr.ndim > 1:

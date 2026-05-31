@@ -10,7 +10,7 @@ SOLVER:
   AZIMUTH_ANGLES: [40, 120, 20]
 
 SPECTRAL:
-  MODE: "band-snicar-default"
+  MODE: "monochromatic"
   RESOLUTION: [400, 1200, 10]
   
 SOLAR:

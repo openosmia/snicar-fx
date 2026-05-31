@@ -10,8 +10,8 @@ SOLVER:
   AZIMUTH_ANGLES: [40, 120, 20]
 
 SPECTRAL:
-  MODE: "band-srf-solar-weighted-mean"
-  RESOLUTION: "ENVISAT-MERIS"
+  MODE: "band-srf-weighted-mean"
+  RESOLUTION: "SENTINEL-3-OLCI"
   
 SOLAR:
   SZA: 50
