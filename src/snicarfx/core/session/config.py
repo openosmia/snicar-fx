@@ -1068,37 +1068,23 @@ class Config(BaseModel):
                             if lmin is not None and lmax is not None
                             else f"{rng} (list)"
                         )
-                # elif xo is tuple:
-                #     parts = []
-                #     valid = False
-                #     for it in get_args(x):
-                #         mn, mx = _b(it)
-                #         if mn is not None and mx is not None:
-                #             parts.append(f"{mn}-{mx}")
-                #             valid = True
-                #         else:
-                #             parts.append("?")
-                #     if valid:
-                #         cons.append(f"({', '.join(parts)})")
+
                 elif xo is tuple:
                     parts = []
                     valid = False
                     for it in get_args(x):
-                        io = get_origin(it)  # <--- NEW: Check inner type
+                        io = get_origin(it)  
                         mn, mx = _b(it)
                         
-                        # <--- NEW: Handle direct Literal
                         if io is Literal:
                             lit_args = get_args(it)
                             parts.append(" or ".join(str(a) for a in lit_args))
                             valid = True
                             
-                        # <--- EXISTING: Handle direct bounds
                         elif mn is not None and mx is not None:
                             parts.append(f"{mn}-{mx}")
                             valid = True
                             
-                        # <--- NEW: Handle Union (confloat | Literal)
                         elif io in (Union, UnionType):
                             sub_parts = []
                             sub_valid = False
