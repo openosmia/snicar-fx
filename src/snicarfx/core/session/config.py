@@ -111,7 +111,7 @@ class Solver(BaseModel):
     )
 
     POLAR_ANGLES: (
-        tuple[confloat(ge=1, le=89), confloat(ge=1, le=89), confloat(ge=1, le=89)]
+        tuple[confloat(ge=0, le=89), confloat(ge=0, le=89), confloat(ge=1, le=89)]
         | None
     ) = Field(
         default=None,
@@ -481,7 +481,7 @@ class IntegratedGasConcentrations(BaseModel):
     O3: float | None = Field(
         default=None,
         ge=0.0,
-        le=0.01,
+        le=0.02,
         description=("Column-integrated O3 concentration"),
         examples=(
             "Only used for coupled simulations. The value is in standard units"
@@ -632,7 +632,7 @@ class Particle(BaseModel):
         examples="Example: 'ice_algae.nc'",
     )
 
-    CONC: conlist(confloat(ge=0.0, le=1e7), min_length=1, max_length=100) = Field(
+    CONC: conlist(confloat(ge=0.0, le=1e9), min_length=1, max_length=100) = Field(
         description="Concentration of a given particle type (ng/g)",
         examples=(
             "The concentration is expressed per g of ice for each layer and "
@@ -731,7 +731,7 @@ class Land(BaseModel):
         ),
     )
 
-    ALTITUDE: float = Field(ge=0.0, le=10.0, description="Surface altitude (km)")
+    ALTITUDE: int = Field(ge=0.0, le=10.0, description="Surface altitude (km)")
 
     LIGHT_ABSORBING_PARTICLES: LightAbsorbingParticles | None = None
 
