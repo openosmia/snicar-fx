@@ -115,7 +115,7 @@ class Solver(BaseModel):
         | None
     ) = Field(
         default=None,
-        description="Viewing polar angle (degrees)",
+        description="Range of viewing polar angle (start, end, step in degrees)",
         examples=(
             "Only used with multi-stream-disort solver, as the multi-stream-ada "
             "solver uses a fixed array of viewing polar angles. Must be prescribed "
@@ -129,7 +129,7 @@ class Solver(BaseModel):
         | None
     ) = Field(
         default=None,
-        description="Viewing azimuth angle (degrees)",
+        description="Range of viewing azimuthal angle (start, end, step in degrees)",
         examples=(
             "Only used with multi-stream solvers when N_FOURIER_MODES > 1. "
             "Must be prescribed as a range (start, end, step). If no value set "
@@ -1068,18 +1068,62 @@ class Config(BaseModel):
                             if lmin is not None and lmax is not None
                             else f"{rng} (list)"
                         )
+                # elif xo is tuple:
+                #     parts = []
+                #     valid = False
+                #     for it in get_args(x):
+                #         mn, mx = _b(it)
+                #         if mn is not None and mx is not None:
+                #             parts.append(f"{mn}-{mx}")
+                #             valid = True
+                #         else:
+                #             parts.append("?")
+                #     if valid:
+                #         cons.append(f"({', '.join(parts)})")
                 elif xo is tuple:
                     parts = []
                     valid = False
                     for it in get_args(x):
+                        io = get_origin(it)  # <--- NEW: Check inner type
                         mn, mx = _b(it)
-                        if mn is not None and mx is not None:
+                        
+                        # <--- NEW: Handle direct Literal
+                        if io is Literal:
+                            lit_args = get_args(it)
+                            parts.append(" or ".join(str(a) for a in lit_args))
+                            valid = True
+                            
+                        # <--- EXISTING: Handle direct bounds
+                        elif mn is not None and mx is not None:
                             parts.append(f"{mn}-{mx}")
                             valid = True
+                            
+                        # <--- NEW: Handle Union (confloat | Literal)
+                        elif io in (Union, UnionType):
+                            sub_parts = []
+                            sub_valid = False
+                            for sub_arg in get_args(it):
+                                sub_o = get_origin(sub_arg)
+                                sub_mn, sub_mx = _b(sub_arg)
+                                
+                                if sub_o is Literal:
+                                    sub_parts.extend(str(a) for a in get_args(sub_arg))
+                                    sub_valid = True
+                                elif sub_mn is not None and sub_mx is not None:
+                                    sub_parts.append(f"{sub_mn}-{sub_mx}")
+                                    sub_valid = True
+                            
+                            if sub_valid:
+                                parts.append(" or ".join(sub_parts))
+                                valid = True
+                            else:
+                                parts.append("?")
                         else:
                             parts.append("?")
+                    
                     if valid:
                         cons.append(f"({', '.join(parts)})")
+                        
                 elif xo is Literal:
                     lits.extend(get_args(x))
 
