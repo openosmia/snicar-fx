@@ -179,6 +179,9 @@ class Session:
                 & (restricted_wavelength_1cm_m1[:, None] <= maxs_per_band_wavelength)
             ).any(axis=1)
 
+            if self.config.SPECTRAL.MODE == "monochromatic":
+                self.config._wavelengths = restricted_wavelength_1cm_m1[mask]
+
             self.config._wavelengths_solar = restricted_wavelength_1cm_m1[mask]
             self.config._wavelengths_land = restricted_wavelength_1cm_m1[mask]
             self.config._wavelengths_atmosphere = restricted_wavelength_1cm_m1[mask]
