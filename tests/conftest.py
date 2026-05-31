@@ -5,13 +5,13 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+import glob
 from itertools import product
+from pathlib import Path
 
 import numpy as np
 import pytest
 import xarray as xr
-import glob
-from pathlib import Path
 
 from snicarfx import Session
 from snicarfx.cli.download import ZENODO_RECORD

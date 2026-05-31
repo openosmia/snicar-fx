@@ -5,12 +5,10 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+import os
 import subprocess
 import sys
-import os
 from pathlib import Path
-
-import pytest
 
 
 def test_example_runs(example_script_path):

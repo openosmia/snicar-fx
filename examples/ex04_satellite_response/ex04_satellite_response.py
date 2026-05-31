@@ -5,11 +5,10 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+
 import matplotlib.pyplot as plt
-import importlib
 
 from snicarfx import Session
-
 
 # initialize the simulation
 simulation = Session("./inputs_ex04.yaml")
