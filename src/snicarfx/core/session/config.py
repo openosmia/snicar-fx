@@ -80,7 +80,7 @@ class Solver(BaseModel):
     N_STREAMS: int = Field(
         default=None,
         ge=8,
-        le=100,
+        le=256,
         description="Number of streams used by multi-stream solver",
         examples=(
             "Only used with multi-stream solvers. If no value set in the input "
