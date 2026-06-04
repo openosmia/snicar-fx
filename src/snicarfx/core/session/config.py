@@ -91,7 +91,7 @@ class Solver(BaseModel):
     N_LEGENDRE_MOMENTS: int | None = Field(
         default=None,
         ge=1,
-        le=100,
+        le=128,
         description="Number of Legendre moments to use in phase functions",
         examples=(
             "Only used with multi-stream solvers. Must be <= N_STREAMS. If no "
