@@ -23,6 +23,8 @@ from pydantic import (
     model_validator,
 )
 from pydantic.fields import PydanticUndefined
+import bibtexparser
+from bibtexparser.bibdatabase import BibDatabase
 
 
 class Solver(BaseModel):
@@ -632,7 +634,7 @@ class Particle(BaseModel):
         examples=(
             "The file must include the single scattering properties of a given "
             "particle."
-            )
+        ),
     )
 
     CONC: conlist(confloat(ge=0.0, le=1e9), min_length=1, max_length=100) = Field(
@@ -1076,32 +1078,32 @@ class Config(BaseModel):
                     parts = []
                     valid = False
                     for it in get_args(x):
-                        io = get_origin(it)  
+                        io = get_origin(it)
                         mn, mx = _b(it)
-                        
+
                         if io is Literal:
                             lit_args = get_args(it)
                             parts.append(" or ".join(str(a) for a in lit_args))
                             valid = True
-                            
+
                         elif mn is not None and mx is not None:
                             parts.append(f"{mn}-{mx}")
                             valid = True
-                            
+
                         elif io in (Union, UnionType):
                             sub_parts = []
                             sub_valid = False
                             for sub_arg in get_args(it):
                                 sub_o = get_origin(sub_arg)
                                 sub_mn, sub_mx = _b(sub_arg)
-                                
+
                                 if sub_o is Literal:
                                     sub_parts.extend(str(a) for a in get_args(sub_arg))
                                     sub_valid = True
                                 elif sub_mn is not None and sub_mx is not None:
                                     sub_parts.append(f"{sub_mn}-{sub_mx}")
                                     sub_valid = True
-                            
+
                             if sub_valid:
                                 parts.append(" or ".join(sub_parts))
                                 valid = True
@@ -1109,10 +1111,10 @@ class Config(BaseModel):
                                 parts.append("?")
                         else:
                             parts.append("?")
-                    
+
                     if valid:
                         cons.append(f"({', '.join(parts)})")
-                        
+
                 elif xo is Literal:
                     lits.extend(get_args(x))
 
@@ -1255,3 +1257,91 @@ class Config(BaseModel):
                 # normal upper level field
                 else:
                     Config.print_help(target, indent + 1)
+
+    def print_citation(self, format: str = "bibtex"):
+        """
+        Generates a citation list based on the active configuration.
+        """
+
+        # determine which keys are needed based on config
+        required_keys = self._get_required_citation_keys()
+
+        # load the full database from the package data
+        bib_database = self._load_bibtex_database()
+
+        # filter entries
+        selected_entries = []
+        missing_keys = []
+
+        for key in required_keys:
+            entry = self._get_entry_by_key(bib_database, key)
+            if entry:
+                selected_entries.append(entry)
+            else:
+                missing_keys.append(key)
+
+        # format and print
+        if format == "bibtex":
+            self._print_bibtex(selected_entries)
+        elif format == "text":
+            self._print_text(selected_entries)
+        else:
+            raise ValueError("Format must be 'bibtex' or 'text'")
+
+    def _get_required_citation_keys(self) -> list[str]:
+        """Logic to map config state to citation keys."""
+        keys = ["snicarfx_core"]  # Always include core
+
+        # solver logic
+        keys.extend(["stamnes1988", "ho2024"])
+
+        return keys
+
+    def _load_bibtex_database(self) -> BibDatabase:
+        """Loads the references.bib file from the package."""
+
+        # locate the file within the installed package
+        bib_path = f"{self._ROOT_PATH}/data/references/references.bib"
+
+        with bib_path.open("r", encoding="utf-8") as bibtex_file:
+            bib_database = bibtexparser.load(bibtex_file)
+
+        return bib_database
+
+    def _get_entry_by_key(self, database: BibDatabase, key: str) -> dict | None:
+        """Finds a specific entry by its ID."""
+        for entry in database.entries:
+            if entry.get("ID") == key:
+                return entry
+        return None
+
+    def _print_bibtex(self, entries: list[dict]):
+        """Writes entries back to BibTeX format."""
+        # create a temporary database to write back
+        temp_db = BibDatabase()
+        temp_db.entries = entries
+
+        # use bibtexparser's writer
+        writer = bibtexparser.bwriter.BibTexWriter()
+        writer.indent = "  "
+
+        print(writer.write(temp_db))
+
+    def _print_text(self, entries: list[dict]):
+        """Formats entries as a simple text list."""
+        for entry in entries:
+            authors = entry.get("author", "Unknown Author")
+            year = entry.get("year", "n.d.")
+            title = entry.get("title", "No Title")
+            journal = entry.get("journal", "")
+            doi = entry.get("doi", "")
+
+            # simple formatting for now
+            citation = f"{authors} ({year}). {title}."
+            if journal:
+                citation += f" {journal}."
+            if doi:
+                citation += f" https://doi.org/{doi}"
+
+            print(citation)
+            print()
