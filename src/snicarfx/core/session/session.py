@@ -776,21 +776,6 @@ class Session:
         bands.
         """
 
-        # wavelength array
-        self.config._wavelengths = (
-            np.trapezoid(
-                    self.config._wavelengths
-                    * self._spectral_response_function,
-                    x=self.config._wavelengths,
-                    axis=-1,
-                )
-            / np.trapezoid(
-                    self._spectral_response_function,
-                    x=self.config._wavelengths,
-                    axis=-1,
-                )
-            )
-        
         for key, var in self.outputs.items():
             if any(tag in key for tag in ["albedo_"]):
                 self.outputs[key] = np.trapezoid(
