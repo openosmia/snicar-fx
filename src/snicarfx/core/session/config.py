@@ -927,7 +927,7 @@ class Config(BaseModel):
         """
 
         if isinstance(self.SPECTRAL.RESOLUTION, tuple):
-            start, end, step = self.SPECTRAL.RESOLUTION
+            start, end, _step = self.SPECTRAL.RESOLUTION
 
             if self.SOLVER.TYPE != "two-stream-ad" and (start < 300 or end > 2700):
                 raise ValueError(

@@ -135,7 +135,7 @@ class Session:
 
                 self._band_ranges = band_ranges_homogeneous
                 self.config._wavelengths = center_wavelength_homogeneous
-                
+
                 if self.config.SPECTRAL.MODE == "band-snicar-default":
                     self.config._wavelengths_land = center_wavelength_homogeneous
 
@@ -179,7 +179,7 @@ class Session:
                 self.config._wavelengths = restricted_wavelength_1cm_m1[mask]
             else:
                 self.config._wavelengths = ds.srf_centre_wavelength.values
-             
+
             self.config._wavelengths_solar = restricted_wavelength_1cm_m1[mask]
             self.config._wavelengths_land = restricted_wavelength_1cm_m1[mask]
             self.config._wavelengths_atmosphere = restricted_wavelength_1cm_m1[mask]
@@ -1035,7 +1035,6 @@ class Session:
         )
 
         for name in var_names:
-
             arr = getattr(column, name)
 
             n_bands = len(band_ranges)

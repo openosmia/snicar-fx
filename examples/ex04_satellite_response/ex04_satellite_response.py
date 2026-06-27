@@ -5,7 +5,6 @@ https://github.com/openosmia/snicar-fx
 
 """
 
-
 import matplotlib.pyplot as plt
 
 from snicarfx import Session

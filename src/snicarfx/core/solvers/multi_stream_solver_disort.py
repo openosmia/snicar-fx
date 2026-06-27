@@ -438,11 +438,11 @@ class _MultiStreamSolverDISORT:
         """
 
         if len(outputs_wl) == 5:
-            mu, flux_up, flux_down, u0, u = outputs_wl
+            _mu, flux_up, flux_down, u0, u = outputs_wl
 
         elif len(outputs_wl) == 4:
             if self.n_fourier == 1:
-                mu, flux_up, flux_down, u0 = outputs_wl
+                _mu, flux_up, flux_down, u0 = outputs_wl
             elif self.n_fourier > 1:
                 flux_up, flux_down, u0, u = outputs_wl
 

@@ -333,7 +333,7 @@ class AtmosphereColumn:
         # interpolate on wvl
         self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
 
-        # allow extrapolation here because the current file is between 
+        # allow extrapolation here because the current file is between
         # 300.0002 and 2700 so we extrapolate down to 300.0
         self.gas_cross_sections = self.gas_cross_sections.interp(
             nwvl=self._wavelengths, kwargs={"fill_value": "extrapolate"}
@@ -383,14 +383,14 @@ class AtmosphereColumn:
         aerosol_properties = xr.open_dataset(
             f"{self.ROOT_PATH}/data/aerosols/{self.aerosol_file}"
         ).interp(wavelength=self._wavelengths)
-        
-        if len(aerosol_properties.legendre_moment) < self.n_expansion: 
+
+        if len(aerosol_properties.legendre_moment) < self.n_expansion:
             raise ValueError(
                 "The number of Legendre moments in the aerosol file is below "
                 "the required number of Legendre moments from the input file. "
                 "Please change the aerosol file or reduce the number of Legendre"
                 " moments."
-                )
+            )
 
         return aerosol_properties
 

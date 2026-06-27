@@ -35,7 +35,7 @@ def test_pythonicdisort_outputs(
 
     """
 
-    sza, saa, azimuth, aod = multistream_pythonicdisort_params
+    sza, saa, _azimuth, aod = multistream_pythonicdisort_params
 
     session_multistream_coupled.solar.sza = sza
     session_multistream_coupled.solar.saa = saa
