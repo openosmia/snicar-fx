@@ -532,7 +532,8 @@ class _MultiStreamSolverDISORT:
 
         if "BOA" in self.output_levels:
             results["albedo_boa"] = self.flux_up_boa / self.flux_down_boa
-
+            results["flux_up_boa"] = self.flux_up_boa
+            results["flux_down_boa"] = self.flux_down_boa
             results["bba_boa"] = np.trapezoid(
                 self.flux_up_boa, x=self.wavelengths
             ) / np.trapezoid(self.flux_down_boa, x=self.wavelengths)

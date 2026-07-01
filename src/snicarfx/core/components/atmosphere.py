@@ -79,25 +79,21 @@ class AtmosphereColumn:
             self.nbr_wvl = len(self._wavelengths)
             self.surface_elevation = config.LAND.ALTITUDE
             self.n_expansion = config.SOLVER.N_LEGENDRE_MOMENTS
-            self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
-            self.initial_atmosphere_profile = self.set_atmospheric_profile()
-            self.set_profile_integrated_gas_concentrations()
-            # as no scaling is applied for now, the atmospheric
-            # profile is just the initial profile
-            self.atmosphere_profile = self.initial_atmosphere_profile.copy(deep=True)
-
-            self.nbr_lyr = self.atmosphere_profile.shape[0]
             self.aerosol_boundary_height = 30
             self.AOD = config.ATMOSPHERE.INTEGRATED_AOD_550
+            self.atmosphere_profile_type = config.ATMOSPHERE.ATMOSPHERIC_PROFILE_TYPE
+            self.load_atmospheric_profile()
+            self.set_atmospheric_profile()
+            self.set_profile_integrated_gas_concentrations()
+
+            self.compute_rayleigh_scattering()
+            self.set_rayleigh_legendre_moments()
 
             if config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS is not None:
                 self.integrated_gas_concentrations = (
                     config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
                 )
                 self.scale_atmospheric_profile()
-
-            self.compute_rayleigh_scattering()
-            self.set_rayleigh_legendre_moments()
 
             self.load_gas_absorption_cross_sections()
             self.compute_gas_optical_thickness()
@@ -113,7 +109,11 @@ class AtmosphereColumn:
 
             self.set_legendre_moments()
 
-    def set_atmospheric_profile(self):
+    def load_atmospheric_profile(self):
+        """
+        Load atmospheric profile based on the profile type read from the input file.
+        """
+        
         profile = pd.read_csv(
             f"{self.ROOT_PATH}/data/atmospheric_profiles/"
             + self.atmosphere_profile_type
@@ -136,11 +136,19 @@ class AtmosphereColumn:
             "no2(cm-3)",
         ]
 
+        self.initial_atmosphere_profile = profile
+
+    def set_atmospheric_profile(self):
+        """
+        Compute layer thicknesses and truncate profile from surface elevation.
+        """
+  
+        profile = self.initial_atmosphere_profile.copy(deep=True)
+        
         # truncate dep. on altitude
         profile = profile[profile["z(km)"] >= self.surface_elevation]
 
         # calculate layer thicknesses
-
         dz = np.abs(np.diff(profile["z(km)"].values))
 
         # interpolate to mid points
@@ -149,7 +157,13 @@ class AtmosphereColumn:
         # add layer thicknesses
         profile["dz(km)"] = dz
 
-        return profile
+        self.nbr_lyr = len(dz)
+
+        self.initial_atmosphere_profile = profile.copy(deep=True)
+
+        # as no scaling is applied for now, the atmospheric
+        # profile is just the initial profile
+        self.atmosphere_profile = profile.copy(deep=True)
 
     def set_profile_integrated_gas_concentrations(self):
         """
@@ -325,11 +339,6 @@ class AtmosphereColumn:
                 "download file from https://zenodo.org/records/20457918)."
             ) from err
 
-        # truncate depending on altitude
-        self.gas_cross_sections = self.gas_cross_sections.sel(
-            nlyr=self.atmosphere_profile.index
-        )
-
         # interpolate on wvl
         self.gas_cross_sections["nwvl"] = self.gas_cross_sections.wvl
 
@@ -345,6 +354,12 @@ class AtmosphereColumn:
         """
         Compute spectral optical thickness of atmospheric gases.
         """
+
+        
+        # truncate depending on altitude
+        self.gas_cross_sections = self.gas_cross_sections.sel(
+            nlyr=self.atmosphere_profile.index
+        )
 
         sigma_vars = [
             var
