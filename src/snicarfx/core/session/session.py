@@ -367,7 +367,8 @@ class Session:
                 # surface irradiance needs to be re-calculated if SZA updated
                 self.solar.set_surface_irradiance()
 
-                self.compute_band_average(components=["solar"])
+                if "band-" in self.config.SPECTRAL.MODE:
+                    self.compute_band_average(components=["solar"])
 
     def update_atmosphere(self, updates, validate=True):
         """
@@ -432,19 +433,25 @@ class Session:
                     "INTEGRATED_GAS_CONCENTRATIONS"
                 ]
                 self.atmosphere.scale_gas_concentrations()
+                self.atmosphere.compute_rayleigh_scattering()
                 self.atmosphere.compute_gas_optical_thickness()
 
             # if aerosols, re-compute aerosol AND atmosphere optics
-            if self.atmosphere.AOD > 0:
-                self.atmosphere.set_atmospheric_properties_with_aerosols()
+            if (
+                self.atmosphere.AOD == 0.0
+                or self.atmosphere.surface_elevation
+                > self.atmosphere.aerosol_boundary_height
+            ):
+                self.atmosphere.set_atmospheric_properties_without_aerosols()
 
             # if no aerosols, re-compute atmosphere optics w/out aerosols
             else:
-                self.atmosphere.set_atmospheric_properties_without_aerosols()
+                self.atmosphere.set_atmospheric_properties_with_aerosols()
 
             # recalculate legendre moments
             self.atmosphere.set_legendre_moments()
-            self.compute_band_average(components=["atmosphere"])
+            if "band-" in self.config.SPECTRAL.MODE:
+                self.compute_band_average(components=["atmosphere"])
 
     def update_land(self, updates, validate=True):
         """
@@ -469,6 +476,7 @@ class Session:
                 "SPECIFIC_SURFACE_AREA",
                 "DENSITY",
                 "LIGHT_ABSORBING_PARTICLES",
+                "ALTITUDE",
             }
 
             self._prepare_updates(updates, allowed_fields)
@@ -528,8 +536,47 @@ class Session:
             if self.land.n_expansion is not None:
                 self.land.set_legendre_moments()
 
-            # and recompute band-averaged properties
-            self.compute_band_average(components=["land"])
+            # and recompute band-averaged properties if band mode
+            if "band-" in self.config.SPECTRAL.MODE:
+                self.compute_band_average(components=["land"])
+
+            if "ALTITUDE" in updates:
+                # update argument in the atmopshere column class
+                self.atmosphere.surface_elevation = updates["ALTITUDE"]
+
+                # start from raw profile and truncate with new
+                # elevation
+                self.atmosphere.set_atmospheric_profile()
+
+                # update integrated gas concentrations of truncated
+                # profile
+                self.atmosphere.set_profile_integrated_gas_concentrations()
+
+                # scale truncated profile to input values
+                self.atmosphere.scale_gas_concentrations()
+
+                # recompute based on truncated profile
+                self.atmosphere.compute_rayleigh_scattering()
+                self.atmosphere.set_rayleigh_legendre_moments()
+                self.atmosphere.compute_gas_optical_thickness()
+
+                # assess same condition as in atmosphere to set
+                # atmopsheric properties
+                if (
+                    self.atmosphere.AOD == 0.0
+                    or self.atmosphere.surface_elevation
+                    > self.atmosphere.aerosol_boundary_height
+                ):
+                    self.atmosphere.set_atmospheric_properties_without_aerosols()
+                else:
+                    self.atmosphere.scale_tau_aerosols()
+                    self.atmosphere.set_atmospheric_properties_with_aerosols()
+
+                # recalculate legendre moments
+                self.atmosphere.set_legendre_moments()
+
+                if "band-" in self.config.SPECTRAL.MODE:
+                    self.compute_band_average(components=["atmosphere"])
 
     def run(self, to_xarray=True):
         """

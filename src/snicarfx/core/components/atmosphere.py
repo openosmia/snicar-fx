@@ -86,14 +86,14 @@ class AtmosphereColumn:
             self.set_atmospheric_profile()
             self.set_profile_integrated_gas_concentrations()
 
-            self.compute_rayleigh_scattering()
-            self.set_rayleigh_legendre_moments()
-
             if config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS is not None:
                 self.integrated_gas_concentrations = (
                     config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
                 )
                 self.scale_gas_concentrations()
+
+            self.compute_rayleigh_scattering()
+            self.set_rayleigh_legendre_moments()
 
             self.load_gas_absorption_cross_sections()
             self.compute_gas_optical_thickness()

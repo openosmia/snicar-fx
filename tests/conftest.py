@@ -234,7 +234,7 @@ def multistream_pythonicdisort_params(request):
         {
             "component": "ATMOSPHERE",
             "field": "INTEGRATED_GAS_CONCENTRATIONS",
-            "value": {"H2O": 15, "NO2": 1e-06, "O3": 0.007},
+            "value": {"H2O": 15, "NO2": 1e-06, "O3": 0.007, "CO2": 5},
         },
         {
             "component": "ATMOSPHERE",
@@ -249,6 +249,7 @@ def multistream_pythonicdisort_params(request):
         {"component": "LAND", "field": "THICKNESS", "value": (0.07, 0.04, 0.1)},
         {"component": "LAND", "field": "SPECIFIC_SURFACE_AREA", "value": (1, 2, 3)},
         {"component": "LAND", "field": "DENSITY", "value": (600, 700, 800)},
+        # {"component": "LAND", "field": "ALTITUDE", "value": 1.0},
         {
             "component": "LAND",
             "field": "LIGHT_ABSORBING_PARTICLES",
@@ -274,10 +275,10 @@ def update_api_params(request):
         {
             "field": "INTEGRATED_GAS_CONCENTRATIONS",
             "sequence": [
-                {"H2O": 15, "NO2": 1e-06, "O3": 0.005, "O2": 100},
-                {"H2O": 0, "NO2": 0, "O3": 0, "O2": 0},
-                {"H2O": 7, "NO2": 1.2e-6, "O3": 0.002, "O2": 200},
-                {"H2O": 24, "NO2": 0.5e-6, "O3": 0.001, "O2": 1000},
+                {"H2O": 15, "NO2": 1e-06, "O3": 0.005, "O2": 100, "CO2": 5},
+                {"H2O": 0, "NO2": 0, "O3": 0, "O2": 0, "CO2": 3},
+                {"H2O": 7, "NO2": 1.2e-6, "O3": 0.002, "O2": 200, "CO2": 10},
+                {"H2O": 24, "NO2": 0.5e-6, "O3": 0.001, "O2": 1000, "CO2": 4},
             ],
         },
     ],
