@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 
-def test_scale_atmospheric_profile(atmosphere):
+def test_scale_gas_concentrations(atmosphere):
     """
     Test atmospheric profile scaling by doubling the integrated O3 concentration
     and verifying that the entire profile concentration has doubled.
@@ -28,7 +28,7 @@ def test_scale_atmospheric_profile(atmosphere):
 
     atm.integrated_gas_concentrations["O3"] *= 2
 
-    atm.scale_atmospheric_profile()
+    atm.scale_gas_concentrations()
 
     new_integrated_o3 = atm.atmosphere_profile["o3(cm-3)"].copy()
 

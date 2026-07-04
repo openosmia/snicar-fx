@@ -431,7 +431,7 @@ class Session:
                 self.atmosphere.integrated_gas_concentrations = updates[
                     "INTEGRATED_GAS_CONCENTRATIONS"
                 ]
-                self.atmosphere.scale_atmospheric_profile()
+                self.atmosphere.scale_gas_concentrations()
                 self.atmosphere.compute_gas_optical_thickness()
 
             # if aerosols, re-compute aerosol AND atmosphere optics

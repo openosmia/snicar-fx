@@ -93,7 +93,7 @@ class AtmosphereColumn:
                 self.integrated_gas_concentrations = (
                     config.ATMOSPHERE.INTEGRATED_GAS_CONCENTRATIONS.model_dump()
                 )
-                self.scale_atmospheric_profile()
+                self.scale_gas_concentrations()
 
             self.load_gas_absorption_cross_sections()
             self.compute_gas_optical_thickness()
@@ -113,7 +113,7 @@ class AtmosphereColumn:
         """
         Load atmospheric profile based on the profile type read from the input file.
         """
-        
+
         profile = pd.read_csv(
             f"{self.ROOT_PATH}/data/atmospheric_profiles/"
             + self.atmosphere_profile_type
@@ -136,15 +136,15 @@ class AtmosphereColumn:
             "no2(cm-3)",
         ]
 
-        self.initial_atmosphere_profile = profile
+        self.full_atmosphere_profile = profile
 
     def set_atmospheric_profile(self):
         """
         Compute layer thicknesses and truncate profile from surface elevation.
         """
-  
-        profile = self.initial_atmosphere_profile.copy(deep=True)
-        
+
+        profile = self.full_atmosphere_profile.copy(deep=True)
+
         # truncate dep. on altitude
         profile = profile[profile["z(km)"] >= self.surface_elevation]
 
@@ -204,7 +204,7 @@ class AtmosphereColumn:
             for input_key, profile_key in self.gas_key_matching.items()
         }
 
-    def scale_atmospheric_profile(self):
+    def scale_gas_concentrations(self):
         """
         Scale atmospheric profile by given integrated gas
         concentrations.
@@ -355,7 +355,6 @@ class AtmosphereColumn:
         Compute spectral optical thickness of atmospheric gases.
         """
 
-        
         # truncate depending on altitude
         self.gas_cross_sections = self.gas_cross_sections.sel(
             nlyr=self.atmosphere_profile.index
