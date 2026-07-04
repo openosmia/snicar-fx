@@ -666,7 +666,7 @@ class Land(BaseModel):
     LAYER_TYPE: conlist(conint(ge=0, le=2), min_length=1, max_length=100) = Field(
         description="Type of each vertical layer",
         examples=(
-            "0 is ice spheres, 1 is solid ice with Fresnel layer above and 2 "
+            "0 is ice grains, 1 is solid ice with Fresnel layer above and 2 "
             "is solid ice without Fresnel layer. (!) Fresnel layers are not "
             "available with multi-stream solvers."
         ),
