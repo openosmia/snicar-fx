@@ -19,7 +19,7 @@ SOLAR:
 
 ATMOSPHERE:
   SKY_CONDITIONS: "clear"
-  ATMOSPHERIC_PROFILE_TYPE: "afglss_downscaled"
+  ATMOSPHERIC_PROFILE_TYPE: "afglss_downscaled" # set to "test" if afglss_downscaled not downloaded
 
   INTEGRATED_GAS_CONCENTRATIONS:
     H2O: 13.077

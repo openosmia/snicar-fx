@@ -239,7 +239,22 @@ def multistream_pythonicdisort_params(request):
         {
             "component": "ATMOSPHERE",
             "field": "INTEGRATED_GAS_CONCENTRATIONS",
+            "value": {"H2O": 15, "NO2": 1e-06, "O3": 0.007},
+        },
+        {
+            "component": "ATMOSPHERE",
+            "field": "INTEGRATED_GAS_CONCENTRATIONS",
+            "value": {"H2O": 0, "NO2": 0, "O3": 0, "CO2": 0},
+        },
+        {
+            "component": "ATMOSPHERE",
+            "field": "INTEGRATED_GAS_CONCENTRATIONS",
             "value": {"H2O": 0, "NO2": 0, "O3": 0},
+        },
+        {
+            "component": "ATMOSPHERE",
+            "field": "INTEGRATED_GAS_CONCENTRATIONS",
+            "value": {"H2O": 9},
         },
         # LAND
         {"component": "LAND", "field": "LAYER_TYPE", "value": (0, 0, 0)},
@@ -249,7 +264,7 @@ def multistream_pythonicdisort_params(request):
         {"component": "LAND", "field": "THICKNESS", "value": (0.07, 0.04, 0.1)},
         {"component": "LAND", "field": "SPECIFIC_SURFACE_AREA", "value": (1, 2, 3)},
         {"component": "LAND", "field": "DENSITY", "value": (600, 700, 800)},
-        # {"component": "LAND", "field": "ALTITUDE", "value": 1.0},
+        {"component": "LAND", "field": "ALTITUDE", "value": 1.0},
         {
             "component": "LAND",
             "field": "LIGHT_ABSORBING_PARTICLES",

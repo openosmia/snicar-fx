@@ -115,8 +115,12 @@ def test_update_api(
     with open(test_input_file_multistream_coupled) as f:
         config_dict = yaml.safe_load(f)
 
-    # apply the same update as with the upate API
-    config_dict[component][field] = value
+    # apply the same update as with the upate API, but manually
+    if field == "INTEGRATED_GAS_CONCENTRATIONS":
+        for gas, conc in updates["INTEGRATED_GAS_CONCENTRATIONS"].items():
+            config_dict[component][field][gas] = conc
+    else:
+        config_dict[component][field] = value
 
     # write to temp file
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yaml") as tmp:
