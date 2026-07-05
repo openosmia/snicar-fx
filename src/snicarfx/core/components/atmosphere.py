@@ -344,7 +344,7 @@ class AtmosphereColumn:
 
         # allow extrapolation here because the current file is between
         # 300.0002 and 2700 so we extrapolate down to 300.0
-        self.gas_cross_sections = self.gas_cross_sections.interp(
+        self.full_gas_cross_sections = self.gas_cross_sections.interp(
             nwvl=self._wavelengths, kwargs={"fill_value": "extrapolate"}
         )
 
@@ -356,9 +356,9 @@ class AtmosphereColumn:
         """
 
         # truncate depending on altitude
-        self.gas_cross_sections = self.gas_cross_sections.sel(
+        self.gas_cross_sections = self.full_gas_cross_sections.sel(
             nlyr=self.atmosphere_profile.index
-        )
+        ).copy(deep=True)
 
         sigma_vars = [
             var
