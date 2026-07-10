@@ -48,25 +48,25 @@ def test_config_attributes(config):
     {"SOLVER": {"TYPE": "two-stream-ad", "ATMOSPHERE_COUPLING": True}},
     {"SOLVER": {"TYPE": "two-stream-ad", "OUTPUT_LEVELS": "TOA"}},
     {"SOLVER": {"TYPE": "two-stream-ad", "DELTA_SCALING": "M+"}},
-    {"SOLVER": {"TYPE": "two-stream-ad", "N_LEGENDRE_MOMENTS": "15"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": "15"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": "16",
-                "N_LEGENDRE_MOMENTS": "20"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": "16",
-                "N_FOURIER_MODES": "20"}},
+    {"SOLVER": {"TYPE": "two-stream-ad", "N_LEGENDRE_MOMENTS": 15}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": 15}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": 16,
+                "N_LEGENDRE_MOMENTS": 20}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": 16,
+                "N_FOURIER_MODES": 20}},
     {"SOLVER": {"TYPE": "multi-stream-ada", "ATMOSPHERE_COUPLING": False,
                 "OUTPUT_LEVELS": "TOA"}},
-    {"SOLVER": {"TYPE": "two-stream-ad", "N_FOURIER_MODES": "2"}},
+    {"SOLVER": {"TYPE": "two-stream-ad", "N_FOURIER_MODES": 2}},
     {"SOLVER": {"TYPE": "two-stream-ad", "POLAR_ANGLES": [10, 40, 10]}},
     {"SOLVER": {"TYPE": "two-stream-ad", "AZIMUTH_ANGLES": [10, 40, 10]}},
     {"SOLVER": {"TYPE": "multi-stream-ada", "POLAR_ANGLES": [40, 10, 10]}},
     {"SOLVER": {"TYPE": "multi-stream-ada", "POLAR_ANGLES": [6, 7, 50]}},
     {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": [40, 10, 10],
-                "N_FOURIER_MODES": "2"}},
+                "N_FOURIER_MODES": 2}},
     {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": [6, 7, 100],
-                "N_FOURIER_MODES": "2"}},
+                "N_FOURIER_MODES": 2}},
     {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": [10, 100, 20],
-                "N_FOURIER_MODES": "1"}},
+                "N_FOURIER_MODES": 1}},
     {"SPECTRAL": {"RESOLUTION": [400, 401, 50]}},
     {"SPECTRAL": {"RESOLUTION": [500, 400, 10]}},
     {"SPECTRAL": {"RESOLUTION": [400, 500, 10],
@@ -78,9 +78,9 @@ def test_config_attributes(config):
     {"LAND": {"LAYER_TYPE": [1, 1, 1], "GRAIN_SHAPE": [1, 1, 1]}},
     {"LAND": {"DENSITY": [924, 924, 924], "LWC": [0.0001, 0.0001, 0.0001]}},
     {"LAND": {"DENSITY": [920, 920, 920], "LWC": [0.02, 0.02, 0.02]}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "N_FOURIER_MODES": "2"},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_FOURIER_MODES": 2},
      "SOLAR" : {"SAA" : None}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "N_FOURIER_MODES": "1"},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_FOURIER_MODES": 1},
      "SOLAR" : {"SAA" : 100}},
     {"SOLVER": {"TYPE": "multi-stream-ada"},
      "LAND" : {"LAYER_TYPE" : [1, 1, 1], "GRAIN_SHAPE" : [0, 0, 0]}},
@@ -93,7 +93,6 @@ def test_config_attributes(config):
     {"ATMOSPHERE": {"SKY_CONDITIONS": "clear"},
      "SPECTRAL": {"MODE": "monochromatic", "RESOLUTION" : [400, 500, 10]},
      "SOLVER" : {"TYPE": "multi-stream-ada",  "ATMOSPHERE_COUPLING": False}},
-    
 
 ])
 
@@ -121,3 +120,22 @@ def test_validation_errors_raise_exception(config_dict, wrong_configs):
         pytest.fail("Expected error not raised")
     except ValueError as e:
         print(f"\n {e}")
+
+
+
+def test_print_help(capsys):
+    """
+    Ensure print_help() function displays key sections.
+    """
+    Config.print_help()
+    printer = capsys.readouterr()
+    
+    # check that it's not a single character
+    assert len(printer.out) > 2
+    
+    # check that the main fields are printed
+    assert "SOLVER" in printer.out
+    assert "LAND" in printer.out
+    assert "SPECTRAL" in printer.out
+    assert "SOLAR" in printer.out
+    assert "ATMOSPHERE" in printer.out
