@@ -398,6 +398,13 @@ def update_api_value_(request):
     return request.param
 
 
+def _get_length_label(value):
+    """Helper to generate the length label for test IDs."""
+    if isinstance(value, list):
+        return str(len(value))
+    return "scalar"
+
+
 @pytest.fixture(
     params=[
         ("update_land", "THICKNESS", [0.005, 0.01]),
@@ -407,8 +414,7 @@ def update_api_value_(request):
         ("update_land", "DENSITY", [300, 300, 600, 900]),
         ("update_land", "SPECIFIC_SURFACE_AREA", [1, 1]),
     ],
-    ids=lambda x: f"{x[0]}_{x[1]}_len({len(x[2]) if isinstance(x[2], list)
-    else 'scalar'})",
+    ids=lambda x: f"{x[0]}_{x[1]}_len({_get_length_label(x[2])})",
 )
 def invalid_update_api_length(request):
     """
