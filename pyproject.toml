@@ -16,7 +16,7 @@ scipy = "^1.11"
 xarray = "^2024.0.0"
 pyyaml = "^6.0"
 pydantic = ">=2.10"
-PythonicDISORT = ">=1.6"
+PythonicDISORT = "1.7"
 pooch = { version = ">=1.8", extras = ["progress"] }
 
 [tool.poetry.dev-dependencies]
