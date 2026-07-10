@@ -5,10 +5,13 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+from unittest.mock import MagicMock, patch
+
+import pooch
 import pytest
 import requests
 
-from snicarfx.cli.download import ARCHIVE_NAME, DATA_VERSION_HASH, ZENODO_RECORD
+from snicarfx.cli.download import ARCHIVE_NAME, DATA_VERSION_HASH, ZENODO_RECORD, main
 
 
 def test_zenodo_metadata_and_hash(api_url):
@@ -59,3 +62,53 @@ def test_zenodo_metadata_and_hash(api_url):
             f"Remote:   {remote_hash}\n"
             f"Please update DATA_VERSION_HASH in src/snicarfx/cli/download.py"
         )
+
+
+def test_main_execution_path(capsys):
+    """
+    Test that the main() function executes correctly. The actual
+    fetch/extraction is mocked to avoid redundant work during tests.
+    """
+    with patch("snicarfx.cli.download.pooch.create") as mock_create:
+        # setup mock to simulate a successful download without doing it
+        mock_downloader = MagicMock()
+        mock_create.return_value = mock_downloader
+
+        # execute the function under test
+        main()
+
+        # verify the logic flowed correctly
+        mock_create.assert_called_once()
+        mock_downloader.fetch.assert_called_once()
+
+        # verify the fetch was called with the correct arguments
+        call_args = mock_downloader.fetch.call_args
+        assert call_args.args[0] == ARCHIVE_NAME
+        assert isinstance(call_args.kwargs["processor"], pooch.Unzip)
+
+        # verify output messages were printed
+        captured = capsys.readouterr()
+        assert "Downloading" in captured.out
+        assert "Download finished." in captured.out
+
+
+def test_main_execution_error_path(capsys):
+    """
+    Test that the main() function handles errors correctly.
+    """
+    with (
+        patch("snicarfx.cli.download.pooch.create") as mock_create,
+        patch("snicarfx.cli.download.sys.exit") as mock_exit,
+    ):
+        # setup mock to simulate a failure
+        mock_downloader = MagicMock()
+        mock_downloader.fetch.side_effect = ValueError("Simulated download error")
+        mock_create.return_value = mock_downloader
+
+        # execute the function
+        main()
+
+        # verify error handling logic ran
+        mock_exit.assert_called_once_with(1)
+        captured = capsys.readouterr()
+        assert "Error: Data version mismatch" in captured.err
