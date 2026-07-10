@@ -50,22 +50,35 @@ def test_config_attributes(config):
     {"SOLVER": {"TYPE": "two-stream-ad", "DELTA_SCALING": "M+"}},
     {"SOLVER": {"TYPE": "two-stream-ad", "N_LEGENDRE_MOMENTS": "15"}},
     {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": "15"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": "15",
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": "16",
                 "N_LEGENDRE_MOMENTS": "20"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": "15",
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_STREAMS": "16",
                 "N_FOURIER_MODES": "20"}},
     {"SOLVER": {"TYPE": "multi-stream-ada", "ATMOSPHERE_COUPLING": False,
                 "OUTPUT_LEVELS": "TOA"}},
     {"SOLVER": {"TYPE": "two-stream-ad", "N_FOURIER_MODES": "2"}},
-    {"SOLVER": {"TYPE": "two-stream-ad", "POLAR_ANGLES": "[10, 40, 10]"}},
-    {"SOLVER": {"TYPE": "two-stream-ad", "AZIMUTH_ANGLES": "[10, 40, 10]"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "POLAR_ANGLES": "[40, 10, 10]"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "POLAR_ANGLES": "[6, 7, 100]"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": "[40, 10, 10]"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": "[6, 7, 100]"}},
-    {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": "[10, 100, 20]",
+    {"SOLVER": {"TYPE": "two-stream-ad", "POLAR_ANGLES": [10, 40, 10]}},
+    {"SOLVER": {"TYPE": "two-stream-ad", "AZIMUTH_ANGLES": [10, 40, 10]}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "POLAR_ANGLES": [40, 10, 10]}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "POLAR_ANGLES": [6, 7, 50]}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": [40, 10, 10],
+                "N_FOURIER_MODES": "2"}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": [6, 7, 100],
+                "N_FOURIER_MODES": "2"}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "AZIMUTH_ANGLES": [10, 100, 20],
                 "N_FOURIER_MODES": "1"}},
-  
+    {"SPECTRAL": {"RESOLUTION": [400, 401, 50]}},
+    {"SPECTRAL": {"RESOLUTION": [500, 400, 10]}},
+    {"SPECTRAL": {"RESOLUTION": [400, 500, 10],
+                  "MODE": "band-srf-integration"}},
+    {"SPECTRAL": {"RESOLUTION": [400, 500, "1cm-1"],
+                  "MODE": "band-snicar-default"}},
+    {"ATMOSPHERE": {"SKY_CONDITIONS": "cloudy"}},
+    {"ATMOSPHERE": {"INTEGRATED_AOD_550": 0.1, "AEROSOL_PROPERTIES": None}},
+    {"LAND": {"DENSITY": [924, 924, 924], "LWC": [0.0001, 0.0001, 0.0001]}},
+    {"LAND": {"DENSITY": [920, 920, 920], "LWC": [0.02, 0.02, 0.02]}},
+
+
 ])
 
 def test_validation_errors_raise_exception(config_dict, wrong_configs):
@@ -85,5 +98,10 @@ def test_validation_errors_raise_exception(config_dict, wrong_configs):
         else:
             temp_config[key] = value
 
-    with pytest.raises(ValueError):
+    # with pytest.raises(ValueError):
+    #     Config.model_validate(temp_config)
+    try:
         Config.model_validate(temp_config)
+        pytest.fail("Expected error not raised")
+    except ValueError as e:
+        print(f"\n {e}")
