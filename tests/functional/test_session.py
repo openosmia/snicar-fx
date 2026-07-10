@@ -9,8 +9,9 @@ import os
 import tempfile
 
 import numpy as np
+import pytest
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from snicarfx import Session
 
@@ -260,3 +261,69 @@ def test_update_api_sequential_scaling(
                 rtol=0.0,
             )
         ).all()
+
+
+def test_update_api_invalid_fields(
+    session_multistream_coupled, invalid_update_api_field
+):
+    """
+    Verify that update_solar, update_atmosphere, and update_land
+    reject non-existent fields.
+    """
+    method_name, invalid_field = invalid_update_api_field
+
+    # Dynamically get the method (e.g., session.update_solar)
+    update_method = getattr(session_multistream_coupled, method_name)
+
+    # assert that the field is rejected
+    with pytest.raises(ValueError):
+        update_method({invalid_field: 42})
+
+
+def test_update_api_invalid_lengths(
+    session_multistream_coupled, invalid_update_api_length
+):
+    """
+    Verify that update methods reject values with incorrect list lengths
+    (mismatching the number of layers defined in the config).
+    """
+    method_name, field, invalid_value = invalid_update_api_length
+
+    update_method = getattr(session_multistream_coupled, method_name)
+    updates = {field: invalid_value}
+
+    # assert that the value is rejected
+    with pytest.raises(ValidationError):
+        update_method(updates)
+
+
+def test_update_api_unphysical_values(
+    session_multistream_coupled, unphysical_update_api_value
+):
+    """
+    Verify that update methods reject invalid enums, out-of-range numbers,
+    and malformed nested structures.
+    """
+    method_name, field, invalid_value = unphysical_update_api_value
+
+    update_method = getattr(session_multistream_coupled, method_name)
+    updates = {field: invalid_value}
+
+    # assert that the unphysical value is rejected
+    with pytest.raises(ValidationError):
+        update_method(updates)
+
+
+def test_update_api_immutable_laps(
+    session_multistream_coupled, invalid_update_api_lap_structure
+):
+    """
+    Verify that LIGHT_ABSORBING_PARTICLES cannot have new types added
+    or files changed, even if the data structure is valid.
+    """
+    method_name, updates = invalid_update_api_lap_structure
+    update_method = getattr(session_multistream_coupled, method_name)
+
+    # assert that the lap update is rejected
+    with pytest.raises(ValueError):
+        update_method(updates)

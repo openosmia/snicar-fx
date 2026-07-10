@@ -362,3 +362,123 @@ def absolute_tolerance_update_api():
 
     """
     return 8e-16
+
+
+@pytest.fixture(
+    params=[
+        ("update_solar", "INVALID_SOLAR_FIELD"),
+        ("update_atmosphere", "INVALID_ATMOSPHERE_FIELD"),
+        ("update_land", "INVALID_LAND_FIELD"),
+    ],
+    ids=lambda x: f"{x[0]}_{x[1]}",
+)
+def invalid_update_api_field(request):
+    """
+    Provides a tuple of (method_name, invalid_field_name) for
+    negative testing of the update API.
+
+    """
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        ("update_solar", "INVALID_SOLAR_FIELD"),
+        ("update_atmosphere", "INVALID_ATMOSPHERE_FIELD"),
+        ("update_land", "INVALID_LAND_FIELD"),
+    ],
+    ids=lambda x: f"{x[0]}_{x[1]}",
+)
+def update_api_value_(request):
+    """
+    Provides a tuple of (method_name, invalid_field_name) for
+    negative testing of the update API.
+
+    """
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        ("update_land", "THICKNESS", [0.005, 0.01]),
+        ("update_land", "THICKNESS", [0.005, 0.01, 100, 50]),
+        ("update_land", "THICKNESS", 0.05),
+        ("update_land", "LWC", [0, 0]),
+        ("update_land", "DENSITY", [300, 300, 600, 900]),
+        ("update_land", "SPECIFIC_SURFACE_AREA", [1, 1]),
+    ],
+    ids=lambda x: f"{x[0]}_{x[1]}_len({len(x[2]) if isinstance(x[2], list)
+    else 'scalar'})",
+)
+def invalid_update_api_length(request):
+    """
+    Provides a tuple of (method_name, field_name, invalid_value) for
+    testing length mismatch errors in update API.
+
+    The input file defines 3 layers. Values provided here intentionally
+    deviate from this count to trigger validation errors.
+    """
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        ("update_solver", "TYPE", "invalid-method"),
+        ("update_land", "RF_TYPE", "NonExistentModel"),
+        ("update_solar", "SZA", -5.0),
+        ("update_solar", "SZA", 95.0),
+        ("update_land", "THICKNESS", [-0.01, 0.01, 0.01]),  # Negative thickness
+        ("update_atmosphere", "INTEGRATED_AOD_550", -0.1),
+        ("update_atmosphere", "INTEGRATED_GAS_CONCENTRATIONS", ["H2O", 15]),
+        (
+            "update_atmosphere",
+            "INTEGRATED_GAS_CONCENTRATIONS",
+            {"H2O": "invalid_string"},
+        ),
+    ],
+    ids=lambda x: f"{x[0]}_{x[1]}_unphysical_value",
+)
+def unphysical_update_api_value(request):
+    """
+    Provides parameters for testing invalid values (enums, ranges,
+    nested structures).
+
+    """
+    return request.param
+
+
+def _get_lap_name(x):
+    """Helper to extract the first key of the LAP dict for test IDs."""
+    lap_dict = x[1]["LIGHT_ABSORBING_PARTICLES"]
+    first_key = next(iter(lap_dict.keys()))
+    return first_key[0]
+
+
+@pytest.fixture(
+    params=[
+        (
+            "update_land",
+            {
+                "LIGHT_ABSORBING_PARTICLES": {
+                    "lap3": {"FILE": "soot.nc", "CONC": [1, 1, 1]}
+                }
+            },
+        ),
+        (
+            "update_land",
+            {
+                "LIGHT_ABSORBING_PARTICLES": {
+                    "BC": {"FILE": "different_file.nc", "CONC": [1, 1, 1]}
+                }
+            },
+        ),
+    ],
+    ids=lambda x: f"{x[0]}_lap_{_get_lap_name(x)}",
+)
+def invalid_update_api_lap_structure(request):
+    """
+    Provides parameters for testing invalid the update API for
+    light absorbing particules (laps) -which is not allowed-.
+
+    """
+    return request.param
