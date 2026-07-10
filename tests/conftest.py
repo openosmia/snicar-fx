@@ -8,7 +8,7 @@ https://github.com/openosmia/snicar-fx
 import glob
 from itertools import product
 from pathlib import Path
-
+import yaml
 import numpy as np
 import pytest
 import xarray as xr
@@ -63,6 +63,15 @@ def api_url():
 def session_twostream():
     """Provide a shared Session instance for two-stream configuration."""
     return Session(TEST_INPUT_FILE_TWOSTREAM)
+
+
+@pytest.fixture(scope="module")
+def config_dict():
+    """Load input file and return a dictionary instead of a config object."""
+
+    with open(TEST_INPUT_FILE_TWOSTREAM, "r") as f:
+        input_dict = yaml.safe_load(f)
+    return input_dict
 
 
 @pytest.fixture(scope="module")
