@@ -75,9 +75,25 @@ def test_config_attributes(config):
                   "MODE": "band-snicar-default"}},
     {"ATMOSPHERE": {"SKY_CONDITIONS": "cloudy"}},
     {"ATMOSPHERE": {"INTEGRATED_AOD_550": 0.1, "AEROSOL_PROPERTIES": None}},
+    {"LAND": {"LAYER_TYPE": [1, 1, 1], "GRAIN_SHAPE": [1, 1, 1]}},
     {"LAND": {"DENSITY": [924, 924, 924], "LWC": [0.0001, 0.0001, 0.0001]}},
     {"LAND": {"DENSITY": [920, 920, 920], "LWC": [0.02, 0.02, 0.02]}},
-
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_FOURIER_MODES": "2"},
+     "SOLAR" : {"SAA" : None}},
+    {"SOLVER": {"TYPE": "multi-stream-ada", "N_FOURIER_MODES": "1"},
+     "SOLAR" : {"SAA" : 100}},
+    {"SOLVER": {"TYPE": "multi-stream-ada"},
+     "LAND" : {"LAYER_TYPE" : [1, 1, 1], "GRAIN_SHAPE" : [0, 0, 0]}},
+    {"SPECTRAL": {"MODE": "band-snicar-default"},
+     "SOLVER" : {"TYPE": "multi-stream-ada", "ATMOSPHERE_COUPLING": True}},
+    {"ATMOSPHERE": {"AEROSOL_PROPERTIES": "test.nc"},
+     "SOLVER": {"TYPE": "multi-stream-ada", "ATMOSPHERE_COUPLING": False}},
+    {"SPECTRAL": {"MODE": "monochromatic", "RESOLUTION" : [200, 600, 10]},
+     "SOLVER" : {"TYPE": "multi-stream-ada"}},
+    {"ATMOSPHERE": {"SKY_CONDITIONS": "clear"},
+     "SPECTRAL": {"MODE": "monochromatic", "RESOLUTION" : [400, 500, 10]},
+     "SOLVER" : {"TYPE": "multi-stream-ada",  "ATMOSPHERE_COUPLING": False}},
+    
 
 ])
 
