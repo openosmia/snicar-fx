@@ -10,7 +10,7 @@ import numpy as np
 from snicarfx.core.solvers.multi_stream_solver_ada import solve_multi_stream_rt_ada
 
 
-def test_multistream_outputs(
+def test_ada_outputs_against_benchmarks(
     session_multistream_uncoupled,
     params_ada,
     benchmark_ada_spectral_data,
@@ -66,4 +66,25 @@ def test_multistream_outputs(
         ].values,
         atol=absolute_tolerance_benchmark,
         rtol=0.0,
+    )
+
+
+def test_ada_outputs_physical(session_multistream_coupled):
+    
+    results = solve_multi_stream_rt_ada(
+        session_multistream_coupled.land,
+        session_multistream_coupled.atmosphere,
+        session_multistream_coupled.solar,
+        session_multistream_coupled.config
+    )
+
+    assert np.all(~np.isnan(results["albedo_boa"]))
+    assert np.all(
+        (results["albedo_boa"] > 0.0)
+        & (results["albedo_boa"] < 1.0)
+    )
+    assert np.all(~np.isnan(results["albedo_toa"]))
+    assert np.all(
+        (results["albedo_toa"] > 0.0)
+        & (results["albedo_toa"] < 1.0)
     )
