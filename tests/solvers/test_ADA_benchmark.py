@@ -85,16 +85,10 @@ def test_ada_outputs_physical(session_multistream_coupled):
         session_multistream_coupled.land,
         session_multistream_coupled.atmosphere,
         session_multistream_coupled.solar,
-        session_multistream_coupled.config
+        session_multistream_coupled.config,
     )
 
     assert np.all(~np.isnan(results["albedo_boa"]))
-    assert np.all(
-        (results["albedo_boa"] > 0.0)
-        & (results["albedo_boa"] < 1.0)
-    )
+    assert np.all((results["albedo_boa"] > 0.0) & (results["albedo_boa"] < 1.0))
     assert np.all(~np.isnan(results["albedo_toa"]))
-    assert np.all(
-        (results["albedo_toa"] > 0.0)
-        & (results["albedo_toa"] < 1.0)
-    )
+    assert np.all((results["albedo_toa"] > 0.0) & (results["albedo_toa"] < 1.0))

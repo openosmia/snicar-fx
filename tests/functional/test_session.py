@@ -10,6 +10,7 @@ import tempfile
 
 import numpy as np
 import pytest
+import xarray as xr
 import yaml
 from pydantic import BaseModel, ValidationError
 
@@ -27,8 +28,247 @@ def test_session_attributes(session_multistream_coupled):
         Instance of the Session class for multi-stream coupled configuration
     """
 
+    session = session_multistream_coupled
+
+    # check core components exist
+    assert hasattr(session, "land")
+    assert hasattr(session, "solar")
+    assert hasattr(session, "atmosphere")
+    assert hasattr(session, "config")
+
+    # check spectral arrays are set (critical path in _set_spectral_array)
+    assert hasattr(session.config, "_wavelengths")
+    assert hasattr(session.config, "_wavelengths_solar")
+    assert hasattr(session.config, "_wavelengths_land")
+
     assert hasattr(session_multistream_coupled, "config")
     assert isinstance(session_multistream_coupled.config, BaseModel)
+
+    # if band mode, check band ranges
+    if "band-" in session.config.SPECTRAL.MODE:
+        assert hasattr(session, "_band_ranges")
+        assert session._band_ranges.shape[1] == 3  # min, max, center
+
+
+def test_session_initialization_twostream(test_input_file_twostream):
+    """
+    Verify Session initializes correctly for two-stream configuration.
+    """
+    session = Session(test_input_file_twostream)
+
+    assert session.config.SOLVER.TYPE == "two-stream-ad"
+    assert hasattr(session, "land")
+    # two-stream might not have atmosphere if coupling is off, check config
+    if session.config.SOLVER.ATMOSPHERE_COUPLING:
+        assert hasattr(session, "atmosphere")
+
+
+def test_run_solver_routing_two_stream(test_input_file_twostream):
+    """
+    Verify that run() executes the two-stream solver path correctly.
+    """
+    session = Session(test_input_file_twostream)
+
+    # run and check outputs exist
+    results = session.run(to_xarray=False)
+
+    assert isinstance(results, dict)
+    assert "albedo_boa" in results
+    assert "bba_boa" in results
+
+
+def test_run_solver_routing_multistream_ada(test_input_file_multistream_uncoupled):
+    """
+    Verify that run() executes the multi-stream ADA solver path.
+    """
+    session = Session(test_input_file_multistream_uncoupled)
+    # ensure config is set to ADA
+    session.config.SOLVER.TYPE = "multi-stream-ada"
+
+    results = session.run(to_xarray=False)
+
+    assert isinstance(results, dict)
+    assert "albedo_boa" in results
+
+
+def test_run_solver_routing_multistream_disort_m_plus(
+    test_input_file_multistream_coupled,
+):
+    """
+    Verify that an error is raised when trying to apply Delta-M+
+    to Legendre moments.
+    """
+
+    # create a fresh session to be modified
+    session = Session(test_input_file_multistream_coupled)
+
+    # force M+ scaling
+    session.config.SOLVER.DELTA_SCALING = "M+"
+    session.config.SOLVER.TYPE = "multi-stream-disort"
+
+    with pytest.raises(ValueError):
+        session.run(to_xarray=False)
+
+
+def test_run_output_formats(session_multistream_coupled):
+    """
+    Verify that run() returns correct types for to_xarray=True vs False.
+    """
+    # test Dictionary output
+    results_dict = session_multistream_coupled.run(to_xarray=False)
+    assert isinstance(results_dict, dict)
+
+    # test xarray output
+    results_xr = session_multistream_coupled.run(to_xarray=True)
+    assert isinstance(results_xr, xr.Dataset)
+
+    # check xarray metadata attributes
+    assert "model_name" in results_xr.attrs
+    assert results_xr.attrs["model_name"] == "snicar-fx"
+    assert "session_state" in results_xr.attrs
+    assert "creation_date" in results_xr.attrs
+
+
+def test_write_current_state(session_multistream_coupled):
+    """
+    Verify _write_current_state returns a dictionary dump of the config.
+    """
+    state = session_multistream_coupled._write_current_state()
+
+    assert isinstance(state, dict)
+    assert "SOLVER" in state
+    assert "LAND" in state
+    assert "SOLAR" in state
+
+
+def test_format_twostream_results_to_xarray(test_input_file_twostream):
+    """
+    Verify formatting of two-stream results includes correct coordinates and attrs.
+    """
+    session = Session(test_input_file_twostream)
+
+    # mock 2 wavelengths
+    n_mock_wl = 2
+    session.config._wavelengths_land = np.linspace(400, 700, n_mock_wl)
+    session._band_ranges = np.column_stack(([350, 650], [450, 750], [400, 700]))
+
+    session.outputs = {
+        "albedo_boa": np.array([0.5, 0.6]),
+        "bba_boa": 0.55,
+        "absorbed_flux_fraction": np.array([0.1, 0.2]),
+        "absorbed_flux_fraction_bottom": np.array([0.05, 0.05]),
+    }
+
+    ds = session.format_twostream_results_to_xarray()
+
+    assert isinstance(ds, xr.Dataset)
+    assert "wavelength" in ds.coords
+    assert "layer" in ds.coords
+    assert "albedo_boa" in ds.data_vars
+    assert ds.attrs["model_name"] == "snicar-fx"
+
+    # assert our mock worked
+    assert ds.sizes["wavelength"] == 2
+    assert ds.sizes["layer"] == 2
+
+
+def test_format_multistream_results_to_xarray_mocked(
+    test_input_file_multistream_coupled,
+):
+    """
+    Verify formatting of multistream results handles N_FOURIER_MODES correctly.
+    """
+
+    session = Session(test_input_file_multistream_coupled)
+
+    n_wl = (
+        len(session.config._wavelengths)
+        if "band-" not in session.config.SPECTRAL.MODE
+        else session._band_ranges.shape[0]
+    )
+
+    if "band-" in session.config.SPECTRAL.MODE:
+        n_wl = session._band_ranges.shape[0]
+    else:
+        n_wl = len(session.config._wavelengths_land)
+
+    # mock outputs for N_FOURIER_MODES == 1
+    session.config.SOLVER.N_FOURIER_MODES = 1
+    session.outputs = {
+        "albedo_toa": np.ones(n_wl) * 0.5,
+        "bba_toa": 0.5,
+        "directional_reflectance_boa_m0": np.ones((10, n_wl)) * 0.1,
+        "polar_angle": np.linspace(0, 90, 10),
+    }
+
+    ds = session.format_multistream_results_to_xarray()
+    assert isinstance(ds, xr.Dataset)
+
+    session.config.SOLVER.N_FOURIER_MODES = 3
+    session.outputs["azimuth_angle"] = np.linspace(0, 180, 5)
+    session.outputs["directional_reflectance_boa"] = np.ones((10, n_wl, 5)) * 0.1
+
+    ds_multi = session.format_multistream_results_to_xarray()
+    assert "azimuth_angle" in ds_multi.coords
+
+
+def test_compute_flat_band_average(session_multistream_coupled):
+    """
+    Verify compute_flat_band_average correctly integrates over wavelengths.
+    """
+    session = session_multistream_coupled
+
+    # create a mock component with known data
+    class MockComponent:
+        def __init__(self):
+            self.tau = np.ones((2, 10)) * 0.5
+            self.ss_alb = np.ones((2, 10)) * 0.9
+
+    mock_comp = MockComponent()
+    wavelengths = np.linspace(400, 700, 10)
+    band_ranges = np.array([[400, 500, 450], [500, 700, 600]])
+
+    result = session.compute_flat_band_average(
+        mock_comp, wavelengths, band_ranges, var_names=["tau", "ss_alb"]
+    )
+
+    assert "tau" in result
+    assert "ss_alb" in result
+    # result shape should be (layers, n_bands)
+    assert result["tau"].shape == (2, 2)
+    # values should be close to input since input was constant
+    assert np.allclose(result["tau"], 0.5, rtol=1e-5)
+
+
+def test_apply_spectral_response_function(session_multistream_coupled):
+    """
+    Verify that apply_spectral_response_function correctly
+    integrates spectral outputs over the satellite spectral response
+    function.
+
+    Checks that outputs are reduced from wavelength resolution to band
+    resolution and that values change during the integration process.
+    """
+
+    session = session_multistream_coupled
+
+    n_wl = len(session.config._wavelengths_solar)
+    n_bands = session._band_ranges.shape[0]
+
+    # averaging a gradient will produce different values than the original points.
+    session.outputs = {
+        "albedo_toa": np.linspace(0, 1, n_wl),
+        "directional_reflectance_boa_m0": np.tile(np.linspace(0, 1, n_wl), (10, 1)),
+    }
+
+    original_albedo = session.outputs["albedo_toa"].copy()
+
+    session.apply_spectral_response_function()
+
+    assert session.outputs["albedo_toa"].shape == (n_bands,)
+    assert session.outputs["directional_reflectance_boa_m0"].shape[1] == n_bands
+
+    assert not np.array_equal(session.outputs["albedo_toa"], original_albedo[:n_bands])
 
 
 def test_get_package_root(session_multistream_coupled):
