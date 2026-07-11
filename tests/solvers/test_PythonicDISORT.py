@@ -13,7 +13,7 @@ from snicarfx.core.solvers.multi_stream_solver_disort import (
 )
 
 
-def test_pythonicdisort_outputs(
+def test_pythonicdisort_outputs_coupled(
     session_multistream_coupled,
     multistream_pythonicdisort_params,
     absolute_tolerance_pythonicdisort,
@@ -67,4 +67,33 @@ def test_pythonicdisort_outputs(
         results_wrapper["directional_radiance_toa"],
         atol=absolute_tolerance_pythonicdisort,
         rtol=0.0,
+    )
+
+def test_pythonicdisort_outputs_uncoupled(session_multistream_uncoupled):
+    """
+    Assert that the spectral albedo modelled in uncoupled configurations is
+    within physical bounds.
+
+    Parameters
+    ----------
+    session_multistream_uncoupled : Session
+        Instance of Session class from snicar-fx.
+    """
+
+    # session is defined with ADA solver which does not have angles defined
+    # so needs to be defined prior running through the solver
+    
+    session_multistream_uncoupled.config.SOLVER.POLAR_ANGLES = (10, 50, 10)
+    
+    results = solve_multi_stream_rt_disort(
+        session_multistream_uncoupled.land,
+        session_multistream_uncoupled.atmosphere,
+        session_multistream_uncoupled.solar,
+        session_multistream_uncoupled.config
+    )
+
+    assert np.all(~np.isnan(results["albedo_boa"]))
+    assert np.all(
+        (results["albedo_boa"] > 0.0)
+        & (results["albedo_boa"] < 1.0)
     )

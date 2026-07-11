@@ -70,7 +70,17 @@ def test_ada_outputs_against_benchmarks(
 
 
 def test_ada_outputs_physical(session_multistream_coupled):
-    
+    """
+    Assert that the spectral albedo modelled using the
+    ADA module of the Community Radiative Transfer Model (CRTM) is within
+    physical bounds.
+
+    Parameters
+    ----------
+    session_multistream_coupled : Session
+        Instance of Session class from snicar-fx.
+    """
+
     results = solve_multi_stream_rt_ada(
         session_multistream_coupled.land,
         session_multistream_coupled.atmosphere,
