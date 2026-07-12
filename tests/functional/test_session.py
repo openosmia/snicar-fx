@@ -90,26 +90,6 @@ def test_run_solver_routing_multistream_ada(test_input_file_multistream_uncouple
     assert isinstance(results, dict)
     assert "albedo_boa" in results
 
-
-def test_run_solver_routing_multistream_disort_m_plus(
-    test_input_file_multistream_coupled,
-):
-    """
-    Verify that an error is raised when trying to apply Delta-M+
-    to Legendre moments.
-    """
-
-    # create a fresh session to be modified
-    session = Session(test_input_file_multistream_coupled)
-
-    # force M+ scaling
-    session.config.SOLVER.DELTA_SCALING = "M+"
-    session.config.SOLVER.TYPE = "multi-stream-disort"
-
-    with pytest.raises(ValueError):
-        session.run(to_xarray=False)
-
-
 def test_run_output_formats(session_multistream_coupled):
     """
     Verify that run() returns correct types for to_xarray=True vs False.

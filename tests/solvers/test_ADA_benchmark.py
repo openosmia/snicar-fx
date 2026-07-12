@@ -85,10 +85,35 @@ def test_ada_outputs_physical(session_multistream_coupled):
         session_multistream_coupled.land,
         session_multistream_coupled.atmosphere,
         session_multistream_coupled.solar,
-        session_multistream_coupled.config,
+        session_multistream_coupled.config
     )
 
     assert np.all(~np.isnan(results["albedo_boa"]))
-    assert np.all((results["albedo_boa"] > 0.0) & (results["albedo_boa"] < 1.0))
+    assert np.all(
+        (results["albedo_boa"] > 0.0)
+        & (results["albedo_boa"] < 1.0)
+    )
     assert np.all(~np.isnan(results["albedo_toa"]))
-    assert np.all((results["albedo_toa"] > 0.0) & (results["albedo_toa"] < 1.0))
+    assert np.all(
+        (results["albedo_toa"] > 0.0)
+        & (results["albedo_toa"] < 1.0)
+    )
+
+
+def test_run_solver_routing_multistream_ada_m_plus(
+    session_multistream_coupled
+):
+    """
+    Verify that an error is raised when trying to apply Delta-M+
+    to Legendre moments with Rayleigh scattering layers.
+    """
+
+    # force M+ scaling
+    session_multistream_coupled.config.SOLVER.DELTA_SCALING = "M+"
+    session_multistream_coupled.config.SOLVER.TYPE = "multi-stream-ada"
+    
+    try:
+        session_multistream_coupled.run(to_xarray=False)
+        pytest.fail("Expected error not raised")
+    except ValueError as e:
+        print(f"\n {e}")

@@ -95,3 +95,23 @@ def test_pythonicdisort_outputs_uncoupled(session_multistream_uncoupled):
 
     assert np.all(~np.isnan(results["albedo_boa"]))
     assert np.all((results["albedo_boa"] > 0.0) & (results["albedo_boa"] < 1.0))
+
+
+def test_run_solver_routing_multistream_disort_m_plus(
+    session_multistream_coupled
+):
+    """
+    Verify that an error is raised when trying to apply Delta-M+
+    to Legendre moments with Rayleigh scattering layers.
+    """
+
+    # force M+ scaling
+    session_multistream_coupled.config.SOLVER.DELTA_SCALING = "M+"
+
+    try:
+        session_multistream_coupled.run(to_xarray=False)
+        pytest.fail("Expected error not raised")
+    except ValueError as e:
+        print(f"\n {e}")
+
+
