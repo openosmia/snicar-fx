@@ -6,6 +6,7 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
+import pytest
 
 from snicarfx.core.solvers.multi_stream_solver_disort import (
     solve_multi_stream_rt_disort,
