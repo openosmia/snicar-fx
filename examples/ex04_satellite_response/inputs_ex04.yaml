@@ -1,0 +1,49 @@
+# Input file of the snicar-fx software
+# https://github.com/openosmia/snicar-fx
+
+SOLVER:
+  TYPE: "multi-stream-disort"
+  ATMOSPHERE_COUPLING: true
+  OUTPUT_LEVELS: "BOA+TOA"
+  N_FOURIER_MODES: 2
+  POLAR_ANGLES: [20, 60, 5]
+  AZIMUTH_ANGLES: [40, 120, 20]
+
+SPECTRAL:
+  MODE: "band-srf-weighted-mean"
+  RESOLUTION: "SENTINEL-3-OLCI"
+  
+SOLAR:
+  SZA: 50
+  SAA: 170
+
+ATMOSPHERE:
+  SKY_CONDITIONS: "clear"
+  ATMOSPHERIC_PROFILE_TYPE: "afglss_downscaled" # set to "test" if afglss_downscaled not downloaded
+
+  INTEGRATED_GAS_CONCENTRATIONS:
+    H2O: 13.077
+    NO2: 5.78e-07
+    O3: 0.006294
+
+  AEROSOL_PROPERTIES: "aerosol_mixture_SW_KN.nc"
+  INTEGRATED_AOD_550: 0.1
+    
+LAND:  
+  THICKNESS: [0.01, 0.5, 10]
+  LAYER_TYPE: [2, 2, 2]
+  DENSITY: [650, 650, 650]
+  SPECIFIC_SURFACE_AREA: [1, 1, 1]
+  LWC: [0, 0, 0]
+  GRAIN_SHAPE: [0, 0, 0]
+  RF_TYPE: "Coop21"
+  SFC: 0
+  ALTITUDE: 0.0
+  
+  LIGHT_ABSORBING_PARTICLES:
+    BC1:
+      FILE: "bc_ChCB_rn40_dns1270.nc"
+      CONC: [10., 0, 0]
+    BC2:
+      FILE: "bc_ChCB_rn40_dns1270.nc"
+      CONC: [0, 0, 0]  

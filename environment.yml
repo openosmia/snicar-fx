@@ -13,4 +13,5 @@ dependencies:
   - xarray>=2024.0.0,<2025.0.0
   - pyyaml>=6.0,<7.0
   - pydantic>=2.10,<3.0
+  - PythonicDISORT>=1.6
   - pip

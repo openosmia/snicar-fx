@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "snicarfx"
-version = "0.0.0"
+version = "0.1.0"
 description = ""
 authors = ["snicar-fx team"]
 packages = [
@@ -16,9 +16,14 @@ scipy = "^1.11"
 xarray = "^2024.0.0"
 pyyaml = "^6.0"
 pydantic = ">=2.10"
+PythonicDISORT = "1.7"
+pooch = { version = ">=1.8", extras = ["progress"] }
 
 [tool.poetry.dev-dependencies]
-pytest = "^8.4"
+pytest = "^9.0"
+
+[tool.poetry.scripts]
+snicarfx-download-data = "snicarfx.cli.download:main"
 
 [build-system]
 requires = ["poetry-core"]

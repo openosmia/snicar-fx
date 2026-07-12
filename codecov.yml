@@ -1,0 +1,20 @@
+coverage:
+  status:
+    project:
+      default:
+        # Allow the total project coverage to drop by up to 5% 
+        threshold: 5%
+    patch:
+      default:
+        # Set the target for new code (patch) to 80%
+        target: 80%
+        
+        # Additionally allow a 5% threshold below the target
+        threshold: 5%
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes

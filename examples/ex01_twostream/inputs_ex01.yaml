@@ -1,0 +1,35 @@
+# Input file of the snicar-fx software
+# https://github.com/openosmia/snicar-fx
+
+SOLVER:
+  TYPE: "two-stream-ad"
+  ATMOSPHERE_COUPLING: False
+  OUTPUT_LEVELS: "BOA"
+
+SPECTRAL:
+  MODE: "band-snicar-default" 
+  RESOLUTION: [200, 2500, 10]
+
+SOLAR:
+  SZA: 50
+  
+ATMOSPHERE:
+  SKY_CONDITIONS: "clear"
+  ATMOSPHERIC_PROFILE_TYPE: "afglss"
+
+LAND:
+  THICKNESS: [1, 1, 1]
+  LAYER_TYPE: [0, 0, 0]
+  DENSITY: [650, 650, 650]
+  RF_TYPE: "Pic16" # "Wrn08", "Pic16", "Coop21"
+  SPECIFIC_SURFACE_AREA: [1, 1, 1]
+  LWC: [0, 0, 0]
+  SFC: 0.25
+  GRAIN_SHAPE: [1, 1, 1]
+  ALTITUDE: 0.0
+  
+  LIGHT_ABSORBING_PARTICLES:
+    BC:
+      FILE: "bc_ChCB_rn40_dns1270.nc"
+      CONC: [0, 0, 0]
+

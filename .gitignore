@@ -1,6 +1,3 @@
-data/OP_data/205_5000_10/
-
-
 .vscode/
 
 .env
@@ -15,9 +12,6 @@ __pycache__/
 *.pytest_cache
 *.egg-info
 dev_notebooks*
-
-# test output
-py_mat_comparison.png
 
 # Sphinx documentation
 docs/doctrees*
@@ -44,6 +38,10 @@ auto-save-list
 tramp
 .\#*
 
-data/light_absorbing_particles/mineral_dust_1nm_resolution.nc
-data/light_absorbing_particles/ice_algae_1nm_resolution.nc
-data/light_absorbing_particles/dark_cryoconite_1nm_resolution.nc
+# snicar-fx LAP data
+data/light_absorbing_particles/*
+
+# snicar-fx gas cross section data
+data/gases/*
+# but reinclude test file
+!data/gases/uvspec_test_cross_sections.nc

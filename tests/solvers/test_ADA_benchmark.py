@@ -6,18 +6,14 @@ https://github.com/openosmia/snicar-fx
 """
 
 import numpy as np
+import pytest
 
-from snicarfx.core import (
-    ColumnProperties,
-    ModelInputs,
-    SolarIrradiance,
-    solve_multi_stream_rt,
-)
+from snicarfx.core.solvers.multi_stream_solver_ada import solve_multi_stream_rt_ada
 
 
-def test_multistream_outputs(
+def test_ada_outputs_against_benchmarks(
+    session_multistream_uncoupled,
     params_ada,
-    column,
     benchmark_ada_spectral_data,
     absolute_tolerance_benchmark,
 ):
@@ -30,36 +26,95 @@ def test_multistream_outputs(
 
     Parameters
     ----------
-    params_ada : array
+    session_multistream_uncoupled : Session
+        Instance of Session class from snicar-fx.
+    params_ada : tuple
         Sets of parameters used as input for the model.
-    column : ColumnProperties
-        Instance of the ColumnProperties class
     benchmark_ada_spectral_data : array
         Spectral albedo data generated using the Fortran-based ADA module of
-        CRTM for the parameter grid `params`.
+        CRTM for the parameter grid `params_ada`.
     absolute_tolerance_benchmark: float
         Tolerance value for the error.
 
     """
+
     w, t_od, g, wvl_idx = params_ada
 
     # Setup inputs
-    model_inputs = ModelInputs("./tests/inputs_tests.yaml")
-    column = ColumnProperties(model_inputs)
-    irradiance = SolarIrradiance(model_inputs)
+    land = session_multistream_uncoupled.land
+    solar = session_multistream_uncoupled.solar
+    atmosphere = session_multistream_uncoupled.atmosphere
 
-    column.ss_alb[:, wvl_idx] = w
-    column.tau[:, wvl_idx] = t_od
-    column.asm_prm[:, wvl_idx] = g
+    land.ss_alb[:, :] = w
+    land.tau[:, :] = t_od
+    land.asm_prm[:, :] = g
+
+    # legendre moments
+    land.legendre_moments = (
+        land.asm_prm[None, :, :] ** np.arange(land.n_expansion + 2)[:, None, None]
+    )
 
     # solve RTE
-    albedo = solve_multi_stream_rt(column, irradiance)
+    results = solve_multi_stream_rt_ada(
+        land, atmosphere, solar, session_multistream_uncoupled.config
+    )
 
     # a given set of parameters (including a given wavelength)
     assert np.allclose(
-        albedo[wvl_idx],
-        benchmark_ada_spectral_data.sel(w=w, t_od=t_od, g=g, wvl_idx=wvl_idx)[
+        results["albedo_boa"][wvl_idx],
+        benchmark_ada_spectral_data.sel(w=w, t_od=t_od, g=g, wavelength_index=wvl_idx)[
             "albedo"
         ].values,
         atol=absolute_tolerance_benchmark,
+        rtol=0.0,
     )
+
+
+def test_ada_outputs_physical(session_multistream_coupled):
+    """
+    Assert that the spectral albedo modelled using the
+    ADA module of the Community Radiative Transfer Model (CRTM) is within
+    physical bounds.
+
+    Parameters
+    ----------
+    session_multistream_coupled : Session
+        Instance of Session class from snicar-fx.
+    """
+
+    results = solve_multi_stream_rt_ada(
+        session_multistream_coupled.land,
+        session_multistream_coupled.atmosphere,
+        session_multistream_coupled.solar,
+        session_multistream_coupled.config
+    )
+
+    assert np.all(~np.isnan(results["albedo_boa"]))
+    assert np.all(
+        (results["albedo_boa"] > 0.0)
+        & (results["albedo_boa"] < 1.0)
+    )
+    assert np.all(~np.isnan(results["albedo_toa"]))
+    assert np.all(
+        (results["albedo_toa"] > 0.0)
+        & (results["albedo_toa"] < 1.0)
+    )
+
+
+def test_run_solver_routing_multistream_ada_m_plus(
+    session_multistream_coupled
+):
+    """
+    Verify that an error is raised when trying to apply Delta-M+
+    to Legendre moments with Rayleigh scattering layers.
+    """
+
+    # force M+ scaling
+    session_multistream_coupled.config.SOLVER.DELTA_SCALING = "M+"
+    session_multistream_coupled.config.SOLVER.TYPE = "multi-stream-ada"
+    
+    try:
+        session_multistream_coupled.run(to_xarray=False)
+        pytest.fail("Expected error not raised")
+    except ValueError as e:
+        print(f"\n {e}")
