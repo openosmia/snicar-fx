@@ -160,9 +160,6 @@ def test_validation_errors_raise_exception(config_dict, wrong_configs):
             temp_config[key].update(value)
         else:
             temp_config[key] = value
-
-    # with pytest.raises(ValueError):
-    #     Config.model_validate(temp_config)
     try:
         Config.model_validate(temp_config)
         pytest.fail("Expected error not raised")

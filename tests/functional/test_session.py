@@ -5,6 +5,7 @@ https://github.com/openosmia/snicar-fx
 
 """
 
+import copy
 import os
 import tempfile
 
@@ -15,6 +16,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from snicarfx import Session
+from snicarfx.core import AtmosphereColumn, LandColumn, SolarIrradiance
 
 
 def test_session_attributes(session_multistream_coupled):
@@ -547,3 +549,25 @@ def test_update_api_immutable_laps(
     # assert that the lap update is rejected
     with pytest.raises(ValueError):
         update_method(updates)
+
+def test_compute_band_average(
+    session_multistream_coupled
+):
+    """
+    Verify that the different spectral modes run.
+    """
+
+    session = copy.deepcopy(session_multistream_coupled)
+    
+    session.config.SPECTRAL.MODE = (
+        "band-srf-solar-weighted-mean"
+        )
+    session.land = LandColumn(session.config)
+    session.solar = SolarIrradiance(session.config)
+    session.atmosphere = AtmosphereColumn(session.config)
+    session.compute_band_average()
+
+    assert np.all(np.isfinite(session.solar.total_irradiance))
+    assert np.all(np.isfinite(session.land.tau))
+    assert np.all(np.isfinite(session.atmosphere.tau))
+
