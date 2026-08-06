@@ -1,55 +1,60 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "snicarfx"
 version = "0.1.0"
-description = ""
-authors = ["snicar-fx team"]
-packages = [
-    { include = "snicarfx", from = "src" }
+description = "Radiative transfer modelling in the snow/ice-atmopshere coupled system"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "snicar-fx team", email = "openosmia@proton.me"} 
+]
+license = "ACSL"
+license-files = ["LICENSE"]
+keywords = ["snow", "albedo", "radiative-transfer", "ice", "atmosphere"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3"
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10"
-pandas = "^2.2.0"
-matplotlib = "^3.10"
-netCDF4 = "^1.7"
-scipy = "^1.11"
-xarray = "^2024.0.0"
-pyyaml = "^6.0"
-pydantic = ">=2.10"
-PythonicDISORT = "1.7"
-pooch = { version = ">=1.8", extras = ["progress"] }
+dependencies = [
+    "pandas>=2.2.0,<3.0.0",
+    "matplotlib>=3.10,<4.0.0",
+    "netCDF4>=1.7,<2.0.0",
+    "scipy>=1.11,<2.0.0",
+    "xarray>=2024.0.0,<2025.0.0",
+    "pyyaml>=6.0,<7.0.0",
+    "pydantic>=2.10",
+    "PythonicDISORT==1.7",
+    "pooch[progress]>=1.8",
+]
 
-[tool.poetry.dev-dependencies]
-pytest = "^9.0"
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0,<10.0",
+    "pytest-xdist>=3.8",
+    "pytest-cov>=7",
+    "ruff>=0.15",
+    "pre-commit>=4.2"
+]
 
-[tool.poetry.scripts]
+[project.scripts]
 snicarfx-download-data = "snicarfx.cli.download:main"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[project.urls]
+Homepage = "https://github.com/openosmia/snicar-fx"
+Issues = "https://github.com/openosmia/snicar-fx/issues"
 
 [tool.ruff]
 target-version = "py310"	
 lint.select = [
-    "E",  # pycodestyle errors
-    "F",  # pyflakes
-    "I",  # isort (import sorting)
-    "N",  # pep8-naming
-    "B",  # bugbear (common bugs)
-    "UP", # pyupgrade
-    "C4", # comprehensions
-    "SIM",# simplify
-    "PERF", # performance
-    "RUF", # Ruff-specific rules
-    "ARG", # unused function arguments
-    "DTZ", # datetime tz-aware issues
-    "PIE", # misc style issues
-    "TCH", # type-checking
+    "E", "F", "I", "N", "B", "UP", "C4", "SIM", "PERF", "RUF", "ARG", "DTZ", "PIE", "TCH"
 ]
 lint.ignore = [
-    "B008",  # function call as default argument
-    "SIM105", # use contextlib.suppress (can be overkill)
+    "B008",
+    "SIM105",
 ]
 lint.fixable = ["ALL"]
 
