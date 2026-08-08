@@ -20,3 +20,4 @@ dependencies:
   - pyyaml<7.0.0,>=6.0
   - scipy<2.0.0,>=1.11
   - xarray<2025.0.0,>=2024.0.0
+  - pip
