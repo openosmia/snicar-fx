@@ -4,15 +4,17 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
-  # Update dev-environment.yml if different dependencies than in pyproject.toml
   - repo: https://github.com/usnistgov/pyproject2conda
     rev: v0.23.1 
     hooks:
       - id: pyproject2conda-yaml
-        args: ["--pyproject", "pyproject.toml", "-c", "conda-forge", "-o", "dev-environment.yml", "-n", "snicarfx-dev", "-e", "dev", "-w", "check"]
-  # Update environment.yml if different dependencies than in pyproject.toml 
+        description:
+          "Update dev-environment.yml if different dependencies than in pyproject.toml"
+        args: ["--pyproject", "pyproject.toml", "-c", "conda-forge", "-o", "dev-environment.yml", "-n", "snicarfx-dev", "-g", "dev", "-w", "check", "--custom-command", "pre-commit # see .pre-commit-config.yaml for command details"]
   - repo: https://github.com/usnistgov/pyproject2conda
     rev: v0.23.1 
     hooks:
       - id: pyproject2conda-yaml
-        args: ["--pyproject", "pyproject.toml", "-c", "conda-forge", "-o", "environment.yml", "-n", "snicarfx", "-w", "check"]
+        description:
+          "Update environment.yml if different dependencies than in pyproject.toml"
+        args: ["--pyproject", "pyproject.toml", "-c", "conda-forge", "-o", "environment.yml", "-n", "snicarfx", "-w", "check", "--custom-command", "pre-commit # see .pre-commit-config.yaml for command details"]

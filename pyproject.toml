@@ -33,13 +33,14 @@ dependencies = [
     "pooch[progress]>=1.8"
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
+tests = ["pytest>=9.0,<10.0", "pytest-xdist>=3.8", "pytest-cov>=7"]
+lint = ["ruff>=0.15"]
+commit = ["pre-commit>=4.2"]
 dev = [ 
-    "pytest>=9.0,<10.0",
-    "pytest-xdist>=3.8",
-    "pytest-cov>=7",
-    "ruff>=0.15",
-    "pre-commit>=4.2"
+    {include-group = "tests"},
+    {include-group = "lint"},
+    {include-group = "commit"}
 ]
 
 [project.scripts]
