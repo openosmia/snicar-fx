@@ -19,7 +19,7 @@ jobs:
 
       - name: Install project and dev dependencies
         run: |
-          pip install --group dev
+          pip install -e . --group dev
           
       - name: Download test data from Zenodo
         run: |
