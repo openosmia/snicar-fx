@@ -17,14 +17,12 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Poetry
-        run: curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Install dependencies
+      - name: Install project and dev dependencies
         run: |
-          poetry config virtualenvs.create false
-          poetry install
-
+          python -m pip install --upgrade pip
+          # Installe le projet et toutes les dépendances optionnelles "dev" définies dans pyproject.toml
+          pip install -e ".[dev]"
+          
       - name: Download test data from Zenodo
         run: |
           echo "Downloading required test data..."
@@ -32,16 +30,11 @@ jobs:
           echo "Data download complete."
           
       - name: Check code style with ruff
-        run: |
-          pip install ruff
-          ruff check .
+        run: ruff check .
           
       - name: Run tests and generate coverage report
         shell: bash -l {0}
-        run: |
-          pip install pytest
-          pip install pytest-cov
-          pytest --cov --cov-branch --cov-report=xml
+        run: pytest --cov --cov-branch --cov-report=xml
           
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

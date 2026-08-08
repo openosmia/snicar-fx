@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+dev = [ 
     "pytest>=9.0,<10.0",
     "pytest-xdist>=3.8",
     "pytest-cov>=7",

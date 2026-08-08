@@ -8,9 +8,9 @@ repos:
     rev: v0.23.1 # replace with current version
     hooks:
       - id: pyproject2conda-yaml
-        args: ["--pyproject", "pyproject.toml", "-c", "conda-forge", "-o", "dev-environment.yaml", "n", "snicarfx-dev", "-e", "dev"]
+        args: ["--pyproject", "pyproject.toml", "-c", "conda-forge", "-o", "dev-environment.yml", "-n", "snicarfx-dev", "-e", "dev", "-w", "check"]
   - repo: https://github.com/usnistgov/pyproject2conda
     rev: v0.23.1 # replace with current version
     hooks:
       - id: pyproject2conda-yaml
-        args: ["--pyproject", "pyproject.toml", "-c", "conda-forge", "-o", "environment.yaml", "n", "snicarfx"]
+        args: ["--pyproject", "pyproject.toml", "-c", "conda-forge", "-o", "environment.yml", "-n", "snicarfx", "-w", "check"]
