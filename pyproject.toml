@@ -11,7 +11,8 @@ requires-python = ">=3.10"
 authors = [
     {name = "snicar-fx team", email = "openosmia@proton.me"} 
 ]
-license = "ACSL"
+license = { file = "LICENSE" }
+
 license-files = ["LICENSE"]
 keywords = ["snow", "albedo", "radiative-transfer", "ice", "atmosphere"]
 classifiers = [
@@ -20,6 +21,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "pip",
     "pandas>=2.2.0,<3.0.0",
     "matplotlib>=3.10,<4.0.0",
     "netCDF4>=1.7,<2.0.0",
@@ -28,7 +30,7 @@ dependencies = [
     "pyyaml>=6.0,<7.0.0",
     "pydantic>=2.10",
     "PythonicDISORT==1.7",
-    "pooch[progress]>=1.8",
+    "pooch[progress]>=1.8"
 ]
 
 [project.optional-dependencies]
@@ -53,8 +55,8 @@ lint.select = [
     "E", "F", "I", "N", "B", "UP", "C4", "SIM", "PERF", "RUF", "ARG", "DTZ", "PIE", "TCH"
 ]
 lint.ignore = [
-    "B008",
-    "SIM105",
+    "B008", # function call as default argument
+    "SIM105", # use contextlib.suppress (can be overkill)
 ]
 lint.fixable = ["ALL"]
 
