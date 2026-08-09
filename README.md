@@ -326,9 +326,9 @@ of Glaciology, 69(274), 333-341. [DOI](https://doi.org/10.1017/jog.2022.64)
 M. (2025). Separating the albedo-reducing effect of different light-absorbing particles on snow using deep 
 learning. The Cryosphere, 19(4), 1527-1538. [DOI](https://doi.org/10.5194/tc-19-1527-2025)
 
-- **Southwestern KN mineral dust**: Chevrollier, L. A., Wehrlé, A., Cook, J. M., Blukis, R., Stevens, I. S., Benning, L. G., Anesio, A. M. and Tranter, M. (2026). Surface processes darkening the southwestern ice sheet of Kalaallit Nunaat (Greenland), in press.
+- **Southwestern KN mineral dust**: Chevrollier, L. A., Wehrlé, A., Cook, J. M., Blukis, R., Stevens, I. S., Benning, L. G., Anesio, A. M. and Tranter, M. (2026). Surface processes darkening the southwestern ice sheet of Kalaallit Nunaat (Greenland). Science Advances 12, eady9482 (2026). [DOI](https://doi.org/10.1126/sciadv.ady9482)
 
-- **Dark cryoconite**: Chevrollier, L. A., Wehrlé, A., Cook, J. M., Blukis, R., Stevens, I. S., Benning, L. G., Anesio, A. M. and Tranter, M. (2026). Surface processes darkening the southwestern ice sheet of Kalaallit Nunaat (Greenland), in press.
+- **Dark cryoconite**: Chevrollier, L. A., Wehrlé, A., Cook, J. M., Blukis, R., Stevens, I. S., Benning, L. G., Anesio, A. M. and Tranter, M. (2026). Surface processes darkening the southwestern ice sheet of Kalaallit Nunaat (Greenland). Science Advances 12, eady9482 (2026). [DOI](https://doi.org/10.1126/sciadv.ady9482)
 
 - **Black carbon**: Flanner, M. G., Liu, X., Zhou, C., Penner, J. E. and Jiao, C. (2012). Enhanced solar energy 
 absorption by internally-mixed black carbon in snow grains. Atmospheric Chemistry and Physics, 12(10), 
@@ -389,5 +389,5 @@ Physics, 7(1), 81-95. [DOI](https://doi.org/10.5194/acp-7-81-2007)
 
 If you use SNICAR-fx for research, please include a reference to the overall software as well as the appropriate solver. For the citation of specific features or datasets, please see [References](#references).
 
-- Software: Zenodo archive (for reproducibility) and/or Chevrollier et al. 2026 (for application and validation)
+- Software: [Zenodo archive](https://doi.org/10.5281/zenodo.18609613) (for reproducibility) and/or [Chevrollier et al. 2026](https://doi.org/10.1126/sciadv.ady9482) (for application and validation)
 - Solver: [Ho et al. 2024](https://doi.org/10.21105/joss.06442) and [Stamnes et al 2000](https://web.gps.caltech.edu/~vijay/Papers/RT%20Models/DISORT%20Report.pdf) for 'multi-stream-disort', [Liu and Weng 2013](https://doi.org/10.1175/JAS3808.1) for 'multi-stream-ada', [Briegleb and Light 2007](https://doi.org/10.5065/D6B27S71) and [Whicker et al. 2022](https://doi.org/10.5194/tc-16-1197-2022) for 'two-stream-ad'
